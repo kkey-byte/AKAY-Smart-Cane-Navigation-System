@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "295630311461",
+    "project_id": "gabay-application-db",
+    "storage_bucket": "gabay-application-db.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:295630311461:android:cb9f29266f72eb4cd6afcc",
+        "android_client_info": {
+          "package_name": "com.example.app_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAx2GEz-ki8X-jxrKX90MId_h9VJz_N_MI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:295630311461:android:61b0915b9815f4a3d6afcc",
+        "android_client_info": {
+          "package_name": "com.example.gabay_application"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAx2GEz-ki8X-jxrKX90MId_h9VJz_N_MI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
