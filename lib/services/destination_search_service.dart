@@ -18,6 +18,9 @@ class DestinationSearchService {
 
   static const _recentKey = 'akay_recent_destination_searches';
   static const _maxRecent = 8;
+  static const _recentSentDestinationsKey =
+      'akay_recent_sent_destinations_v1';
+  static const _maxRecentSentDestinationsPerNavigator = 3;
 
   final _placeService = MapPlaceService.instance;
 
@@ -111,6 +114,69 @@ class DestinationSearchService {
     await prefs.remove(_recentKey);
   }
 
+  /// Saves a destination after it has been sent to a navigator. This local
+  /// history is kept separately from search terms so the UI can retain both
+  /// the destination name and its full address.
+  Future<void> saveRecentSentDestination({
+    required String navigatorId,
+    required MapPlace place,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final current = await _loadRecentSentDestinations();
+    current.removeWhere(
+      (entry) =>
+          entry.navigatorId == navigatorId &&
+          entry.place.name.toLowerCase() == place.name.toLowerCase() &&
+          entry.place.address.toLowerCase() == place.address.toLowerCase(),
+    );
+    current.insert(0, _RecentSentDestination(navigatorId, place));
+
+    final currentNavigator = current
+        .where((entry) => entry.navigatorId == navigatorId)
+        .take(_maxRecentSentDestinationsPerNavigator);
+    final otherNavigators = current.where(
+      (entry) => entry.navigatorId != navigatorId,
+    );
+    final retained = [...currentNavigator, ...otherNavigators].take(32);
+
+    await prefs.setString(
+      _recentSentDestinationsKey,
+      jsonEncode(retained.map((entry) => entry.toJson()).toList()),
+    );
+  }
+
+  /// Returns the three most recently sent destinations for one navigator.
+  Future<List<MapPlace>> loadRecentSentDestinations(String navigatorId) async {
+    final entries = await _loadRecentSentDestinations();
+    return entries
+        .where((entry) => entry.navigatorId == navigatorId)
+        .take(_maxRecentSentDestinationsPerNavigator)
+        .map((entry) => entry.place)
+        .toList();
+  }
+
+  Future<List<_RecentSentDestination>> _loadRecentSentDestinations() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = prefs.getString(_recentSentDestinationsKey);
+    if (encoded == null || encoded.isEmpty) return <_RecentSentDestination>[];
+
+    try {
+      final decoded = jsonDecode(encoded);
+      if (decoded is! List) return <_RecentSentDestination>[];
+      return decoded
+          .whereType<Map>()
+          .map(
+            (item) => _RecentSentDestination.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .whereType<_RecentSentDestination>()
+          .toList();
+    } catch (_) {
+      return <_RecentSentDestination>[];
+    }
+  }
+
   /// Convenience for callers that still use [MapPlace].
   Future<List<MapPlace>> searchAsMapPlaces({
     required String query,
@@ -125,5 +191,48 @@ class DestinationSearchService {
       wider: wider,
     );
     return results.map((e) => e.toMapPlace()).toList();
+  }
+}
+
+class _RecentSentDestination {
+  const _RecentSentDestination(this.navigatorId, this.place);
+
+  final String navigatorId;
+  final MapPlace place;
+
+  Map<String, dynamic> toJson() => {
+        'navigatorId': navigatorId,
+        'id': place.id,
+        'name': place.name,
+        'address': place.address,
+        'latitude': place.latitude,
+        'longitude': place.longitude,
+      };
+
+  static _RecentSentDestination? fromJson(Map<String, dynamic> json) {
+    final navigatorId = json['navigatorId']?.toString().trim() ?? '';
+    final name = json['name']?.toString().trim() ?? '';
+    final address = json['address']?.toString().trim() ?? '';
+    final latitude = _asDouble(json['latitude']);
+    final longitude = _asDouble(json['longitude']);
+    if (navigatorId.isEmpty || name.isEmpty || latitude == null || longitude == null) {
+      return null;
+    }
+
+    return _RecentSentDestination(
+      navigatorId,
+      MapPlace(
+        id: json['id']?.toString() ?? '$latitude,$longitude',
+        name: name,
+        address: address,
+        latitude: latitude,
+        longitude: longitude,
+      ),
+    );
+  }
+
+  static double? _asDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
   }
 }

@@ -34,10 +34,12 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
   final _destinationSearch = DestinationSearchService.instance;
 
   List<MapPlace> _suggestions = const [];
+  List<MapPlace> _recentDestinations = const [];
   bool _isSearching = false;
   String? _originAddress;
   Timer? _searchDebounce;
   int _searchToken = 0;
+  int _recentDestinationToken = 0;
 
   String get _sessionNavigatorFullName {
     final name = AppSessionService.instance.displayName?.trim();
@@ -61,12 +63,27 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
             LinkedNavigatorService.navigators.first);
 
     _destinationController.addListener(_onQueryChanged);
+    unawaited(_loadRecentDestinations());
     if (_useLiveOrigin) {
       _location.addListener(_onLocationChanged);
       unawaited(_bootstrapLiveOrigin());
     } else {
       _originAddress = _selected.address;
     }
+  }
+
+  Future<void> _loadRecentDestinations() async {
+    final navigatorId = _selected.id;
+    final token = ++_recentDestinationToken;
+    final destinations = await _destinationSearch.loadRecentSentDestinations(
+      navigatorId,
+    );
+    if (!mounted ||
+        token != _recentDestinationToken ||
+        _selected.id != navigatorId) {
+      return;
+    }
+    setState(() => _recentDestinations = destinations);
   }
 
   Future<void> _bootstrapLiveOrigin() async {
@@ -175,7 +192,20 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
       destination: place,
     );
     if (!mounted) return;
+    await _destinationSearch.saveRecentSentDestination(
+      navigatorId: _selected.id,
+      place: place,
+    );
+    if (!mounted) return;
     Navigator.of(context).pop<RoutePlanResult>(result);
+  }
+
+  void _useRecentDestination(MapPlace place) {
+    _destinationController.text = place.name;
+    _destinationController.selection = TextSelection.collapsed(
+      offset: _destinationController.text.length,
+    );
+    _destinationFocus.requestFocus();
   }
 
   @override
@@ -228,6 +258,7 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
                       _originAddress = n.address;
                     }
                   });
+                  unawaited(_loadRecentDestinations());
                 },
                 destinationController: _destinationController,
                 destinationFocusNode: _destinationFocus,
@@ -240,6 +271,11 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
                     ? 'Your current location'
                     : "${_selected.name}'s Location",
                 isSearching: _isSearching,
+              ),
+              const SizedBox(height: 20),
+              _RecentDestinationsSection(
+                destinations: _recentDestinations,
+                onDestinationTap: _useRecentDestination,
               ),
               if (_isSearching && _suggestions.isEmpty) ...[
                 const SizedBox(height: 16),
@@ -276,6 +312,90 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _RecentDestinationsSection extends StatelessWidget {
+  const _RecentDestinationsSection({
+    required this.destinations,
+    required this.onDestinationTap,
+  });
+
+  final List<MapPlace> destinations;
+  final ValueChanged<MapPlace> onDestinationTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final g = context.gabay;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Recent Destinations',
+          style: TextStyle(
+            color: g.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (destinations.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'No recent destinations yet.',
+              style: TextStyle(color: g.textSecondary, fontSize: 13),
+            ),
+          )
+        else
+          Container(
+            decoration: GabayTheme.cardDecoration(context),
+            child: Column(
+              children: [
+                for (var index = 0; index < destinations.length && index < 3; index++) ...[
+                  ListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 2,
+                    ),
+                    leading: Icon(
+                      Icons.history_rounded,
+                      color: g.accent,
+                      size: 22,
+                    ),
+                    title: Text(
+                      destinations[index].name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: g.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    subtitle: Text(
+                      destinations[index].address,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: g.textSecondary, fontSize: 12),
+                    ),
+                    trailing: Icon(
+                      Icons.north_east_rounded,
+                      color: g.textSecondary,
+                      size: 18,
+                    ),
+                    onTap: () => onDestinationTap(destinations[index]),
+                  ),
+                  if (index < destinations.length - 1 && index < 2)
+                    Divider(height: 1, color: g.border),
+                ],
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
