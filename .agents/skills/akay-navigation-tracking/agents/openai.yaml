@@ -1,0 +1,4 @@
+interface:
+  display_name: "Akay Navigation and Tracking"
+  short_description: "Develop Akay routes, GPS sessions, and live tracking"
+  default_prompt: "Use $akay-navigation-tracking to implement or debug this Akay navigation and caregiver tracking change."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Akay Accessible Screens"
+  short_description: "Build accessible Akay screens with Gabay widgets"
+  default_prompt: "Use $akay-accessible-screens to implement this Akay screen change using the existing theme and role flow."
