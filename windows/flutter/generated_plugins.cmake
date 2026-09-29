@@ -8,7 +8,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_auth
   firebase_core
   firebase_database
-  firebase_storage
   flutter_tts
   geolocator_windows
   permission_handler_windows

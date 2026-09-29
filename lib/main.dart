@@ -8,12 +8,22 @@ import 'theme/theme_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  print(Firebase.app().name);
-
+  await _ensureFirebase();
   runApp(const MyApp());
+}
+
+/// google-services.json already creates [DEFAULT] on Android, so a second
+/// initializeApp() throws and never reaches runApp (black screen).
+Future<void> _ensureFirebase() async {
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') rethrow;
+  }
 }
 
 class MyApp extends StatelessWidget {

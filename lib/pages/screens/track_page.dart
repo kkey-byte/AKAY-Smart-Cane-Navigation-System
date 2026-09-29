@@ -15,6 +15,7 @@ import '../../services/destination_search_service.dart';
 import '../../services/gabay_tts_service.dart';
 import '../../services/map_place_service.dart';
 import '../../services/app_session_service.dart';
+import '../../services/live_location_service.dart';
 import '../../services/navigation_persistence_service.dart';
 
 import '../../services/route_timeline_tracker.dart';
@@ -105,6 +106,8 @@ class _TrackPageState extends State<TrackPage> {
 
 
   final _navigators = LinkedNavigatorService.navigators;
+  final _liveNavigatorOverrides = <String, LinkedNavigator>{};
+  final _liveLocationSubscriptions = <StreamSubscription<LiveLocationUpdate?>>[];
 
   final _timelineTracker = RouteTimelineTracker.instance;
 
@@ -156,7 +159,8 @@ class _TrackPageState extends State<TrackPage> {
       );
     }
 
-    return LinkedNavigatorService.instance.findById(_selectedNavigatorId) ??
+    return _liveNavigatorOverrides[_selectedNavigatorId] ??
+        LinkedNavigatorService.instance.findById(_selectedNavigatorId) ??
         _navigators.first;
   }
 
@@ -194,10 +198,33 @@ class _TrackPageState extends State<TrackPage> {
       _locationService.addListener(_onLocationUpdated);
       unawaited(_bootstrapLiveLocation());
       unawaited(_loadRecentSearches());
+    } else {
+      _watchCaregiverLocations();
     }
 
     _loadMapIcons();
 
+  }
+
+  void _watchCaregiverLocations() {
+    for (final navigator in _navigators) {
+      _liveLocationSubscriptions.add(
+        LiveLocationService.instance.watch(navigator.liveLocationId).listen(
+          (update) {
+            if (!mounted || update == null) return;
+            final current = _liveNavigatorOverrides[navigator.id] ?? navigator;
+            setState(() {
+              _liveNavigatorOverrides[navigator.id] = current.copyWith(
+                location: update.location,
+                lastLocationUpdated: update.timestamp,
+                replaceLastLocationUpdated: true,
+                isOnline: true,
+              );
+            });
+          },
+        ),
+      );
+    }
   }
 
   Future<void> _loadRecentSearches() async {
@@ -284,6 +311,9 @@ class _TrackPageState extends State<TrackPage> {
     if (_isNavigatorMode) {
       _locationService.removeListener(_onLocationUpdated);
       _locationService.stopTracking();
+    }
+    for (final subscription in _liveLocationSubscriptions) {
+      unawaited(subscription.cancel());
     }
 
     _destinationSearchDebounce?.cancel();
@@ -797,7 +827,8 @@ class _TrackPageState extends State<TrackPage> {
 
     for (var i = 0; i < _navigators.length; i++) {
 
-      final navigator = _navigators[i];
+      final navigator = _liveNavigatorOverrides[_navigators[i].id] ??
+          _navigators[i];
 
       final isSelected = navigator.id == _selectedNavigatorId;
 
@@ -1269,6 +1300,7 @@ class _TrackPageState extends State<TrackPage> {
                     address: _displayAddress,
                     status: selected.status,
                     isLive: selected.isOnline,
+                    lastLocationUpdated: selected.lastLocationUpdated,
                     onTap: _openNavigatorMonitor,
                   ),
 
@@ -1541,6 +1573,8 @@ class _CurrentAddressCard extends StatelessWidget {
 
   final bool isLive;
 
+  final DateTime? lastLocationUpdated;
+
   final VoidCallback? onTap;
 
 
@@ -1556,6 +1590,8 @@ class _CurrentAddressCard extends StatelessWidget {
     required this.status,
 
     required this.isLive,
+
+    this.lastLocationUpdated,
 
     this.onTap,
 
@@ -1699,6 +1735,24 @@ class _CurrentAddressCard extends StatelessWidget {
 
                     ),
 
+                    const SizedBox(height: 2),
+
+                    Text(
+
+                      _lastUpdatedLabel(lastLocationUpdated),
+
+                      style: TextStyle(
+
+                        fontSize: 12,
+
+                        fontWeight: FontWeight.w500,
+
+                        color: g.textSecondary,
+
+                      ),
+
+                    ),
+
                   ],
 
                 ),
@@ -1765,5 +1819,14 @@ class _CurrentAddressCard extends StatelessWidget {
 
   }
 
-}
+  static String _lastUpdatedLabel(DateTime? timestamp) {
+    if (timestamp == null) return 'Location update unavailable';
 
+    final local = timestamp.toLocal();
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final period = local.hour >= 12 ? 'PM' : 'AM';
+    return 'Last updated: $hour:$minute $period';
+  }
+
+}

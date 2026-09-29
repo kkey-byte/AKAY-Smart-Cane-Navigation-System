@@ -4,7 +4,19 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// A live GPS record received from Firebase Realtime Database.
+class LiveLocationUpdate {
+  const LiveLocationUpdate({
+    required this.location,
+    required this.timestamp,
+  });
+
+  final LatLng location;
+  final DateTime? timestamp;
+}
 
 /// Firebase Realtime Database live GPS stream for caregivers.
 ///
@@ -33,6 +45,28 @@ class LiveLocationService {
 
   DatabaseReference _refFor(String deviceId) {
     return FirebaseDatabase.instance.ref('$rtdbRoot/$deviceId');
+  }
+
+  /// Watches an existing live-location record without changing the database.
+  /// Firebase server timestamps are stored as milliseconds since epoch.
+  Stream<LiveLocationUpdate?> watch(String deviceId) {
+    return _refFor(deviceId).onValue.map((event) {
+      final raw = event.snapshot.value;
+      if (raw is! Map) return null;
+
+      final data = Map<Object?, Object?>.from(raw);
+      final latitude = _asDouble(data['latitude']);
+      final longitude = _asDouble(data['longitude']);
+      if (latitude == null || longitude == null) return null;
+
+      final timestamp = _asMilliseconds(data['timestamp']);
+      return LiveLocationUpdate(
+        location: LatLng(latitude, longitude),
+        timestamp: timestamp == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(timestamp),
+      );
+    });
   }
 
   /// Stable device id shared with Postgres `navigationsessions.deviceid`.
@@ -118,5 +152,15 @@ class LiveLocationService {
   double? _finiteOrNull(double? value) {
     if (value == null || !value.isFinite || value < 0) return null;
     return double.parse(value.toStringAsFixed(2));
+  }
+
+  double? _asDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
+  }
+
+  int? _asMilliseconds(Object? value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
   }
 }

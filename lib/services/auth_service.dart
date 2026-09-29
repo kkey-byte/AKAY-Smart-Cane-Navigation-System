@@ -48,6 +48,7 @@ class AuthService {
   final http.Client _client;
   final String _baseUrl;
   final FirebaseAuth _firebaseAuth;
+  String? _workingBaseUrl;
 
   /// Step A: Firebase createUser → Step B: Postgres profile sync.
   Future<AuthResult> register({
@@ -107,7 +108,7 @@ class AuthService {
         'profile_picture': profilePicture.trim(),
     };
 
-    debugPrint('AuthService: POST $_baseUrl/auth/register');
+    debugPrint('AuthService: POST /auth/register');
     debugPrint(
       'AuthService: firebase_uid=$firebaseUid email=$normalizedEmail role=${role.backendValue}',
     );
@@ -159,6 +160,7 @@ class AuthService {
     return _postAuth('/auth/login', {
       'firebase_uid': firebaseUid,
       'firebaseUid': firebaseUid,
+      'email': email.trim().toLowerCase(),
     });
   }
 
@@ -166,28 +168,44 @@ class AuthService {
     String path,
     Map<String, dynamic> payload,
   ) async {
-    final uri = Uri.parse('$_baseUrl$path');
     final encoded = jsonEncode(payload);
+    final bases = _workingBaseUrl != null
+        ? <String>[_workingBaseUrl!]
+        : (_baseUrl == ApiConfig.baseUrl
+            ? ApiConfig.candidateBaseUrls
+            : <String>[_baseUrl]);
 
     late final http.Response response;
-    try {
-      response = await _client
-          .post(
-            uri,
-            headers: const {
-              'Content-Type': 'application/json; charset=UTF-8',
-              'Accept': 'application/json',
-            },
-            body: encoded,
-          )
-          .timeout(const Duration(seconds: 20));
-    } on Exception catch (e) {
-      debugPrint('AuthService network error: $e');
+    Object? lastError;
+
+    for (final base in bases) {
+      final uri = Uri.parse('$base$path');
+      try {
+        debugPrint('AuthService: POST $uri');
+        final attempt = await _client
+            .post(
+              uri,
+              headers: const {
+                'Content-Type': 'application/json; charset=UTF-8',
+                'Accept': 'application/json',
+              },
+              body: encoded,
+            )
+            .timeout(const Duration(seconds: 12));
+        _workingBaseUrl = base;
+        response = attempt;
+        lastError = null;
+        break;
+      } on Exception catch (e) {
+        lastError = e;
+        debugPrint('AuthService network error ($base): $e');
+      }
+    }
+
+    if (lastError != null) {
       throw AuthException(
-        'Unable to reach the auth API at $_baseUrl.\n'
-        '1) Start app_mobile_backend: npm start\n'
-        '2) Confirm DB settings in app_mobile_backend/.env\n'
-        '3) On a physical phone, pass your PC IP via API_BASE_URL',
+        'Unable to reach the auth server. Make sure the backend is running '
+        'and this phone is on the same Wi-Fi (or connected by USB).',
       );
     }
 
