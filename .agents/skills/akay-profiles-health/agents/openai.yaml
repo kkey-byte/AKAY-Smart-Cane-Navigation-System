@@ -1,0 +1,4 @@
+interface:
+  display_name: "AKAY Profiles and Health Information"
+  short_description: "Maintain AKAY profiles, health forms, and photo data"
+  default_prompt: "Use $akay-profiles-health to implement or debug this AKAY profile and health information change."

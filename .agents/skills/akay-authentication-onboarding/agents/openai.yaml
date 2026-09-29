@@ -1,0 +1,4 @@
+interface:
+  display_name: "AKAY Authentication and Onboarding"
+  short_description: "Maintain AKAY login, roles, and onboarding state"
+  default_prompt: "Use $akay-authentication-onboarding to implement or debug this AKAY authentication and onboarding change."
