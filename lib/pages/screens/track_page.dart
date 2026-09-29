@@ -100,6 +100,7 @@ class _TrackPageState extends State<TrackPage> {
   int _destinationSearchToken = 0;
   /// Pause camera follow while the user is pinning / browsing the map.
   bool _followCamera = true;
+  bool _centeredOnDevice = false;
   List<String> _recentSearchQueries = [];
   String? _selectedCategoryQuery;
 
@@ -135,7 +136,7 @@ class _TrackPageState extends State<TrackPage> {
     final target = live ?? GabayMapDefaults.mapCenter;
     return CameraPosition(
       target: target,
-      zoom: (_isNavigatorMode && live != null)
+      zoom: (live != null)
           ? 16
           : GabayMapDefaults.defaultZoom,
     );
@@ -194,9 +195,9 @@ class _TrackPageState extends State<TrackPage> {
 
     _timelineTracker.addListener(_onTimelineUpdated);
 
+    _locationService.addListener(_onLocationUpdated);
+    unawaited(_bootstrapLiveLocation());
     if (_isNavigatorMode) {
-      _locationService.addListener(_onLocationUpdated);
-      unawaited(_bootstrapLiveLocation());
       unawaited(_loadRecentSearches());
     } else {
       _watchCaregiverLocations();
@@ -251,15 +252,13 @@ class _TrackPageState extends State<TrackPage> {
       _showSnack(_locationService.errorMessage!);
     }
 
-    // Force a second high-accuracy reading shortly after open.
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    await _locationService.refreshCurrentLocation();
+    _centerOnDeviceOnce();
   }
 
   void _onLocationUpdated() {
     if (!mounted) return;
     setState(() {});
+    _centerOnDeviceOnce();
     // Camera follow is handled by GabayTrackMap via [followTarget].
     // Stream live GPS to Firebase RTDB + sync distance to Postgres.
     if (_isNavigatorMode && _isNavigating) {
@@ -268,6 +267,13 @@ class _TrackPageState extends State<TrackPage> {
         unawaited(_navPersistence.publishLiveLocation(live));
       }
     }
+  }
+
+  void _centerOnDeviceOnce() {
+    final live = _locationService.livePosition;
+    if (_centeredOnDevice || live == null || _mapController == null) return;
+    _centeredOnDevice = true;
+    unawaited(_mapController!.animateToLatLng(live, zoom: 16));
   }
 
   Future<void> _persistNavigationStart(RoutePlanResult result) async {
@@ -308,8 +314,8 @@ class _TrackPageState extends State<TrackPage> {
 
     _timelineTracker.removeListener(_onTimelineUpdated);
 
+    _locationService.removeListener(_onLocationUpdated);
     if (_isNavigatorMode) {
-      _locationService.removeListener(_onLocationUpdated);
       _locationService.stopTracking();
     }
     for (final subscription in _liveLocationSubscriptions) {
@@ -629,9 +635,11 @@ class _TrackPageState extends State<TrackPage> {
 
 
 
-    final points = _navigators.map((n) => n.location).toList()
-
-      ..add(GabayMapDefaults.caregiverLocation);
+    final points = _navigators
+        .map((n) => (_liveNavigatorOverrides[n.id] ?? n).location)
+        .toList();
+    final deviceLocation = _locationService.livePosition;
+    if (deviceLocation != null) points.add(deviceLocation);
 
 
 
@@ -807,17 +815,18 @@ class _TrackPageState extends State<TrackPage> {
 
     final markers = <GabayMapMarkerData>[
 
+      if (_locationService.livePosition != null)
       GabayMapMarkerData(
 
         id: 'caregiver',
 
-        position: GabayMapDefaults.caregiverLocation,
+        position: _locationService.livePosition!,
 
         kind: GabayMapMarkerKind.caregiver,
 
-        title: 'Caregiver',
+        title: 'Your current location',
 
-        snippet: GabayMapDefaults.caregiverAddress,
+        snippet: _locationService.address,
 
       ),
 
@@ -1172,19 +1181,15 @@ class _TrackPageState extends State<TrackPage> {
                     unawaited(
                       controller.animateToLatLng(live, zoom: 16),
                     );
-                  } else {
-                    // Keep trying until GPS arrives.
-                    unawaited(_locationService.refreshCurrentLocation());
                   }
-                } else if (_showAllNavigatorsOnMap) {
-                  _fitAllNavigatorsOnMap();
                 }
+                _centerOnDeviceOnce();
               },
             ),
           ),
 
           // Locating overlay — map tiles still visible underneath.
-          if (_isNavigatorMode && !_locationService.hasLiveFix)
+          if (!_locationService.hasLiveFix)
             Positioned(
               left: 16,
               right: 16,

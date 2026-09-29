@@ -215,11 +215,11 @@ class AppSessionService extends ChangeNotifier {
     final map = {
       'smartCanePaired': setupData.smartCanePaired,
       'smartCaneSkipped': setupData.smartCaneSkipped,
-      'emergencyContacts':
-          setupData.emergencyContacts.map((c) => c.toJson()).toList(),
+      'emergencyContacts': setupData.emergencyContacts
+          .map((c) => c.toJson())
+          .toList(),
       'locationGranted': setupData.locationGranted,
       'notificationsGranted': setupData.notificationsGranted,
-      'linkedInviteCode': setupData.linkedInviteCode,
       'tutorialSkipped': setupData.tutorialSkipped,
       'accessibility': setupData.accessibility.toJson(),
     };
@@ -236,7 +236,6 @@ class AppSessionService extends ChangeNotifier {
           .toList(),
       locationGranted: map['locationGranted'] as bool? ?? false,
       notificationsGranted: map['notificationsGranted'] as bool? ?? false,
-      linkedInviteCode: map['linkedInviteCode'] as String? ?? '',
       tutorialSkipped: map['tutorialSkipped'] as bool? ?? false,
       accessibility: AccessibilityPreferences.fromJson(
         map['accessibility'] as Map<String, dynamic>? ?? {},

@@ -116,10 +116,12 @@ class GabayTrackMap extends StatefulWidget {
     required this.padding,
     required this.onControllerReady,
     this.googleMarkerIcons,
+
     /// When set (and [followUser] is true), the camera tracks this point.
     this.followTarget,
     this.followUser = false,
     this.followZoom = 16,
+
     /// Tap/long-press to pin a destination on the map.
     this.onMapTap,
   });
@@ -197,16 +199,12 @@ class _GabayTrackMapState extends State<GabayTrackMap> {
         onTap: widget.onMapTap == null
             ? null
             : (tapPosition, point) {
-                widget.onMapTap!(
-                  gmaps.LatLng(point.latitude, point.longitude),
-                );
+                widget.onMapTap!(gmaps.LatLng(point.latitude, point.longitude));
               },
         onLongPress: widget.onMapTap == null
             ? null
             : (tapPosition, point) {
-                widget.onMapTap!(
-                  gmaps.LatLng(point.latitude, point.longitude),
-                );
+                widget.onMapTap!(gmaps.LatLng(point.latitude, point.longitude));
               },
         onMapReady: () {
           if (_flutterMapReady) return;
@@ -219,12 +217,10 @@ class _GabayTrackMapState extends State<GabayTrackMap> {
       ),
       children: [
         TileLayer(
-          // Colorful OSM-style basemap (Carto Voyager) — loads reliably on web/mobile.
-          urlTemplate:
-              'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-          userAgentPackageName: 'com.example.app_mobile',
-          retinaMode: RetinaMode.isHighDensity(context),
-          maxNativeZoom: 20,
+          // Standard OSM tiles do not require a CARTO or Google Maps key.
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'AKAY.app_mobile',
+          maxNativeZoom: 19,
         ),
         if (widget.routePoints.length >= 2)
           PolylineLayer(
@@ -253,12 +249,32 @@ class _GabayTrackMapState extends State<GabayTrackMap> {
                     marker.kind,
                     genericColor: marker.hue == null
                         ? null
-                        : HSVColor.fromAHSV(1, marker.hue!, 0.75, 0.9)
-                            .toColor(),
+                        : HSVColor.fromAHSV(
+                            1,
+                            marker.hue!,
+                            0.75,
+                            0.9,
+                          ).toColor(),
                   ),
                 ),
               )
               .toList(),
+        ),
+        // Keep the credit above the destination/ETA panels owned by the page.
+        Positioned(
+          left: widget.padding.left + 8,
+          bottom: widget.padding.bottom + 8,
+          child: const DecoratedBox(
+            decoration: BoxDecoration(color: Color(0xEEFFFFFF)),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              child: Text(
+                '© OpenStreetMap contributors\n'
+                'openstreetmap.org/copyright',
+                style: TextStyle(color: Color(0xFF222222), fontSize: 10),
+              ),
+            ),
+          ),
         ),
       ],
     );

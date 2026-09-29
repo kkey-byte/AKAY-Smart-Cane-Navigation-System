@@ -79,8 +79,8 @@ class NavigatorLocationService extends ChangeNotifier {
   /// Ground speed in m/s (0 if unavailable).
   double get speedMetersPerSecond =>
       (_lastPosition?.speed ?? 0).isFinite && (_lastPosition?.speed ?? 0) >= 0
-          ? _lastPosition!.speed
-          : 0;
+      ? _lastPosition!.speed
+      : 0;
 
   /// Heading in degrees (0–360). Null if unavailable.
   double? get headingDegrees {
@@ -112,7 +112,7 @@ class NavigatorLocationService extends ChangeNotifier {
 
   Future<void> startTracking() async {
     // Allow restart if we never got a fix.
-    if (_positionSub != null && hasLiveFix) return;
+    if (isLoading || (_positionSub != null && hasLiveFix)) return;
 
     await _positionSub?.cancel();
     _positionSub = null;
@@ -133,28 +133,26 @@ class NavigatorLocationService extends ChangeNotifier {
     }
 
     try {
-      final lastKnown = await Geolocator.getLastKnownPosition();
-      if (lastKnown != null) {
-        await _applyPosition(lastKnown, geocode: false);
-      }
-
+      // Request this device's current fix. Cached positions can be stale,
+      // and getLastKnownPosition is not supported by the web implementation.
       final initial = await Geolocator.getCurrentPosition(
         locationSettings: _initialFixSettings,
       );
       await _applyPosition(initial);
 
-      _positionSub = Geolocator.getPositionStream(
-        locationSettings: _streamSettings,
-      ).listen(
-        (position) => unawaited(_applyPosition(position)),
-        onError: (Object error) {
-          debugPrint('GPS stream error: $error');
-          errorMessage = 'Unable to read GPS location.';
-          isLoading = false;
-          notifyListeners();
-          _scheduleRetry();
-        },
-      );
+      _positionSub =
+          Geolocator.getPositionStream(
+            locationSettings: _streamSettings,
+          ).listen(
+            (position) => unawaited(_applyPosition(position)),
+            onError: (Object error) {
+              debugPrint('GPS stream error: $error');
+              errorMessage = 'Unable to read GPS location.';
+              isLoading = false;
+              notifyListeners();
+              _scheduleRetry();
+            },
+          );
       _retryCount = 0;
     } on TimeoutException {
       errorMessage =
@@ -188,6 +186,8 @@ class NavigatorLocationService extends ChangeNotifier {
   }
 
   Future<void> refreshCurrentLocation() async {
+    if (isLoading) return;
+    permissionDenied = false;
     final granted = await _ensurePermission();
     if (!granted) {
       permissionDenied = true;
@@ -241,10 +241,7 @@ class NavigatorLocationService extends ChangeNotifier {
     return true;
   }
 
-  Future<void> _applyPosition(
-    Position position, {
-    bool geocode = true,
-  }) async {
+  Future<void> _applyPosition(Position position, {bool geocode = true}) async {
     final previous = _position;
     _lastPosition = position;
     _position = LatLng(position.latitude, position.longitude);
@@ -258,7 +255,13 @@ class NavigatorLocationService extends ChangeNotifier {
             _position!.longitude,
           );
 
-    if (geocode) {
+    // Publish the coordinate immediately; address lookup must not delay the map.
+    _address = _coordinateFallback(_position!);
+    isLoading = false;
+    errorMessage = null;
+    notifyListeners();
+
+    if (geocode && !kIsWeb) {
       _address = await _resolveAddress(_position!, movedMeters);
     } else {
       _address = _coordinateFallback(_position!);
