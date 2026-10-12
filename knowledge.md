@@ -35,9 +35,9 @@ Inspect existing code before modifying a workflow. Preserve Gabay identifiers us
 
 For Dart code changes, format the changed files, run flutter analyze, and run relevant tests. Document any device, backend, or hardware verification that remains unavailable.
 
-## Seminar skills
-- .agents/skills/create-component/SKILL.md: create reusable AKAY Flutter UI components.
-- .agents/skills/add-api-call/SKILL.md: add HTTP API calls using AKAY services and models.
-- .agents/skills/vercel-react-best-practices/SKILL.md: externally provided Vercel React guidance. Installed for the provider requirement; use only for relevant React/Next.js work, not Flutter implementation.
-
-Existing AKAY skills remain available for accessible screens, authentication/onboarding, navigation/tracking, and profiles/health.
+## Project skills
+The project uses only these four original custom skills:
+- .agents/skills/akay-accessible-screens/SKILL.md: accessible Flutter screens and shared Gabay widgets.
+- .agents/skills/akay-authentication-onboarding/SKILL.md: authentication, role routing, and onboarding.
+- .agents/skills/akay-navigation-tracking/SKILL.md: destination search, navigation sessions, and caregiver tracking.
+- .agents/skills/akay-profiles-health/SKILL.md: profile editing and health information display.
