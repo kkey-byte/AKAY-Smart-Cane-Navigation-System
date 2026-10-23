@@ -13,6 +13,10 @@ const profileRoutes = require("./routes/profile");
 
 const app = express();
 
+if (process.env.RAILWAY_ENVIRONMENT_ID) {
+    app.set("trust proxy", 1);
+}
+
 app.use(cors({ origin: true, credentials: true }));
 // Profile pictures may be sent as compressed base64 data URLs.
 app.use(express.json({ limit: "8mb" }));
