@@ -47,3 +47,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+
+# Isolated security tests and private hardware provisioning artifacts
+/backend_patch/node_modules/
+/tmp/pairing_pg/
+/tmp/pairing_pg.log
+*.private.json
+/backend_patch/original_backup/

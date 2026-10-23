@@ -1,6 +1,5 @@
 import 'user_role.dart';
 
-/// Mirrors the PostgreSQL `Users` table payload returned by the backend.
 class AppUser {
   const AppUser({
     required this.userId,
@@ -33,8 +32,7 @@ class AppUser {
 
     return AppUser(
       userId: (json['user_id'] ?? json['userId'] ?? json['id']).toString(),
-      firebaseUid:
-          (json['firebase_uid'] ?? json['firebaseUid'])?.toString(),
+      firebaseUid: (json['firebase_uid'] ?? json['firebaseUid'])?.toString(),
       name: json['name'] as String?,
       email: (json['email'] as String?) ?? '',
       role: role,
@@ -47,16 +45,16 @@ class AppUser {
   }
 
   Map<String, dynamic> toJson() => {
-        'user_id': userId,
-        'firebase_uid': firebaseUid,
-        'name': name,
-        'email': email,
-        'role': role.backendValue,
-        'phone': phone,
-        'profile_picture': profilePicture,
-        if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
-        if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
-      };
+    'user_id': userId,
+    'firebase_uid': firebaseUid,
+    'name': name,
+    'email': email,
+    'role': role.backendValue,
+    'phone': phone,
+    'profile_picture': profilePicture,
+    if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
+    if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
+  };
 
   static DateTime? _parseDate(Object? value) {
     if (value == null) return null;

@@ -1,18 +1,16 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 
 import '../../theme/gabay_theme.dart';
 
-/// VI home status card — cane battery and walking status (mockup layout).
+/// VI home status card — cane battery and movement status; missing telemetry stays unknown.
 class ViStatusOverviewCard extends StatelessWidget {
   const ViStatusOverviewCard({
     super.key,
-    this.batteryPercent = 78,
-    this.statusLabel = 'Walking',
+    this.batteryPercent,
+    this.statusLabel = 'Status unavailable',
   });
 
-  final int batteryPercent;
+  final int? batteryPercent;
   final String statusLabel;
 
   @override
@@ -42,12 +40,12 @@ class ViStatusOverviewCard extends StatelessWidget {
 class _BatterySection extends StatelessWidget {
   const _BatterySection({required this.percent});
 
-  final int percent;
+  final int? percent;
 
   @override
   Widget build(BuildContext context) {
     final g = context.gabay;
-    final value = (percent.clamp(0, 100)) / 100.0;
+    final value = percent == null ? 0.0 : (percent!.clamp(0, 100)) / 100.0;
 
     return Row(
       children: [
@@ -77,7 +75,7 @@ class _BatterySection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$percent%',
+                percent == null ? 'Unavailable' : '$percent%',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
@@ -155,46 +153,7 @@ class _WalkingSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          height: 22,
-          child: CustomPaint(painter: _WavePainter(color: g.accent)),
-        ),
       ],
     );
   }
-}
-
-class _WavePainter extends CustomPainter {
-  _WavePainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withValues(alpha: 0.55)
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-    final centerY = size.height / 2;
-    const amplitude = 6.0;
-    const wavelength = 28.0;
-
-    for (double x = 0; x <= size.width; x += 1) {
-      final y = centerY + amplitude * sin(2 * pi * x / wavelength);
-      if (x == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_WavePainter oldDelegate) => oldDelegate.color != color;
 }

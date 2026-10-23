@@ -59,14 +59,22 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>AKAY uses your camera to scan a Navigator’s pairing QR code. You can enter the code instead.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>GABAY needs your location to show live navigation and tracking.</string>
+	<string>AKAY uses your location for navigation and automatically records your daily path while signed in as a navigator. You can pause recording in My tracks.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>GABAY needs your location for live caregiver tracking.</string>
+	<string>AKAY uses background location to record your daily path for your shared caregivers. You can pause recording in My tracks.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>AKAY records your daily path while signed in as a navigator, including in the background, so your shared caregivers can monitor your movement. You can pause recording in My tracks.</string>
+	<key>UIBackgroundModes</key>
+	<array><string>location</string></array>
 	<key>io.flutter.embedded_views_preview</key>
 	<true/>
 	<key>GMSApiKey</key>
-	<string>YOUR_GOOGLE_MAPS_API_KEY</string>
+	<string>$(GOOGLE_MAPS_API_KEY)</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AKAY uses a photo you select for your profile picture.</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

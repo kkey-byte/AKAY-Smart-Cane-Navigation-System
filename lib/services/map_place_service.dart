@@ -1,95 +1,49 @@
 import 'dart:convert';
+import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 
+import '../config/api_config.dart';
+import 'secure_api.dart';
 import '../models/linked_navigator.dart';
 import '../models/route_plan.dart';
 import 'navigator_location_service.dart';
 
+/// A routing failure safe to display without exposing request coordinates.
+class NavigationRouteException implements Exception {
+  const NavigationRouteException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
 /// Place search + routing helpers.
 ///
-/// Nearby search uses OpenStreetMap Nominatim biased to the user's GPS,
-/// so queries like "Elementary" return schools near the user — not only
-/// hardcoded Davao/Panabo stubs.
+/// Active destination search uses DestinationSearchService. Walking directions
+/// use the configured backend or an explicit HTTPS foot engine.
 class MapPlaceService {
-  MapPlaceService._();
+  MapPlaceService({
+    http.Client? client,
+    String? walkingRouteBase,
+    this.apiBaseUrl,
+  }) : _client = client ?? http.Client(),
+       _walkingRouteBase =
+           walkingRouteBase ??
+           const String.fromEnvironment('OSRM_FOOT_BASE_URL');
+  final String? apiBaseUrl;
+  final http.Client _client;
+  final String _walkingRouteBase;
 
-  static final MapPlaceService instance = MapPlaceService._();
+  static final MapPlaceService instance = MapPlaceService();
 
-  static const _nominatimBase = 'https://nominatim.openstreetmap.org';
+  static const _nominatimBase = String.fromEnvironment('NOMINATIM_BASE_URL');
   static const _userAgent = 'AKAY-GABAY/1.0 (accessibility-navigation-app)';
 
-  static const List<MapPlace> recentPlaces = [
-    MapPlace(
-      id: 'recent_sasa_wharf',
-      name: 'Sasa Wharf',
-      address: 'Sasa, Davao City, Davao del Sur',
-      latitude: 7.1073,
-      longitude: 125.6328,
-      distance: '18.4 km',
-    ),
-    MapPlace(
-      id: 'recent_city_hall',
-      name: 'Panabo City Hall',
-      address: 'Quezon Avenue, Panabo City',
-      latitude: 7.3089,
-      longitude: 125.6834,
-      distance: '1.2 km',
-    ),
-    MapPlace(
-      id: 'recent_gaisano',
-      name: 'Gaisano Mall',
-      address: 'J.P. Laurel Ave, Panabo City',
-      latitude: 7.3012,
-      longitude: 125.6910,
-      distance: '2.8 km',
-    ),
-    MapPlace(
-      id: 'recent_sm_lanang',
-      name: 'SM Lanang',
-      address: 'JP Laurel Ave, Davao City',
-      latitude: 7.0983,
-      longitude: 125.6089,
-      distance: '24.1 km',
-    ),
-  ];
-
-  static const List<MapPlace> savedPlaces = [
-    MapPlace(
-      id: 'saved_home',
-      name: 'Home',
-      address: 'Lemonito St, New Visayas, Panabo City',
-      latitude: 7.3125,
-      longitude: 125.6790,
-      isSaved: true,
-    ),
-    MapPlace(
-      id: 'saved_work',
-      name: 'Work',
-      address: 'Tagum-Panabo Highway, Panabo City',
-      latitude: 7.2950,
-      longitude: 125.7020,
-      isSaved: true,
-    ),
-    MapPlace(
-      id: 'saved_hospital',
-      name: 'Hospital',
-      address: 'Panabo Health Center, Panabo City',
-      latitude: 7.3048,
-      longitude: 125.6880,
-      isSaved: true,
-    ),
-    MapPlace(
-      id: 'saved_police',
-      name: 'Police Station',
-      address: 'City Police Station, Panabo City',
-      latitude: 7.3075,
-      longitude: 125.6810,
-      isSaved: true,
-    ),
-  ];
+  static const List<MapPlace> recentPlaces = [];
+  static const List<MapPlace> savedPlaces = [];
 
   /// Legacy sync search (saved/recent only). Prefer [searchNearbyPlaces].
   List<MapPlace> searchPlaces(String query, {LatLng? near}) {
@@ -126,6 +80,9 @@ class MapPlaceService {
   Future<MapPlace> placeFromCoordinates(LatLng point) async {
     final origin = NavigatorLocationService.instance.livePosition;
     try {
+      if (!(_nominatimBase.startsWith('https://'))) {
+        throw StateError('Geocoder not configured.');
+      }
       final uri = Uri.parse('$_nominatimBase/reverse').replace(
         queryParameters: {
           'lat': point.latitude.toString(),
@@ -136,13 +93,10 @@ class MapPlaceService {
         },
       );
 
-      final response = await http
+      final response = await _client
           .get(
             uri,
-            headers: {
-              'Accept': 'application/json',
-              'User-Agent': _userAgent,
-            },
+            headers: {'Accept': 'application/json', 'User-Agent': _userAgent},
           )
           .timeout(const Duration(seconds: 12));
 
@@ -150,7 +104,8 @@ class MapPlaceService {
         final body = jsonDecode(response.body);
         if (body is Map<String, dynamic>) {
           final display = (body['display_name'] as String?)?.trim();
-          final name = _shortNameFromNominatim(body) ??
+          final name =
+              _shortNameFromNominatim(body) ??
               (display != null && display.isNotEmpty
                   ? display.split(',').first.trim()
                   : 'Pinned location');
@@ -183,6 +138,9 @@ class MapPlaceService {
     LatLng near, {
     int limit = 12,
   }) async {
+    if (!(_nominatimBase.startsWith('https://'))) {
+      throw StateError('Geocoder not configured.');
+    }
     // ~10 km viewbox around the user to bias "nearest" results.
     const delta = 0.09;
     final left = near.longitude - delta;
@@ -203,13 +161,10 @@ class MapPlaceService {
       },
     );
 
-    final response = await http
+    final response = await _client
         .get(
           uri,
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': _userAgent,
-          },
+          headers: {'Accept': 'application/json', 'User-Agent': _userAgent},
         )
         .timeout(const Duration(seconds: 12));
 
@@ -230,7 +185,8 @@ class MapPlaceService {
 
       final point = LatLng(lat, lon);
       final display = (map['display_name'] as String?)?.trim() ?? '';
-      final name = _shortNameFromNominatim(map) ??
+      final name =
+          _shortNameFromNominatim(map) ??
           (display.isNotEmpty ? display.split(',').first.trim() : query);
 
       final meters = _meters(near, point).round();
@@ -270,13 +226,16 @@ class MapPlaceService {
         )
         .map((place) {
           if (origin == null) return place;
-          return place.copyWith(distance: _formatDistance(origin, place.latLng));
+          return place.copyWith(
+            distance: _formatDistance(origin, place.latLng),
+          );
         })
         .toList();
 
     if (origin != null) {
       matches.sort(
-        (a, b) => _meters(origin, a.latLng).compareTo(_meters(origin, b.latLng)),
+        (a, b) =>
+            _meters(origin, a.latLng).compareTo(_meters(origin, b.latLng)),
       );
     }
     return matches;
@@ -291,7 +250,8 @@ class MapPlaceService {
     final merged = <MapPlace>[];
 
     for (final place in [...remote, ...local]) {
-      final key = '${place.name.toLowerCase()}_${place.latitude.toStringAsFixed(4)}';
+      final key =
+          '${place.name.toLowerCase()}_${place.latitude.toStringAsFixed(4)}';
       if (seen.contains(key)) continue;
       seen.add(key);
       merged.add(
@@ -323,12 +283,16 @@ class MapPlaceService {
         'school',
         'university',
         'hospital',
-        'suburb',
-        'road',
       ]) {
         final value = address[key];
         if (value is String && value.trim().isNotEmpty) return value.trim();
       }
+    }
+    // display_name starts with the feature name when structured POI fields
+    // are absent. Do not prefer its suburb/road over that feature name.
+    final display = map['display_name'];
+    if (display is String && display.trim().isNotEmpty) {
+      return display.split(',').first.trim();
     }
     return null;
   }
@@ -391,19 +355,23 @@ class MapPlaceService {
     required LinkedNavigator navigator,
     required MapPlace destination,
   }) async {
+    if (!destination.hasValidCoordinates) {
+      throw const NavigationRouteException(
+        'This destination has invalid coordinates. Select another place or pin.',
+      );
+    }
     final origin = navigator.location;
     final routed = await fetchWalkingRoute(origin, destination.latLng);
 
-    final polyline = routed?.points ??
-        <LatLng>[origin, destination.latLng];
-    final estimatedTime = routed?.durationLabel ??
-        GabayMapDefaults.mockEta(origin, destination.latLng);
-    final estimatedDistance = routed?.distanceLabel ??
-        GabayMapDefaults.mockDistance(origin, destination.latLng);
-
-    final steps = routed?.steps.isNotEmpty == true
-        ? routed!.steps
-        : _fallbackSteps(destination.name);
+    if (routed == null || routed.points.isEmpty) {
+      throw const NavigationRouteException(
+        'The route service returned invalid walking directions. Please retry.',
+      );
+    }
+    final polyline = routed.points;
+    final estimatedTime = routed.durationLabel;
+    final estimatedDistance = routed.distanceLabel;
+    final steps = routed.steps;
 
     return RoutePlanResult(
       navigator: navigator,
@@ -411,32 +379,11 @@ class MapPlaceService {
       estimatedTime: estimatedTime,
       estimatedDistance: estimatedDistance,
       currentSpeed: '—',
-      navigationStatus:
-          'Navigating to ${destination.name}',
+      navigationStatus: 'Navigating to ${destination.name}',
       polylinePoints: polyline,
       tripStartedAt: DateTime.now(),
       turnInstructions: steps,
     );
-  }
-
-  List<RouteTurnInstruction> _fallbackSteps(String destinationName) {
-    return [
-      RouteTurnInstruction(
-        instruction: 'Head toward $destinationName',
-        detail: 'Follow the highlighted route',
-        maneuverType: 'depart',
-        isNext: true,
-      ),
-      const RouteTurnInstruction(
-        instruction: 'Continue along the route',
-        maneuverType: 'new name',
-      ),
-      RouteTurnInstruction(
-        instruction: 'Arrive at $destinationName',
-        detail: 'Destination',
-        maneuverType: 'arrive',
-      ),
-    ];
   }
 
   /// Walking/foot directions via public OSRM (OpenStreetMap road network).
@@ -444,36 +391,74 @@ class MapPlaceService {
     LatLng origin,
     LatLng destination,
   ) async {
+    if (!_validPoint(origin) || !_validPoint(destination)) {
+      throw const NavigationRouteException(
+        'Valid current-location and destination coordinates are required.',
+      );
+    }
+    final useBackend = _walkingRouteBase.isEmpty;
+    final base = Uri.tryParse(
+      useBackend
+          ? (apiBaseUrl ?? SecureApi.preferredBase ?? ApiConfig.baseUrl)
+          : _walkingRouteBase,
+    );
+    if (base == null ||
+        (base.scheme != 'https' &&
+            !(useBackend && !kReleaseMode && base.scheme == 'http')) ||
+        base.host.isEmpty ||
+        base.userInfo.isNotEmpty ||
+        base.hasQuery ||
+        base.hasFragment) {
+      throw const NavigationRouteException(
+        'The routing API address is not configured correctly.',
+      );
+    }
     // OSRM expects lon,lat order.
     final coords =
         '${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}';
-    final uri = Uri.parse(
-      'https://router.project-osrm.org/route/v1/foot/$coords',
-    ).replace(
-      queryParameters: {
-        'overview': 'full',
-        'geometries': 'geojson',
-        'steps': 'true',
-      },
-    );
+    final uri =
+        Uri.parse(
+          useBackend
+              ? '${base.toString().replaceFirst(RegExp(r"/+$"), "")}/routing/walk'
+              : '${_walkingRouteBase.replaceFirst(RegExp(r"/+$"), "")}/route/v1/foot/$coords',
+        ).replace(
+          queryParameters: {
+            if (useBackend) 'coordinates': coords,
+            'overview': 'full',
+            'geometries': 'geojson',
+            'steps': 'true',
+          },
+        );
 
     try {
-      final response = await http
+      final response = await _client
           .get(
             uri,
-            headers: {
-              'Accept': 'application/json',
-              'User-Agent': _userAgent,
-            },
+            headers: {'Accept': 'application/json', 'User-Agent': _userAgent},
           )
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        return null;
+        throw NavigationRouteException(switch (response.statusCode) {
+          400 =>
+            'The route service rejected the coordinates. Select the destination again.',
+          422 =>
+            'No walking route was found. Try a nearby destination or another pin.',
+          429 =>
+            'The route service is busy. Wait a moment, then retry this destination.',
+          503 =>
+            'The walking route provider is unavailable. Check the backend connection and retry.',
+          _ => 'Walking directions failed. Please retry this destination.',
+        });
       }
 
       final body = jsonDecode(response.body);
       if (body is! Map<String, dynamic>) return null;
+      if (body['code'] == 'NoRoute' || body['code'] == 'NoSegment') {
+        throw const NavigationRouteException(
+          'No walking route was found. Try a nearby destination or another pin.',
+        );
+      }
       if (body['code'] != 'Ok') return null;
 
       final routes = body['routes'];
@@ -488,16 +473,31 @@ class MapPlaceService {
 
       final points = <LatLng>[];
       for (final coord in coordinates) {
-        if (coord is! List || coord.length < 2) continue;
+        if (coord is! List || coord.length < 2) return null;
         final lon = (coord[0] as num?)?.toDouble();
         final lat = (coord[1] as num?)?.toDouble();
-        if (lat == null || lon == null) continue;
+        if (lat == null ||
+            lon == null ||
+            !lat.isFinite ||
+            !lon.isFinite ||
+            lat.abs() > 90 ||
+            lon.abs() > 180) {
+          return null;
+        }
         points.add(LatLng(lat, lon));
       }
       if (points.length < 2) return null;
 
-      final distanceMeters = (route['distance'] as num?)?.toDouble() ?? 0;
-      final durationSeconds = (route['duration'] as num?)?.toDouble() ?? 0;
+      final distanceMeters = (route['distance'] as num?)?.toDouble();
+      final durationSeconds = (route['duration'] as num?)?.toDouble();
+      if (distanceMeters == null ||
+          durationSeconds == null ||
+          !distanceMeters.isFinite ||
+          !durationSeconds.isFinite ||
+          distanceMeters < 0 ||
+          durationSeconds < 0) {
+        return null;
+      }
       final steps = _parseOsrmSteps(route);
 
       return OsrmRouteGeometry(
@@ -506,10 +506,26 @@ class MapPlaceService {
         durationSeconds: durationSeconds,
         steps: steps,
       );
+    } on NavigationRouteException {
+      rethrow;
+    } on http.ClientException {
+      throw const NavigationRouteException(
+        'Cannot reach the routing server. Check your connection and retry.',
+      );
+    } on TimeoutException {
+      throw const NavigationRouteException(
+        'Walking directions timed out. Please retry this destination.',
+      );
     } catch (_) {
       return null;
     }
   }
+
+  bool _validPoint(LatLng point) =>
+      point.latitude.isFinite &&
+      point.longitude.isFinite &&
+      point.latitude.abs() <= 90 &&
+      point.longitude.abs() <= 180;
 
   List<RouteTurnInstruction> _parseOsrmSteps(Map route) {
     final legs = route['legs'];
@@ -557,10 +573,7 @@ class MapPlaceService {
     if (instructions.isEmpty) return const [];
 
     // Mark the first actionable step as "next".
-    return [
-      instructions.first.copyWith(isNext: true),
-      ...instructions.skip(1),
-    ];
+    return [instructions.first.copyWith(isNext: true), ...instructions.skip(1)];
   }
 
   String _humanizeManeuver({
@@ -573,9 +586,7 @@ class MapPlaceService {
 
     switch (type) {
       case 'depart':
-        return roadName.isNotEmpty
-            ? 'Start on $roadName'
-            : 'Start navigation';
+        return roadName.isNotEmpty ? 'Start on $roadName' : 'Start navigation';
       case 'arrive':
         return 'Arrive at your destination';
       case 'turn':
@@ -601,7 +612,9 @@ class MapPlaceService {
         if (modifier.isNotEmpty) {
           return '${_capitalize(_modifierPhrase(modifier))}$onto';
         }
-        return roadName.isNotEmpty ? 'Follow $roadName' : 'Continue along the route';
+        return roadName.isNotEmpty
+            ? 'Follow $roadName'
+            : 'Continue along the route';
     }
   }
 

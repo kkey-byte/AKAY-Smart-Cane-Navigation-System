@@ -30,13 +30,13 @@ class NotificationEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'No Notifications Yet',
+              'Notifications unavailable',
               textAlign: TextAlign.center,
               style: GabayTheme.sectionTitle(context).copyWith(fontSize: 20),
             ),
             const SizedBox(height: 10),
             Text(
-              "You're all caught up.\nImportant updates and alerts will appear here.",
+              "No alert service is connected.",
               textAlign: TextAlign.center,
               style: GabayTheme.bodyMedium(context).copyWith(height: 1.5),
             ),

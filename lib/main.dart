@@ -5,10 +5,12 @@ import 'firebase_options.dart';
 import 'pages/splash_page.dart';
 import 'theme/gabay_theme.dart';
 import 'theme/theme_controller.dart';
+import 'services/breadcrumb_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _ensureFirebase();
+  await BreadcrumbService.instance.initialize();
   runApp(const MyApp());
 }
 
@@ -36,7 +38,7 @@ class MyApp extends StatelessWidget {
       builder: (context, _) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'GABAY',
+          title: 'AKAY',
           themeMode: ThemeController.instance.themeMode,
           theme: GabayTheme.lightTheme,
           darkTheme: GabayTheme.darkTheme,

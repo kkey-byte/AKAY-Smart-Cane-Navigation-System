@@ -1,27 +1,21 @@
 import 'package:flutter/material.dart';
 
-import '../../models/linked_navigator.dart';
 import '../../services/app_session_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/vi_navigation_session.dart';
 import '../../theme/gabay_theme.dart';
+import '../../widgets/shared/dashboard_pairing_card.dart';
 import '../../widgets/dashboard_widgets/activity_card.dart';
 import '../../widgets/dashboard_widgets/bottom_nav.dart';
 import '../../widgets/dashboard_widgets/dashboard_header.dart';
-import '../../widgets/dashboard_widgets/location_card.dart';
-import '../../widgets/dashboard_widgets/stat_card.dart';
+import '../../widgets/dashboard_widgets/dashboard_live_section.dart';
 import '../../widgets/shared/floating_bottom_nav_shell.dart';
 import '../../widgets/shared/gabay_page_route.dart';
 import '../../widgets/shared/gabay_tab_body.dart';
-import '../../widgets/shared/gabay_card.dart';
-import '../../widgets/visually_impaired/vi_navigation_banner.dart';
-import '../../widgets/visually_impaired/vi_quick_action_tile.dart';
-import '../../widgets/visually_impaired/vi_status_overview_card.dart';
 import 'vi_notifications_page.dart';
-import 'vi_voice_assistant_page.dart';
 import 'visually_impaired_profile.dart';
 import 'visually_impaired_reports.dart';
-import 'visually_impaired_track.dart';
+import '../screens/track_page.dart';
 
 class VisuallyImpairedDashboard extends StatefulWidget {
   const VisuallyImpairedDashboard({super.key});
@@ -33,6 +27,9 @@ class VisuallyImpairedDashboard extends StatefulWidget {
 
 class _VisuallyImpairedDashboardState extends State<VisuallyImpairedDashboard> {
   int _selectedIndex = 0;
+  bool _profileLoading = true;
+  bool _profileError = false;
+  final _trackKey = GlobalKey<TrackPageState>();
   final _navigationSession = ViNavigationSession.instance;
 
   @override
@@ -44,10 +41,18 @@ class _VisuallyImpairedDashboardState extends State<VisuallyImpairedDashboard> {
   }
 
   Future<void> _loadDisplayName() async {
+    if (mounted) {
+      setState(() {
+        _profileLoading = true;
+        _profileError = false;
+      });
+    }
     try {
       await ProfileService.instance.fetchProfile();
     } catch (_) {
-      // Keep cached session name if offline.
+      if (mounted) setState(() => _profileError = true);
+    } finally {
+      if (mounted) setState(() => _profileLoading = false);
     }
   }
 
@@ -74,12 +79,14 @@ class _VisuallyImpairedDashboardState extends State<VisuallyImpairedDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? context.gabay.scaffoldBackground
+          : const Color(0xFFF3F3F3),
       body: GabayTabBody(
         index: _selectedIndex,
         children: [
           _buildHomePage(context),
-          const VisuallyImpairedTrackPage(),
+          TrackPage(key: _trackKey, role: TrackPageRole.navigator),
           const VisuallyImpairedReportsPage(),
           const VisuallyImpairedProfilePage(),
         ],
@@ -101,16 +108,12 @@ class _VisuallyImpairedDashboardState extends State<VisuallyImpairedDashboard> {
   }
 
   Widget _buildHomePage(BuildContext context) {
-    final accent = context.gabay.accent;
-    final isNavigating = _navigationSession.isNavigating;
-    final self = LinkedNavigatorService.selfNavigator;
-
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
-          20,
           16,
-          20,
+          16,
+          16,
           GabayNavMetrics.contentClearance,
         ),
         child: Column(
@@ -126,114 +129,43 @@ class _VisuallyImpairedDashboardState extends State<VisuallyImpairedDashboard> {
                     greeting: 'Hello, Welcome back!',
                     name: name,
                     avatarAsset: null,
-                    unreadCount: 1,
+                    unreadCount: 0,
                     onNotificationTap: () =>
                         _pushPage(const ViNotificationsPage()),
                   ),
                 );
               },
             ),
-            const SizedBox(height: 20),
-            ViNavigationBanner(
-              isActive: isNavigating,
-              onTap: _openTrackTab,
-            ),
             const SizedBox(height: 16),
-            ViStatusOverviewCard(
-              batteryPercent: self.batteryPercent,
-              statusLabel: isNavigating ? 'Walking' : self.status,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: StatCard(
-                    icon: Icons.location_on_rounded,
-                    title: 'Distance Covered',
-                    value: '3243',
-                    unit: 'Km',
-                    color: accent,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: StatCard(
-                    icon: Icons.route_rounded,
-                    title: 'Total Route',
-                    value: '23',
-                    unit: 'Route',
-                    color: accent,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            LocationCard(
-              navigatorName: self.name,
-              isNavigating: isNavigating,
-              onStartNavigationPressed: _openTrackTab,
-              onViewMapPressed: _openTrackTab,
-            ),
-            const SizedBox(height: 22),
-            Text('Quick Actions', style: GabayTheme.sectionTitle(context)),
-            const SizedBox(height: 14),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.15,
-              children: [
-                ViQuickActionTile(
-                  icon: Icons.share_location_rounded,
-                  label: 'Share Live Location',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Live location shared with caregiver'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                ),
-                ViQuickActionTile(
-                  icon: Icons.mic_rounded,
-                  label: 'Voice Assistant',
-                  onTap: () => _pushPage(const ViVoiceAssistantPage()),
-                ),
-              ],
-            ),
-            const SizedBox(height: 22),
-            Text('Recent Activity', style: GabayTheme.sectionTitle(context)),
-            const SizedBox(height: 14),
-            GabayCard(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Column(
+            DashboardLiveSection(caregiver: false, onViewMap: _openTrackTab),
+            if (_profileLoading)
+              const LinearProgressIndicator(semanticsLabel: 'Loading profile'),
+            if (_profileError)
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  ActivityCard(
-                    color: accent,
-                    icon: Icons.navigation_rounded,
-                    title: 'Navigation started to City Hall',
-                    time: '9:15 AM',
-                    showDivider: true,
+                  const Text(
+                    'Profile refresh failed. Cached details may be out of date.',
                   ),
-                  ActivityCard(
-                    color: accent,
-                    icon: Icons.check_circle_rounded,
-                    title: 'Destination reached: Public Market',
-                    time: '8:40 AM',
-                    showDivider: true,
-                  ),
-                  ActivityCard(
-                    color: accent,
-                    icon: Icons.battery_alert_rounded,
-                    title: 'Cane battery low (20%)',
-                    time: '7:55 AM',
+                  TextButton(
+                    onPressed: _loadDisplayName,
+                    child: const Text('Retry'),
                   ),
                 ],
               ),
+            const SizedBox(height: 20),
+            Text(
+              'Recent Activity',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: context.gabay.textPrimary,
+              ),
             ),
+            const SizedBox(height: 8),
+            const RecentActivityList(),
+            const SizedBox(height: 16),
+            const DashboardPairingCard(caregiver: false),
           ],
         ),
       ),

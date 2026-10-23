@@ -16,10 +16,16 @@ class RoutePlannerPage extends StatefulWidget {
     super.key,
     required this.initialNavigatorId,
     this.isNavigatorMode = false,
+    this.linkedNavigators,
+    this.placeService,
+    this.destinationSearch,
   });
 
   final String initialNavigatorId;
   final bool isNavigatorMode;
+  final List<LinkedNavigator>? linkedNavigators;
+  final MapPlaceService? placeService;
+  final DestinationSearchService? destinationSearch;
 
   @override
   State<RoutePlannerPage> createState() => _RoutePlannerPageState();
@@ -30,15 +36,19 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
   final _destinationController = TextEditingController();
   final _destinationFocus = FocusNode();
   final _location = NavigatorLocationService.instance;
-  final _placeService = MapPlaceService.instance;
-  final _destinationSearch = DestinationSearchService.instance;
+  late final _placeService = widget.placeService ?? MapPlaceService.instance;
+  late final _destinationSearch =
+      widget.destinationSearch ?? DestinationSearchService.instance;
 
   List<MapPlace> _suggestions = const [];
   List<MapPlace> _recentDestinations = const [];
   bool _isSearching = false;
   String? _originAddress;
-  Timer? _searchDebounce;
+  String? _searchError;
+  bool _hasSearched = false;
   int _searchToken = 0;
+  int? _routeRequestToken;
+  MapPlace? _routingPlace;
   int _recentDestinationToken = 0;
 
   String get _sessionNavigatorFullName {
@@ -59,8 +69,15 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
     super.initState();
     _selected = widget.isNavigatorMode
         ? LinkedNavigatorService.selfNavigator
-        : (LinkedNavigatorService.instance.findById(widget.initialNavigatorId) ??
-            LinkedNavigatorService.navigators.first);
+        : (widget.linkedNavigators
+                  ?.where(
+                    (navigator) => navigator.id == widget.initialNavigatorId,
+                  )
+                  .firstOrNull ??
+              LinkedNavigatorService.instance.findById(
+                widget.initialNavigatorId,
+              ) ??
+              LinkedNavigatorService.navigators.first);
 
     _destinationController.addListener(_onQueryChanged);
     unawaited(_loadRecentDestinations());
@@ -126,91 +143,126 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
   }
 
   void _onQueryChanged() {
-    _searchDebounce?.cancel();
-    final query = _destinationController.text.trim();
-    if (query.length < 2) {
-      setState(() {
-        _suggestions = const [];
-        _isSearching = false;
-      });
-      return;
-    }
-
-    setState(() => _isSearching = true);
-    _searchDebounce = Timer(const Duration(milliseconds: 380), () {
-      unawaited(_runSearch(query));
+    _searchToken++;
+    setState(() {
+      _suggestions = const [];
+      _isSearching = false;
+      _searchError = null;
+      _hasSearched = false;
     });
   }
 
   Future<void> _runSearch(String query) async {
     final token = ++_searchToken;
-    final near = _useLiveOrigin
-        ? _location.livePosition
-        : _selected.location;
+    final near = _useLiveOrigin ? _location.livePosition : _selected.location;
 
-    final results = await _destinationSearch.searchAsMapPlaces(
-      query: query,
-      near: near,
-      radiusMeters: 5000,
-    );
-
-    if (!mounted || token != _searchToken) return;
     setState(() {
-      _suggestions = results;
-      _isSearching = false;
+      _isSearching = true;
+      _searchError = null;
+      _hasSearched = true;
     });
+    try {
+      final results = await _destinationSearch.searchAsMapPlaces(
+        query: query,
+        near: near,
+        radiusMeters: 5000,
+      );
+
+      if (!mounted || token != _searchToken) return;
+      setState(() {
+        _suggestions = results;
+        _isSearching = false;
+      });
+    } catch (_) {
+      if (!mounted || token != _searchToken) return;
+      setState(() {
+        _isSearching = false;
+        _searchError = 'Search unavailable. Check your connection and retry.';
+      });
+    }
   }
 
   Future<void> _onSuggestionSelected(MapPlace place) async {
-    FocusScope.of(context).unfocus();
-
-    LinkedNavigator navigator = _selected;
-    if (_useLiveOrigin) {
-      final live = _location.livePosition;
-      if (live == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Still locating you. Please wait for GPS, then try again.'),
-          ),
-        );
-        await _location.refreshCurrentLocation();
-        return;
-      }
-      navigator = LinkedNavigator(
-        id: LinkedNavigatorService.selfNavigator.id,
-        name: _sessionNavigatorFullName,
-        address: _originAddress ?? _location.address,
-        location: live,
-        status: 'Navigating',
-        batteryPercent: LinkedNavigatorService.selfNavigator.batteryPercent,
-        isOnline: true,
-      );
+    if (_routeRequestToken == _searchToken &&
+        _routingPlace?.latitude == place.latitude &&
+        _routingPlace?.longitude == place.longitude) {
+      return;
     }
-
-    final result = await _placeService.buildRoutePlan(
-      navigator: navigator,
-      destination: place,
-    );
-    if (!mounted) return;
-    await _destinationSearch.saveRecentSentDestination(
-      navigatorId: _selected.id,
-      place: place,
-    );
-    if (!mounted) return;
-    Navigator.of(context).pop<RoutePlanResult>(result);
+    final token = ++_searchToken;
+    _routeRequestToken = token;
+    _routingPlace = place;
+    FocusScope.of(context).unfocus();
+    setState(() => _isSearching = true);
+    try {
+      LinkedNavigator navigator = _selected;
+      if (_useLiveOrigin) {
+        var live = _location.livePosition;
+        if (live == null) {
+          await _location.refreshCurrentLocation();
+          if (!mounted || token != _searchToken) return;
+          live = _location.livePosition;
+          if (live == null) {
+            throw NavigationRouteException(
+              _location.errorMessage ??
+                  'Current location is unavailable. Allow location access, then retry this destination.',
+            );
+          }
+        }
+        navigator = LinkedNavigator(
+          id: LinkedNavigatorService.selfNavigator.id,
+          name: _sessionNavigatorFullName,
+          address: _originAddress ?? _location.address,
+          location: live,
+          status: 'Navigating',
+          batteryPercent: LinkedNavigatorService.selfNavigator.batteryPercent,
+          isOnline: true,
+        );
+      }
+      final result = await _placeService.buildRoutePlan(
+        navigator: navigator,
+        destination: place,
+      );
+      if (!mounted || token != _searchToken) return;
+      // Local history must not prevent an otherwise valid route from opening.
+      try {
+        await _destinationSearch.saveRecentSentDestination(
+          navigatorId: _selected.id,
+          place: place,
+        );
+      } catch (_) {}
+      if (!mounted || token != _searchToken) return;
+      Navigator.of(context).pop<RoutePlanResult>(result);
+    } catch (error) {
+      if (!mounted || token != _searchToken) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error is NavigationRouteException
+                ? error.message
+                : 'Could not start navigation. Please retry this destination.',
+          ),
+        ),
+      );
+    } finally {
+      if (_routeRequestToken == token) _routeRequestToken = null;
+      if (mounted && token == _searchToken) {
+        setState(() => _isSearching = false);
+      }
+    }
   }
 
   void _useRecentDestination(MapPlace place) {
-    _destinationController.text = place.name;
-    _destinationController.selection = TextSelection.collapsed(
-      offset: _destinationController.text.length,
-    );
-    _destinationFocus.requestFocus();
+    if (_destinationController.text != place.name) {
+      _destinationController.text = place.name;
+      _destinationController.selection = TextSelection.collapsed(
+        offset: place.name.length,
+      );
+    }
+    unawaited(_onSuggestionSelected(place));
   }
 
   @override
   void dispose() {
-    _searchDebounce?.cancel();
     if (_useLiveOrigin) {
       _location.removeListener(_onLocationChanged);
     }
@@ -249,10 +301,14 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               RouteSearchCard(
-                navigators: LinkedNavigatorService.navigators,
+                navigators:
+                    widget.linkedNavigators ??
+                    LinkedNavigatorService.navigators,
                 selectedNavigator: _selected,
                 onNavigatorChanged: (n) {
+                  _searchToken++;
                   setState(() {
+                    _isSearching = false;
                     _selected = n;
                     if (!_useLiveOrigin) {
                       _originAddress = n.address;
@@ -264,13 +320,16 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
                 destinationFocusNode: _destinationFocus,
                 onSwap: () {},
                 suggestions: _suggestions,
-                onSuggestionSelected: (place) => unawaited(_onSuggestionSelected(place)),
+                onSuggestionSelected: (place) =>
+                    unawaited(_onSuggestionSelected(place)),
                 showNavigatorPicker: !widget.isNavigatorMode,
                 originAddress: _originAddress,
                 originTitle: widget.isNavigatorMode
                     ? 'Your current location'
                     : "${_selected.name}'s Location",
                 isSearching: _isSearching,
+                onSearch: () =>
+                    unawaited(_runSearch(_destinationController.text.trim())),
               ),
               const SizedBox(height: 20),
               _RecentDestinationsSection(
@@ -281,12 +340,17 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
                 const SizedBox(height: 16),
                 Center(
                   child: Text(
-                    'Searching nearest places…',
+                    _routeRequestToken == _searchToken
+                        ? 'Preparing walking route...'
+                        : 'Searching nearest places...',
                     style: TextStyle(color: g.textSecondary, fontSize: 13),
                   ),
                 ),
               ],
-              if (!_isSearching &&
+              if (_searchError != null) Text(_searchError!),
+              if (_hasSearched &&
+                  _searchError == null &&
+                  !_isSearching &&
                   _destinationController.text.trim().length >= 2 &&
                   _suggestions.isEmpty) ...[
                 const SizedBox(height: 16),
@@ -352,47 +416,54 @@ class _RecentDestinationsSection extends StatelessWidget {
         else
           Container(
             decoration: GabayTheme.cardDecoration(context),
-            child: Column(
-              children: [
-                for (var index = 0; index < destinations.length && index < 3; index++) ...[
-                  ListTile(
-                    dense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 2,
-                    ),
-                    leading: Icon(
-                      Icons.history_rounded,
-                      color: g.accent,
-                      size: 22,
-                    ),
-                    title: Text(
-                      destinations[index].name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: g.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
+            child: Material(
+              type: MaterialType.transparency,
+              child: Column(
+                children: [
+                  for (
+                    var index = 0;
+                    index < destinations.length && index < 3;
+                    index++
+                  ) ...[
+                    ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 2,
                       ),
+                      leading: Icon(
+                        Icons.history_rounded,
+                        color: g.accent,
+                        size: 22,
+                      ),
+                      title: Text(
+                        destinations[index].displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: g.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      subtitle: Text(
+                        destinations[index].shortAddress,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: g.textSecondary, fontSize: 12),
+                      ),
+                      trailing: Icon(
+                        Icons.north_east_rounded,
+                        color: g.textSecondary,
+                        size: 18,
+                      ),
+                      onTap: () => onDestinationTap(destinations[index]),
                     ),
-                    subtitle: Text(
-                      destinations[index].address,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: g.textSecondary, fontSize: 12),
-                    ),
-                    trailing: Icon(
-                      Icons.north_east_rounded,
-                      color: g.textSecondary,
-                      size: 18,
-                    ),
-                    onTap: () => onDestinationTap(destinations[index]),
-                  ),
-                  if (index < destinations.length - 1 && index < 2)
-                    Divider(height: 1, color: g.border),
+                    if (index < destinations.length - 1 && index < 2)
+                      Divider(height: 1, color: g.border),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
       ],

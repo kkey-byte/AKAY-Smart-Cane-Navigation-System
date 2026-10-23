@@ -9,18 +9,10 @@ class ApiConfig {
 
   static const String _fromEnv = String.fromEnvironment('API_BASE_URL');
 
-  /// Auth mode: `api` (Postgres via app_mobile_backend) or `local`.
-  static const String authMode = String.fromEnvironment(
-    'AUTH_MODE',
-    defaultValue: 'api',
-  );
-
-  static bool get useApi => authMode.toLowerCase() != 'local';
-
   /// PC Wi-Fi address used by a physical phone on the same network.
   static const String _lanHost = String.fromEnvironment(
     'API_LAN_HOST',
-    defaultValue: '10.173.181.41',
+    defaultValue: '',
   );
 
   static String get baseUrl => candidateBaseUrls.first;
@@ -35,7 +27,7 @@ class ApiConfig {
     if (defaultTargetPlatform == TargetPlatform.android) {
       return [
         'http://127.0.0.1:5000/api',
-        'http://$_lanHost:5000/api',
+        if (_lanHost.isNotEmpty) 'http://$_lanHost:5000/api',
         'http://10.0.2.2:5000/api',
       ];
     }

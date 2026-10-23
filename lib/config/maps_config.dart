@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Google Maps configuration.
 ///
 /// Add your key to `android/local.properties`:
@@ -22,5 +24,11 @@ class MapsConfig {
   }
 
   /// Uses OpenStreetMap tiles when no Google key is configured.
-  static bool get useOpenStreetMapFallback => !hasGoogleMapsApiKey;
+  static bool get useOpenStreetMapFallback =>
+      kIsWeb ||
+      ![
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+      ].contains(defaultTargetPlatform) ||
+      !hasGoogleMapsApiKey;
 }

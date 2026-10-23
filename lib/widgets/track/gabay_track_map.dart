@@ -61,6 +61,10 @@ class TrackMapController {
     double padding = 80,
   }) async {
     if (points.isEmpty) return;
+    if (points.length == 1 || points.every((point) => point == points.first)) {
+      await animateToLatLng(points.first);
+      return;
+    }
 
     if (_googleController != null) {
       final bounds = _googleBoundsFromPoints(points);
@@ -113,6 +117,7 @@ class GabayTrackMap extends StatefulWidget {
     required this.initialCamera,
     required this.markers,
     required this.routePoints,
+    this.breadcrumbPoints = const [],
     required this.padding,
     required this.onControllerReady,
     this.googleMarkerIcons,
@@ -129,6 +134,7 @@ class GabayTrackMap extends StatefulWidget {
   final gmaps.CameraPosition initialCamera;
   final List<GabayMapMarkerData> markers;
   final List<gmaps.LatLng> routePoints;
+  final List<gmaps.LatLng> breadcrumbPoints;
   final EdgeInsets padding;
   final ValueChanged<TrackMapController> onControllerReady;
   final GabayMapMarkerIcons? googleMarkerIcons;
@@ -233,6 +239,16 @@ class _GabayTrackMapState extends State<GabayTrackMap> {
               Polyline(
                 points: widget.routePoints.map(_toLatLong).toList(),
                 color: GabayMapRendering.routeAccent,
+                strokeWidth: 5,
+              ),
+            ],
+          ),
+        if (widget.breadcrumbPoints.length >= 2)
+          PolylineLayer(
+            polylines: [
+              Polyline(
+                points: widget.breadcrumbPoints.map(_toLatLong).toList(),
+                color: Theme.of(context).colorScheme.tertiary,
                 strokeWidth: 5,
               ),
             ],

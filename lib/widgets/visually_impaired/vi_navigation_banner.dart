@@ -6,9 +6,9 @@ class ViNavigationBanner extends StatelessWidget {
   const ViNavigationBanner({
     super.key,
     required this.isActive,
-    this.destination = 'City Hall',
-    this.eta = '12 min',
-    this.distance = '850 m',
+    this.destination = 'your selected destination',
+    this.eta = 'Unavailable',
+    this.distance = 'Unavailable',
     this.onTap,
   });
 
@@ -51,7 +51,10 @@ class ViNavigationBanner extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: (isActive ? g.success : g.textSecondary)
                               .withValues(alpha: 0.12),
@@ -67,7 +70,9 @@ class ViNavigationBanner extends StatelessWidget {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              isActive ? 'Navigation Active' : 'No Active Route',
+                              isActive
+                                  ? 'Navigation Active'
+                                  : 'No Active Route',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -79,7 +84,10 @@ class ViNavigationBanner extends StatelessWidget {
                       ),
                       const Spacer(),
                       if (isActive)
-                        Icon(Icons.chevron_right_rounded, color: g.textSecondary),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: g.textSecondary,
+                        ),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -92,7 +100,11 @@ class ViNavigationBanner extends StatelessWidget {
                           color: g.accentTint,
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: Icon(Icons.flag_rounded, color: g.accent, size: 24),
+                        child: Icon(
+                          Icons.flag_rounded,
+                          color: g.accent,
+                          size: 24,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -105,7 +117,9 @@ class ViNavigationBanner extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              isActive ? destination : 'Tap Track to start navigating',
+                              isActive
+                                  ? destination
+                                  : 'Tap Track to start navigating',
                               style: GabayTheme.bodyLarge(context),
                             ),
                             if (isActive) ...[

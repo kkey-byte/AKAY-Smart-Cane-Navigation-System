@@ -1,3 +1,4 @@
+import 'secure_api.dart';
 import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,10 +11,7 @@ import '../models/user_role.dart';
 
 /// Result returned by [AuthService] after a successful auth call.
 class AuthResult {
-  const AuthResult({
-    required this.user,
-    this.token,
-  });
+  const AuthResult({required this.user, this.token});
 
   final AppUser user;
   final String? token;
@@ -39,9 +37,9 @@ class AuthService {
     http.Client? client,
     String? baseUrl,
     FirebaseAuth? firebaseAuth,
-  })  : _client = client ?? http.Client(),
-        _baseUrl = baseUrl ?? ApiConfig.baseUrl,
-        _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
+  }) : _client = client ?? http.Client(),
+       _baseUrl = baseUrl ?? ApiConfig.baseUrl,
+       _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
 
   static final AuthService instance = AuthService();
 
@@ -94,8 +92,7 @@ class AuthService {
 
     final firebaseUid = firebaseUser.uid;
 
-    // Sync profile to Postgres. Password is sent so the API can store a bcrypt
-    // hash (login still uses Firebase Auth as the source of truth).
+    // Registration also stores a separate server-generated password hash.
     final payload = <String, dynamic>{
       'firebase_uid': firebaseUid,
       'firebaseUid': firebaseUid, // camelCase alias for compatibility
@@ -108,11 +105,6 @@ class AuthService {
         'profile_picture': profilePicture.trim(),
     };
 
-    debugPrint('AuthService: POST /auth/register');
-    debugPrint(
-      'AuthService: firebase_uid=$firebaseUid email=$normalizedEmail role=${role.backendValue}',
-    );
-
     try {
       return await _postAuth('/auth/register', payload);
     } on AuthException catch (e) {
@@ -120,12 +112,8 @@ class AuthService {
       if (e.statusCode == 409) {
         return _postAuth('/auth/login', {'firebase_uid': firebaseUid});
       }
-      // Only roll back Firebase when the DB profile was NOT created.
-      if (e.statusCode == null || e.statusCode! >= 500) {
-        try {
-          await firebaseUser.delete();
-        } catch (_) {}
-      }
+      // An uncertain server outcome must never delete an authenticated account.
+      // Retrying with the same Firebase identity reconciles the profile.
       rethrow;
     }
   }
@@ -155,8 +143,6 @@ class AuthService {
       throw AuthException('Firebase did not return a user after login.');
     }
 
-    debugPrint('AuthService: loading Postgres profile for firebase_uid=$firebaseUid');
-
     return _postAuth('/auth/login', {
       'firebase_uid': firebaseUid,
       'firebaseUid': firebaseUid,
@@ -168,24 +154,33 @@ class AuthService {
     String path,
     Map<String, dynamic> payload,
   ) async {
+    final idToken = await _firebaseAuth.currentUser?.getIdToken();
+    if (idToken == null || idToken.isEmpty) {
+      throw AuthException('Sign in again to continue.');
+    }
     final encoded = jsonEncode(payload);
     final bases = _workingBaseUrl != null
         ? <String>[_workingBaseUrl!]
         : (_baseUrl == ApiConfig.baseUrl
-            ? ApiConfig.candidateBaseUrls
-            : <String>[_baseUrl]);
+              ? ApiConfig.candidateBaseUrls
+              : <String>[_baseUrl]);
 
     late final http.Response response;
     Object? lastError;
 
     for (final base in bases) {
       final uri = Uri.parse('$base$path');
+      if (kReleaseMode && uri.scheme != 'https') {
+        throw AuthException(
+          'HTTPS is required. Configure a secure API endpoint.',
+        );
+      }
       try {
-        debugPrint('AuthService: POST $uri');
         final attempt = await _client
             .post(
               uri,
-              headers: const {
+              headers: {
+                'Authorization': 'Bearer $idToken',
                 'Content-Type': 'application/json; charset=UTF-8',
                 'Accept': 'application/json',
               },
@@ -193,40 +188,41 @@ class AuthService {
             )
             .timeout(const Duration(seconds: 12));
         _workingBaseUrl = base;
+        SecureApi.preferredBase = base;
         response = attempt;
         lastError = null;
         break;
       } on Exception catch (e) {
         lastError = e;
-        debugPrint('AuthService network error ($base): $e');
       }
     }
 
     if (lastError != null) {
       throw AuthException(
-        'Unable to reach the auth server. Make sure the backend is running '
-        'and this phone is on the same Wi-Fi (or connected by USB).',
+        kIsWeb
+            ? 'Cannot reach the account server. Check that the backend is running '
+                  'and permits this browser address (CORS), then retry.'
+            : 'Cannot reach the account server. Check the backend address and '
+                  'network connection, then retry.',
+        code: 'auth_server_unreachable',
       );
     }
-
-    debugPrint('AuthService: $path → ${response.statusCode} ${response.body}');
 
     final body = _decodeBody(response.body);
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final message = (body['message'] ??
-              body['error'] ??
-              'Authentication failed (${response.statusCode})')
-          .toString();
+      final message =
+          (body['message'] ??
+                  body['error'] ??
+                  'Authentication failed (${response.statusCode})')
+              .toString();
       throw AuthException(message, statusCode: response.statusCode);
     }
 
     final userRaw = body['user'] ?? body['data'] ?? body;
     try {
       final user = AppUser.fromJson(_asStringKeyMap(userRaw));
-      final token =
-          (body['token'] ?? body['access_token'] ?? payload['firebase_uid'])
-              ?.toString();
+      final token = (body['token'] ?? body['access_token'])?.toString();
       return AuthResult(user: user, token: token);
     } on FormatException catch (e) {
       throw AuthException(e.message, statusCode: response.statusCode);
@@ -262,7 +258,7 @@ class AuthService {
       if (decoded is Map) return Map<String, dynamic>.from(decoded);
       return {'data': decoded};
     } on FormatException {
-      return {'message': raw};
+      throw AuthException('Invalid authentication service response.');
     }
   }
 }

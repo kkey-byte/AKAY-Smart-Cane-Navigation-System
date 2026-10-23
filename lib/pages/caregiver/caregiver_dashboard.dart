@@ -5,10 +5,10 @@ import '../../services/app_session_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/profile_service.dart';
 import '../../theme/gabay_theme.dart';
+import '../../widgets/shared/dashboard_pairing_card.dart';
 import '../../widgets/dashboard_widgets/dashboard_header.dart';
-import '../../widgets/dashboard_widgets/live_status_card.dart';
-import '../../widgets/dashboard_widgets/stat_card.dart';
-import '../../widgets/dashboard_widgets/location_card.dart';
+import '../../widgets/dashboard_widgets/dashboard_live_section.dart';
+import '../../widgets/dashboard_widgets/recorded_reports.dart';
 import '../../widgets/dashboard_widgets/activity_card.dart';
 import '../../widgets/dashboard_widgets/bottom_nav.dart';
 import '../../widgets/shared/floating_bottom_nav_shell.dart';
@@ -18,8 +18,6 @@ import 'caregiver_track.dart';
 import 'caregiver_reports.dart';
 import 'caregiver_profile.dart';
 import 'notifications_page.dart';
-import '../shared/information_health_status_page.dart';
-import '../../models/navigator_health_profile.dart';
 
 class CaregiverDashboard extends StatefulWidget {
   const CaregiverDashboard({super.key});
@@ -30,6 +28,8 @@ class CaregiverDashboard extends StatefulWidget {
 
 class _CaregiverDashboardState extends State<CaregiverDashboard> {
   int _selectedIndex = 0;
+  bool _profileLoading = true;
+  bool _profileError = false;
   final _notificationService = NotificationService.instance;
 
   @override
@@ -41,10 +41,18 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
   }
 
   Future<void> _loadDisplayName() async {
+    if (mounted) {
+      setState(() {
+        _profileLoading = true;
+        _profileError = false;
+      });
+    }
     try {
       await ProfileService.instance.fetchProfile();
     } catch (_) {
-      // Keep cached session name if offline.
+      if (mounted) setState(() => _profileError = true);
+    } finally {
+      if (mounted) setState(() => _profileLoading = false);
     }
   }
 
@@ -83,14 +91,6 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
     }
   }
 
-  void _openNavigatorHealthStatus() {
-    context.pushGabayPage(
-      const InformationHealthStatusPage(
-        profile: NavigatorHealthProfile.linkedNavigator,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,8 +122,6 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
   }
 
   Widget _buildDashboardPage(BuildContext context) {
-    final accent = context.gabay.accent;
-
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
@@ -150,43 +148,33 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
                 );
               },
             ),
+            const SizedBox(height: 16),
+            DashboardLiveSection(
+              caregiver: true,
+              onViewMap: () => _onNavTapped(1),
+            ),
             const SizedBox(height: 20),
-            LiveStatusCard(
-              onViewProfile: _openNavigatorHealthStatus,
-            ),
+            const DashboardPairingCard(caregiver: true),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: StatCard(
-                    icon: Icons.location_on_rounded,
-                    title: 'Distance Covered',
-                    value: '3243',
-                    unit: 'Km',
-                    color: accent,
+            if (_profileLoading)
+              const LinearProgressIndicator(semanticsLabel: 'Loading profile'),
+            if (_profileError)
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  const Text(
+                    'Profile refresh failed. Cached details may be out of date.',
                   ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: StatCard(
-                    icon: Icons.route_rounded,
-                    title: 'Total Route',
-                    value: '23',
-                    unit: 'Route',
-                    color: accent,
+                  TextButton(
+                    onPressed: _loadDisplayName,
+                    child: const Text('Retry'),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            const SizedBox(height: 20),
+            const RecordedReports(caregiver: true, compact: true),
             const SizedBox(height: 16),
-            LocationCard(
-              onViewMapPressed: () => _onNavTapped(1),
-            ),
-            const SizedBox(height: 22),
-            Text(
-              'Recent Activity',
-              style: GabayTheme.sectionTitle(context),
-            ),
+            Text('Recent Activity', style: GabayTheme.sectionTitle(context)),
             const SizedBox(height: 14),
             const RecentActivityList(),
           ],

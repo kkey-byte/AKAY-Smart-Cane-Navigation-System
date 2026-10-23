@@ -1,3 +1,5 @@
+import '../../services/pairing_service.dart';
+import '../shared/pairing_management_page.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -23,7 +25,6 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
   static const _setupSteps = 6;
 
   int _step = 0;
-  bool _scanningCane = false;
   bool _canePaired = false;
   bool _locationGranted = false;
   bool _notificationsGranted = false;
@@ -60,7 +61,7 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
   void initState() {
     super.initState();
     final saved = AppSessionService.instance.setupData;
-    _canePaired = saved.smartCanePaired;
+    _canePaired = false; // Legacy setup flags did not verify a device.
     _locationGranted = saved.locationGranted;
     _notificationsGranted = saved.notificationsGranted;
     _contacts.addAll(saved.emergencyContacts);
@@ -86,7 +87,8 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
   bool get _canContinue {
     return switch (_step) {
       0 => true,
-      1 => _canePaired || AppSessionService.instance.setupData.smartCaneSkipped,
+      1 =>
+        true, // Device registration is independent from onboarding completion.
       2 => _contacts.isNotEmpty,
       3 => _locationGranted,
       4 => true,
@@ -118,6 +120,7 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
       await _persistPartial();
     }
 
+    if (!mounted) return;
     if (_step >= 7) {
       await OnboardingRouter.openDashboard(context);
       return;
@@ -131,17 +134,33 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
     setState(() => _step--);
   }
 
-  Future<void> _scanForCane() async {
-    setState(() => _scanningCane = true);
-    await Future<void>.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-    setState(() {
-      _scanningCane = false;
-      _canePaired = true;
-    });
-    await AppSessionService.instance.updateSetupData(
-      AppSessionService.instance.setupData.copyWith(smartCanePaired: true),
+  Future<void> _openCaneManagement() async {
+    final revision = AppSessionService.instance.identityRevision;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const PairingManagementPage(caregiver: false),
+      ),
     );
+    try {
+      final devices = await PairingService.instance.devices();
+      if (!mounted || revision != AppSessionService.instance.identityRevision) {
+        return;
+      }
+      setState(
+        () =>
+            _canePaired = devices.any((device) => device.assignmentId != null),
+      );
+      await _persistPartial();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Unable to refresh registered canes. Open device management to retry.',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _skipCane() async {
@@ -169,7 +188,8 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
       permission = await Geolocator.requestPermission();
     }
 
-    final granted = permission == LocationPermission.always ||
+    final granted =
+        permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse;
 
     setState(() => _locationGranted = granted);
@@ -200,10 +220,7 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
       progress: _progress,
       onBack: _step > 0 && _step < 7 ? _previousStep : null,
       bottomBar: _buildBottomBar(),
-      child: KeyedSubtree(
-        key: ValueKey(_step),
-        child: _buildStepContent(),
-      ),
+      child: KeyedSubtree(key: ValueKey(_step), child: _buildStepContent()),
     );
   }
 
@@ -265,10 +282,7 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
           enabled: _canContinue,
         ),
         if (_step == 1)
-          OnboardingTextButton(
-            label: 'Skip for now',
-            onPressed: _skipCane,
-          ),
+          OnboardingTextButton(label: 'Skip for now', onPressed: _skipCane),
       ],
     );
   }
@@ -307,11 +321,7 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
           Text(
             "Let's complete a few quick steps to personalize your experience.",
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              height: 1.5,
-              color: g.textSecondary,
-            ),
+            style: TextStyle(fontSize: 16, height: 1.5, color: g.textSecondary),
           ),
         ],
       ),
@@ -332,15 +342,12 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
                 : null,
           ),
           const SizedBox(height: 24),
-          Text(
-            'Pair Smart Cane',
-            style: GabayTheme.sectionTitle(context),
-          ),
+          Text('Register Smart Canes', style: GabayTheme.sectionTitle(context)),
           const SizedBox(height: 10),
           const OnboardingInfoCard(
-            title: 'Why pair your cane?',
+            title: 'Register and assign your canes',
             subtitle:
-                'Connecting your Smart Cane enables obstacle detection, haptic feedback, and safer navigation with GABAY.',
+                'Verify physical custody using each cane’s private claim code, then assign it to your account. Registration does not confirm hardware connectivity.',
             leading: Icon(Icons.info_outline_rounded, color: Color(0xFF0A84FF)),
           ),
           const SizedBox(height: 20),
@@ -348,11 +355,14 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
             GabayCard(
               child: Row(
                 children: [
-                  Icon(Icons.check_circle_rounded, color: context.gabay.success),
+                  Icon(
+                    Icons.check_circle_rounded,
+                    color: context.gabay.success,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'GABAY Smart Cane connected successfully!',
+                      'Registered cane assignment confirmed for your account.',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         color: context.gabay.textPrimary,
@@ -361,13 +371,12 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
                   ),
                 ],
               ),
-            )
-          else
-            OnboardingPrimaryButton(
-              label: _scanningCane ? 'Scanning...' : 'Scan for Smart Cane',
-              onPressed: _scanningCane ? null : _scanForCane,
-              enabled: !_scanningCane,
             ),
+          const SizedBox(height: 12),
+          OnboardingPrimaryButton(
+            label: 'Register or manage smart canes',
+            onPressed: _openCaneManagement,
+          ),
         ],
       ),
     );
@@ -398,13 +407,18 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
                   contentPadding: EdgeInsets.zero,
                   leading: CircleAvatar(
                     backgroundColor: context.gabay.accentTint,
-                    child: Icon(Icons.person_rounded, color: context.gabay.accent),
+                    child: Icon(
+                      Icons.person_rounded,
+                      color: context.gabay.accent,
+                    ),
                   ),
                   title: Text(
                     contact.name,
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  subtitle: Text('${contact.phone}${contact.relationship.isNotEmpty ? ' • ${contact.relationship}' : ''}'),
+                  subtitle: Text(
+                    '${contact.phone}${contact.relationship.isNotEmpty ? ' • ${contact.relationship}' : ''}',
+                  ),
                 ),
               ),
             ),
@@ -479,10 +493,15 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
-            child: OnboardingIllustration(icon: Icons.accessibility_new_rounded),
+            child: OnboardingIllustration(
+              icon: Icons.accessibility_new_rounded,
+            ),
           ),
           const SizedBox(height: 24),
-          Text('Accessibility Preferences', style: GabayTheme.sectionTitle(context)),
+          Text(
+            'Accessibility Preferences',
+            style: GabayTheme.sectionTitle(context),
+          ),
           const SizedBox(height: 16),
           GabayCard(
             child: Text(
@@ -511,10 +530,14 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
             ),
           ),
           _prefSwitch('High Contrast', _accessibility.highContrast, (v) {
-            setState(() => _accessibility = _accessibility.copyWith(highContrast: v));
+            setState(
+              () => _accessibility = _accessibility.copyWith(highContrast: v),
+            );
           }),
           _prefSwitch('Voice Guidance', _accessibility.voiceGuidance, (v) {
-            setState(() => _accessibility = _accessibility.copyWith(voiceGuidance: v));
+            setState(
+              () => _accessibility = _accessibility.copyWith(voiceGuidance: v),
+            );
           }),
           _prefTile(
             'Speech Speed',
@@ -539,12 +562,16 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
               ],
               onChanged: (v) {
                 if (v == null) return;
-                setState(() => _accessibility = _accessibility.copyWith(language: v));
+                setState(
+                  () => _accessibility = _accessibility.copyWith(language: v),
+                );
               },
             ),
           ),
           _prefSwitch('Haptic Feedback', _accessibility.hapticFeedback, (v) {
-            setState(() => _accessibility = _accessibility.copyWith(hapticFeedback: v));
+            setState(
+              () => _accessibility = _accessibility.copyWith(hapticFeedback: v),
+            );
           }),
         ],
       ),
@@ -573,7 +600,10 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
       child: GabayCard(
         child: SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+          title: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
           value: value,
           onChanged: onChanged,
         ),
@@ -586,7 +616,9 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
       child: Column(
         children: [
-          const OnboardingIllustration(icon: Icons.notifications_active_rounded),
+          const OnboardingIllustration(
+            icon: Icons.notifications_active_rounded,
+          ),
           const SizedBox(height: 24),
           Text('Notifications', style: GabayTheme.sectionTitle(context)),
           const SizedBox(height: 12),

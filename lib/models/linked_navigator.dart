@@ -1,3 +1,4 @@
+import '../services/app_session_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 /// A visually impaired user linked to the caregiver account.
@@ -10,6 +11,7 @@ class LinkedNavigator {
   final String status;
   final int batteryPercent;
   final bool isOnline;
+
   /// Device key used by Firebase Realtime Database live-location updates.
   /// When omitted, the linked navigator id is used for backward compatibility.
   final String? deviceId;
@@ -55,71 +57,21 @@ class LinkedNavigator {
   }
 }
 
-/// Mock linked navigators — replace with backend / Firebase fetch.
+/// Telemetry and device pairing are unavailable until a verified API exists.
 class LinkedNavigatorService {
   LinkedNavigatorService._();
-
-  static final LinkedNavigatorService instance = LinkedNavigatorService._();
-
-  /// Logged-in visually impaired (navigator) user profile.
-  static const LinkedNavigator selfNavigator = LinkedNavigator(
-    id: 'nav_self',
-    name: 'Mariel Joyce Batulanon',
-    address: 'Rizal Street, Panabo City',
-    location: LatLng(7.3064, 125.6865),
-    status: 'Walking',
-    batteryPercent: 78,
-    isOnline: true,
+  static final instance = LinkedNavigatorService._();
+  static const navigators = <LinkedNavigator>[];
+  static LinkedNavigator get selfNavigator => LinkedNavigator(
+    id: AppSessionService.instance.userId ?? '',
+    name: AppSessionService.instance.displayName ?? 'Navigator',
+    address: 'Location unavailable',
+    location: const LatLng(0, 0),
+    status: 'Status unavailable',
+    batteryPercent: -1,
+    isOnline: false,
   );
-
-  static const List<LinkedNavigator> navigators = [
-    LinkedNavigator(
-      id: 'nav_1',
-      name: 'Glaisa Regine Mariel',
-      address: 'Quezon Street, Panabo City',
-      location: LatLng(7.3064, 125.6865),
-      status: 'Walking',
-      batteryPercent: 82,
-      isOnline: true,
-    ),
-    LinkedNavigator(
-      id: 'nav_2',
-      name: 'Juan Dela Cruz',
-      address: 'Rizal Street, Panabo City',
-      location: LatLng(7.3018, 125.6920),
-      status: 'Idle',
-      batteryPercent: 64,
-      isOnline: true,
-    ),
-    LinkedNavigator(
-      id: 'nav_3',
-      name: 'Maria Santos',
-      address: 'Tagum-Panabo Highway, Panabo City',
-      location: LatLng(7.3142, 125.6785),
-      status: 'Navigating',
-      batteryPercent: 45,
-      isOnline: true,
-    ),
-    LinkedNavigator(
-      id: 'nav_4',
-      name: 'Pedro Reyes',
-      address: 'New Visayas, Panabo City',
-      location: LatLng(7.2985, 125.6810),
-      status: 'Offline',
-      batteryPercent: 20,
-      isOnline: false,
-    ),
-  ];
-
-  LinkedNavigator? findById(String id) {
-    for (final nav in navigators) {
-      if (nav.id == id) return nav;
-    }
-    return null;
-  }
-
-  /// Firebase live tracking placeholder.
-  void subscribeUpdates(void Function(List<LinkedNavigator> navigators) onUpdate) {
-    // TODO: Firebase Realtime Database listener
-  }
+  LinkedNavigator? findById(String id) => null;
+  void subscribeUpdates(void Function(List<LinkedNavigator>) onUpdate) =>
+      onUpdate(const []);
 }

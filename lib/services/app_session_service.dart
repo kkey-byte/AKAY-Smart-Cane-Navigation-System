@@ -5,6 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/onboarding_data.dart';
 import '../models/user_role.dart';
+import 'breadcrumb_service.dart';
+import 'navigator_location_service.dart';
+import 'auth_service.dart';
+import 'notification_service.dart';
+import 'vi_navigation_session.dart';
 
 /// Persists auth session and onboarding state locally.
 /// Ready to sync with the PostgreSQL-backed auth API.
@@ -25,6 +30,7 @@ class AppSessionService extends ChangeNotifier {
   static const _keyProfilePicture = 'profilePicture';
   static const _keyProfileComplete = 'profileComplete';
 
+  int identityRevision = 0;
   bool _initialized = false;
   bool isLoggedIn = false;
   bool onboardingComplete = false;
@@ -52,7 +58,9 @@ class AppSessionService extends ChangeNotifier {
     role = UserRole.fromStorage(prefs.getString(_keyRole));
     email = prefs.getString(_keyEmail);
     userId = prefs.getString(_keyUserId);
-    authToken = prefs.getString(_keyAuthToken);
+    authToken = null;
+    await prefs.remove(_keyAuthToken);
+    await prefs.remove('local_users_v1');
     displayName = prefs.getString(_keyDisplayName);
     phone = prefs.getString(_keyPhone);
     profilePicture = prefs.getString(_keyProfilePicture);
@@ -79,12 +87,34 @@ class AppSessionService extends ChangeNotifier {
     String? token,
   }) async {
     final prefs = await SharedPreferences.getInstance();
+    identityRevision++;
+    if (userId != id || email != userEmail || !isLoggedIn) {
+      NavigatorLocationService.instance.stopTracking(clearLocation: true);
+      displayName = null;
+      phone = null;
+      profilePicture = null;
+      profileComplete = false;
+      onboardingComplete = false;
+      setupData = const OnboardingSetupData();
+      for (final key in [
+        _keyDisplayName,
+        _keyPhone,
+        _keyProfilePicture,
+        _keyProfileComplete,
+        _keyOnboardingComplete,
+        _keyOnboardingData,
+      ]) {
+        await prefs.remove(key);
+      }
+      NotificationService.instance.clearAll();
+      ViNavigationSession.instance.setNavigating(false);
+    }
     isLoggedIn = true;
     onboardingComplete = false;
     role = userRole;
     email = userEmail;
     userId = id;
-    authToken = token;
+    authToken = null;
     setupData = const OnboardingSetupData();
 
     await prefs.setBool(_keyLoggedIn, true);
@@ -104,11 +134,33 @@ class AppSessionService extends ChangeNotifier {
     String? token,
   }) async {
     final prefs = await SharedPreferences.getInstance();
+    identityRevision++;
+    if (userId != id || email != userEmail || !isLoggedIn) {
+      NavigatorLocationService.instance.stopTracking(clearLocation: true);
+      displayName = null;
+      phone = null;
+      profilePicture = null;
+      profileComplete = false;
+      onboardingComplete = false;
+      setupData = const OnboardingSetupData();
+      for (final key in [
+        _keyDisplayName,
+        _keyPhone,
+        _keyProfilePicture,
+        _keyProfileComplete,
+        _keyOnboardingComplete,
+        _keyOnboardingData,
+      ]) {
+        await prefs.remove(key);
+      }
+      NotificationService.instance.clearAll();
+      ViNavigationSession.instance.setNavigating(false);
+    }
     isLoggedIn = true;
     role = userRole;
     email = userEmail;
     userId = id;
-    authToken = token;
+    authToken = null;
 
     await prefs.setBool(_keyLoggedIn, true);
     await prefs.setString(_keyRole, userRole.storageValue);
@@ -128,11 +180,8 @@ class AppSessionService extends ChangeNotifier {
     } else {
       await prefs.remove(_keyUserId);
     }
-    if (token != null) {
-      await prefs.setString(_keyAuthToken, token);
-    } else {
-      await prefs.remove(_keyAuthToken);
-    }
+    // Bearer credentials belong to Firebase's SDK-managed session.
+    await prefs.remove(_keyAuthToken);
   }
 
   Future<void> updateSetupData(OnboardingSetupData data) async {
@@ -150,19 +199,32 @@ class AppSessionService extends ChangeNotifier {
   }
 
   Future<void> updateProfileCache({
+    int? expectedIdentityRevision,
     String? name,
     String? phone,
     String? profilePicture,
     bool? profileComplete,
   }) async {
     final prefs = await SharedPreferences.getInstance();
+    if (expectedIdentityRevision != null &&
+        expectedIdentityRevision != identityRevision) {
+      return;
+    }
     if (name != null) {
       displayName = name;
       await prefs.setString(_keyDisplayName, name);
     }
+    if (expectedIdentityRevision != null &&
+        expectedIdentityRevision != identityRevision) {
+      return;
+    }
     if (phone != null) {
       this.phone = phone;
       await prefs.setString(_keyPhone, phone);
+    }
+    if (expectedIdentityRevision != null &&
+        expectedIdentityRevision != identityRevision) {
+      return;
     }
     if (profilePicture != null) {
       this.profilePicture = profilePicture;
@@ -175,6 +237,10 @@ class AppSessionService extends ChangeNotifier {
         await prefs.remove(_keyProfilePicture);
       }
     }
+    if (expectedIdentityRevision != null &&
+        expectedIdentityRevision != identityRevision) {
+      return;
+    }
     if (profileComplete != null) {
       this.profileComplete = profileComplete;
       await prefs.setBool(_keyProfileComplete, profileComplete);
@@ -182,7 +248,20 @@ class AppSessionService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> logout() async {
+  Future<void> logout({Future<void> Function()? signOut}) async {
+    identityRevision++;
+    isLoggedIn = false;
+    displayName = null;
+    phone = null;
+    profilePicture = null;
+    email = null;
+    userId = null;
+    authToken = null;
+    role = null;
+    setupData = const OnboardingSetupData();
+    NotificationService.instance.clearAll();
+    ViNavigationSession.instance.setNavigating(false);
+    notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     isLoggedIn = false;
     onboardingComplete = false;
@@ -209,6 +288,13 @@ class AppSessionService extends ChangeNotifier {
     await prefs.remove(_keyProfileComplete);
 
     notifyListeners();
+    try {
+      await BreadcrumbService.instance.stop();
+      await BreadcrumbService.instance.recorder?.openAccount(null);
+    } finally {
+      NavigatorLocationService.instance.stopTracking(clearLocation: true);
+      await (signOut ?? AuthService.instance.signOut)();
+    }
   }
 
   Future<void> _saveSetupData(SharedPreferences prefs) async {

@@ -1,3 +1,5 @@
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter/foundation.dart';
 import '../models/route_plan.dart';
 import '../models/route_timeline_entry.dart';
@@ -16,6 +18,7 @@ class RouteTimelineTracker extends ChangeNotifier {
 
   bool isTracking = false;
   String? _lastAddress;
+  LatLng? _lastEntryPosition;
   MapPlace? _destination;
 
   MapPlace? get activeDestination => _destination;
@@ -26,6 +29,8 @@ class RouteTimelineTracker extends ChangeNotifier {
     isTracking = true;
     _lastAddress = null;
 
+    entries.clear();
+    _lastEntryPosition = NavigatorLocationService.instance.livePosition;
     final startAddress = NavigatorLocationService.instance.address;
     _appendEntry(startAddress, force: true);
 
@@ -36,6 +41,7 @@ class RouteTimelineTracker extends ChangeNotifier {
     isTracking = false;
     _destination = null;
     _lastAddress = null;
+    _lastEntryPosition = null;
 
     if (saveHistory) {
       // TODO: Persist entries to Firebase for caregiver reports.
@@ -48,16 +54,30 @@ class RouteTimelineTracker extends ChangeNotifier {
   void onLocationUpdate({
     required String geocodedAddress,
     required double distanceMovedMeters,
+    LatLng? location,
   }) {
     if (!isTracking) return;
 
-    if (entries.isNotEmpty &&
-        distanceMovedMeters < _minDistanceMeters &&
-        geocodedAddress == _lastAddress) {
+    final point = location ?? NavigatorLocationService.instance.livePosition;
+    final previous = _lastEntryPosition;
+    final distance = point != null && previous != null
+        ? Geolocator.distanceBetween(
+            previous.latitude,
+            previous.longitude,
+            point.latitude,
+            point.longitude,
+          )
+        : distanceMovedMeters;
+    final address = geocodedAddress.trim();
+    final sameAddress =
+        address.toLowerCase().replaceAll(RegExp(r'\s+'), ' ') ==
+        _lastAddress?.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    if (entries.isNotEmpty && (distance < _minDistanceMeters || sameAddress)) {
       return;
     }
-
-    _appendEntry(geocodedAddress);
+    if (address.isEmpty) return;
+    _lastEntryPosition = point;
+    _appendEntry(address);
   }
 
   void markDestinationArrived() => _completeRoute();

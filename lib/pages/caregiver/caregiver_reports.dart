@@ -9,9 +9,7 @@ class ReportsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: const SafeArea(
-        child: CaregiverReportsBody(),
-      ),
+      body: const SafeArea(child: CaregiverReportsBody()),
     );
   }
 }

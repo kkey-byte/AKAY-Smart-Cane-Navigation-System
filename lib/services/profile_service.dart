@@ -1,3 +1,4 @@
+import 'secure_api.dart';
 import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,15 +11,39 @@ import 'app_session_service.dart';
 
 /// Progressive profile completion: Users + PatientProfiles via `/api/profile`.
 class ProfileService {
-  ProfileService._();
+  ProfileService({
+    http.Client? client,
+    String? baseUrl,
+    String? Function()? firebaseUid,
+    Future<String?> Function()? idToken,
+  }) : _client = client ?? http.Client(),
+       _baseUrl = baseUrl ?? ApiConfig.baseUrl,
+       _usesDefaultBase = baseUrl == null,
+       _firebaseUid =
+           firebaseUid ?? (() => FirebaseAuth.instance.currentUser?.uid),
+       _idToken =
+           idToken ??
+           (() =>
+               FirebaseAuth.instance.currentUser?.getIdToken() ??
+               Future.value());
 
-  static final ProfileService instance = ProfileService._();
+  static final ProfileService instance = ProfileService();
 
-  final _client = http.Client();
+  int _profileWriteRevision = 0;
+  final Future<String?> Function() _idToken;
+  final http.Client _client;
+  final String _baseUrl;
+  final bool _usesDefaultBase;
+  String get _effectiveBase =>
+      _usesDefaultBase ? (SecureApi.preferredBase ?? _baseUrl) : _baseUrl;
+  final String? Function() _firebaseUid;
 
   Future<ProfileBundle> fetchProfile() async {
+    final writeRevision = _profileWriteRevision;
     final session = AppSessionService.instance;
-    final firebaseUid = FirebaseAuth.instance.currentUser?.uid;
+    final revision = session.identityRevision;
+    if (!session.isLoggedIn) throw ProfileException('Please sign in again.');
+    final firebaseUid = _firebaseUid();
     final params = <String, String>{
       if (session.userId != null && session.userId!.isNotEmpty)
         'userId': session.userId!,
@@ -30,11 +55,16 @@ class ProfileService {
       throw ProfileException('No signed-in user to load profile for.');
     }
 
-    final uri = Uri.parse('${ApiConfig.baseUrl}/profile').replace(
-      queryParameters: params,
-    );
+    final uri = Uri.parse(
+      '$_effectiveBase/profile',
+    ).replace(queryParameters: params);
+    if (kReleaseMode && uri.scheme != 'https') {
+      throw ProfileException(
+        'HTTPS is required. Configure a secure API endpoint.',
+      );
+    }
     final response = await _client
-        .get(uri, headers: const {'Accept': 'application/json'})
+        .get(uri, headers: await _headers(revision))
         .timeout(const Duration(seconds: 15));
 
     final body = _decode(response.body);
@@ -45,11 +75,21 @@ class ProfileService {
       );
     }
 
+    if (writeRevision != _profileWriteRevision) {
+      throw ProfileException('Profile changed while loading. Please refresh.');
+    }
     final bundle = ProfileBundle.fromJson(body);
+    if (!session.isLoggedIn || session.identityRevision != revision) {
+      throw ProfileException('Account changed. Please reload your profile.');
+    }
+    if (session.userId != null && bundle.userId != session.userId) {
+      throw ProfileException('Profile identity could not be verified.');
+    }
     await session.updateProfileCache(
-      name: bundle.name,
-      phone: bundle.phone,
-      profilePicture: bundle.profilePicture,
+      expectedIdentityRevision: revision,
+      name: bundle.name ?? '',
+      phone: bundle.phone ?? '',
+      profilePicture: bundle.profilePicture ?? '',
       profileComplete: bundle.profileComplete,
     );
     return bundle;
@@ -62,7 +102,9 @@ class ProfileService {
     required PatientProfile patient,
   }) async {
     final session = AppSessionService.instance;
-    final firebaseUid = FirebaseAuth.instance.currentUser?.uid;
+    final revision = session.identityRevision;
+    if (!session.isLoggedIn) throw ProfileException('Please sign in again.');
+    final firebaseUid = _firebaseUid();
 
     final payload = <String, dynamic>{
       if (session.userId != null && session.userId!.isNotEmpty)
@@ -82,16 +124,14 @@ class ProfileService {
       'pictureLen=${(payload['profilePicture'] as String?)?.length ?? 0}',
     );
 
-    final uri = Uri.parse('${ApiConfig.baseUrl}/profile');
+    final uri = Uri.parse('$_effectiveBase/profile');
+    if (kReleaseMode && uri.scheme != 'https') {
+      throw ProfileException(
+        'HTTPS is required. Configure a secure API endpoint.',
+      );
+    }
     final response = await _client
-        .put(
-          uri,
-          headers: const {
-            'Content-Type': 'application/json; charset=UTF-8',
-            'Accept': 'application/json',
-          },
-          body: jsonEncode(payload),
-        )
+        .put(uri, headers: await _headers(revision), body: jsonEncode(payload))
         .timeout(const Duration(seconds: 20));
 
     debugPrint(
@@ -107,11 +147,19 @@ class ProfileService {
       );
     }
 
+    _profileWriteRevision++;
     final bundle = ProfileBundle.fromJson(body);
+    if (!session.isLoggedIn || session.identityRevision != revision) {
+      throw ProfileException('Account changed. Please reload your profile.');
+    }
+    if (session.userId != null && bundle.userId != session.userId) {
+      throw ProfileException('Profile identity could not be verified.');
+    }
     await session.updateProfileCache(
-      name: bundle.name,
-      phone: bundle.phone,
-      profilePicture: bundle.profilePicture,
+      expectedIdentityRevision: revision,
+      name: bundle.name ?? '',
+      phone: bundle.phone ?? '',
+      profilePicture: bundle.profilePicture ?? '',
       profileComplete: bundle.profileComplete,
     );
     return bundle;
@@ -122,6 +170,24 @@ class ProfileService {
   String encodeProfilePictureDataUrl(Uint8List bytes) {
     final b64 = base64Encode(bytes);
     return 'data:image/jpeg;base64,$b64';
+  }
+
+  Future<Map<String, String>> _headers(int revision) async {
+    final token = await _idToken();
+    final session = AppSessionService.instance;
+    if (token == null ||
+        token.isEmpty ||
+        !session.isLoggedIn ||
+        session.identityRevision != revision) {
+      throw ProfileException(
+        'Account changed or signed out. Please sign in again.',
+      );
+    }
+    return {
+      'Authorization': 'Bearer $token',
+      'Accept': 'application/json',
+      'Content-Type': 'application/json; charset=UTF-8',
+    };
   }
 
   Map<String, dynamic> _decode(String raw) {

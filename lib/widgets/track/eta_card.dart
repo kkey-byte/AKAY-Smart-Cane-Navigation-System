@@ -8,6 +8,7 @@ import '../../models/route_timeline_entry.dart';
 import '../../services/app_session_service.dart';
 import '../../theme/gabay_theme.dart';
 import 'route_timeline_panel.dart';
+import 'readable_place_text.dart';
 
 enum DestinationPanelTab { navigationDetails, routeTimeline }
 
@@ -54,8 +55,8 @@ class _EtaCardState extends State<EtaCard> {
   void _onVerticalDragEnd(DragEndDetails details) {
     final velocity = details.velocity.pixelsPerSecond.dy;
     if (_dragOffset > _dismissThreshold || velocity > 650) {
-      widget.onDragDismiss();
       setState(() => _dragOffset = 0);
+      widget.onDragDismiss();
       return;
     }
     setState(() => _dragOffset = 0);
@@ -81,87 +82,94 @@ class _EtaCardState extends State<EtaCard> {
         opacity: fade,
         child: Material(
           color: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
-            decoration: BoxDecoration(
-              color: g.surface,
-              borderRadius: BorderRadius.circular(22),
-              boxShadow: [
-                BoxShadow(
-                  color: g.shadow,
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.62,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  onVerticalDragUpdate: _onVerticalDragUpdate,
-                  onVerticalDragEnd: _onVerticalDragEnd,
-                  behavior: HitTestBehavior.opaque,
-                  child: Column(
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: g.border,
-                            borderRadius: BorderRadius.circular(999),
+            child: SingleChildScrollView(
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+                decoration: BoxDecoration(
+                  color: g.surface,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: g.shadow,
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onVerticalDragUpdate: _onVerticalDragUpdate,
+                      onVerticalDragEnd: _onVerticalDragEnd,
+                      behavior: HitTestBehavior.opaque,
+                      child: Column(
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 40,
+                              height: 4,
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: g.border,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                          ),
+                          _SegmentedTabs(
+                            selected: _tab,
+                            onChanged: (tab) => setState(() => _tab = tab),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (_tab == DestinationPanelTab.navigationDetails)
+                      _NavigationDetailsTab(
+                        route: widget.route,
+                        currentLocation: widget.currentLocationAddress,
+                        destinationLabel: _destinationLabel,
+                      )
+                    else
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        child: SingleChildScrollView(
+                          child: RouteTimelinePanel(
+                            entries: widget.timelineEntries,
                           ),
                         ),
                       ),
-                      _SegmentedTabs(
-                        selected: _tab,
-                        onChanged: (tab) => setState(() => _tab = tab),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: FilledButton(
+                        onPressed: widget.onCancelDestination,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: g.accent,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                        child: const Text(
+                          'Cancel Destination',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                if (_tab == DestinationPanelTab.navigationDetails)
-                  _NavigationDetailsTab(
-                    route: widget.route,
-                    currentLocation: widget.currentLocationAddress,
-                    destinationLabel: _destinationLabel,
-                  )
-                else
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 200),
-                    child: SingleChildScrollView(
-                      child: RouteTimelinePanel(
-                        entries: widget.timelineEntries,
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: FilledButton(
-                    onPressed: widget.onCancelDestination,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: g.accent,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                    child: const Text(
-                      'Cancel Destination',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -208,7 +216,7 @@ class _NavigationDetailsTab extends StatelessWidget {
         return null;
       }
     }
-    if (url.startsWith('http://') || url.startsWith('https://')) {
+    if (url.startsWith('https://')) {
       return NetworkImage(url);
     }
     return null;
@@ -300,7 +308,7 @@ class _LocationDestinationRow extends StatelessWidget {
                 style: GabayTheme.labelSmall(context).copyWith(fontSize: 11),
               ),
               const SizedBox(height: 6),
-              Text(
+              ReadablePlaceText(
                 currentLocation,
                 style: TextStyle(
                   fontSize: 14,
@@ -406,19 +414,12 @@ class _MetricsRow extends StatelessWidget {
   }
 
   Widget _divider(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 56,
-      color: context.gabay.border,
-    );
+    return Container(width: 1, height: 56, color: context.gabay.border);
   }
 }
 
 class _SegmentedTabs extends StatelessWidget {
-  const _SegmentedTabs({
-    required this.selected,
-    required this.onChanged,
-  });
+  const _SegmentedTabs({required this.selected, required this.onChanged});
 
   final DestinationPanelTab selected;
   final ValueChanged<DestinationPanelTab> onChanged;
