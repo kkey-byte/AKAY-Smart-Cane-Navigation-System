@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "navigation_live": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}

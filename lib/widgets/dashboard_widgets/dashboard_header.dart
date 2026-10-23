@@ -8,8 +8,8 @@ class DashboardHeader extends StatelessWidget {
     this.onNotificationTap,
     this.unreadCount = 0,
     this.greeting = 'Hello, Welcome back!',
-    this.name = 'Glaisa Regine Mariel',
-    this.avatarAsset = 'assets/profile.jpg',
+    this.name = 'User',
+    this.avatarAsset,
   });
 
   final VoidCallback? onNotificationTap;
@@ -38,11 +38,8 @@ class DashboardHeader extends StatelessWidget {
               : Image.asset(
                   avatarAsset!,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Icon(
-                    Icons.person_rounded,
-                    color: g.accent,
-                    size: 28,
-                  ),
+                  errorBuilder: (_, _, _) =>
+                      Icon(Icons.person_rounded, color: g.accent, size: 28),
                 ),
         ),
         const SizedBox(width: 14),

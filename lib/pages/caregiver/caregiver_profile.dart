@@ -17,6 +17,9 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  bool _loadingProfile = true;
+  bool _profileError = false;
+
   @override
   void initState() {
     super.initState();
@@ -25,10 +28,18 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _refreshProfile() async {
+    if (mounted) {
+      setState(() {
+        _loadingProfile = true;
+        _profileError = false;
+      });
+    }
     try {
       await ProfileService.instance.fetchProfile();
     } catch (_) {
-      // Keep cached session values if offline.
+      if (mounted) setState(() => _profileError = true);
+    } finally {
+      if (mounted) setState(() => _loadingProfile = false);
     }
   }
 
@@ -58,10 +69,21 @@ class _ProfilePageState extends State<ProfilePage> {
           email: email,
           role: 'Caregiver',
           avatarUrl: picture,
-          avatarAsset: (picture == null || picture.isEmpty)
-              ? 'assets/profile.jpg'
-              : null,
+          avatarAsset: null,
           sections: [
+            if (_loadingProfile || _profileError)
+              ProfileSectionGroup(
+                title: 'Profile status',
+                items: [
+                  ProfileMenuItem(
+                    icon: _loadingProfile ? Icons.sync : Icons.error_outline,
+                    title: _loadingProfile
+                        ? 'Loading profile...'
+                        : 'Profile refresh failed. Tap to retry.',
+                    onTap: _loadingProfile ? null : _refreshProfile,
+                  ),
+                ],
+              ),
             ProfileSectionGroup(
               title: 'Your Account',
               items: [
@@ -204,11 +226,12 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Password changed successfully'),
+                        content: Text(
+                          'Password change unavailable. No password was changed.',
+                        ),
                         duration: Duration(seconds: 1),
                       ),
                     );
-                    Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: g.accent,

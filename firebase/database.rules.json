@@ -1,0 +1,101 @@
+{
+  "rules": {
+    "navigation_live": {
+      ".read": false,
+      ".write": false
+    },
+    "breadcrumb_trips": {
+      "$owner": {
+        ".read": "auth != null && auth.uid === $owner",
+        ".write": "auth != null && auth.uid === $owner",
+        ".indexOn": [
+          "startedAt"
+        ],
+        "$trip": {
+          ".validate": "newData.hasChildren(['ownerId', 'name', 'startedAt', 'status', 'points']) && newData.child('ownerId').val() === $owner",
+          "ownerId": {
+            ".validate": "newData.isString() && newData.val() === $owner"
+          },
+          "name": {
+            ".validate": "newData.isString() && newData.val().length <= 500"
+          },
+          "startedAt": {
+            ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 30000 && (!data.exists() || newData.val() === data.val())"
+          },
+          "endedAt": {
+            ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('startedAt').val() && newData.val() <= now + 30000"
+          },
+          "status": {
+            ".validate": "newData.val() === 'recording' || newData.val() === 'completed' || newData.val() === 'interrupted'"
+          },
+          "points": {
+            "$point": {
+              ".validate": "newData.hasChildren(['latitude', 'longitude', 'time', 'accuracy'])",
+              "latitude": {
+                ".validate": "newData.isNumber() && newData.val() >= -90 && newData.val() <= 90"
+              },
+              "longitude": {
+                ".validate": "newData.isNumber() && newData.val() >= -180 && newData.val() <= 180"
+              },
+              "time": {
+                ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 30000 && newData.val() >= newData.parent().parent().parent().child('startedAt').val()"
+              },
+              "accuracy": {
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 50"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "breadcrumb_shares": {
+      ".read": false,
+      ".write": false
+    },
+    "breadcrumb_links": {
+      ".read": false,
+      ".write": false
+    },
+    "live_location": {
+      ".read": false,
+      ".write": false
+    },
+    "phone_location": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['latitude','longitude','timestamp','source']) && newData.child('source').val() === 'phone_gps' && newData.child('latitude').isNumber() && newData.child('latitude').val() >= -90 && newData.child('latitude').val() <= 90 && newData.child('longitude').isNumber() && newData.child('longitude').val() >= -180 && newData.child('longitude').val() <= 180 && newData.child('timestamp').isNumber() && newData.child('timestamp').val() >= now - 300000 && newData.child('timestamp').val() <= now + 30000",
+        "latitude": {
+          ".validate": "newData.isNumber() && newData.val() >= -90 && newData.val() <= 90"
+        },
+        "longitude": {
+          ".validate": "newData.isNumber() && newData.val() >= -180 && newData.val() <= 180"
+        },
+        "timestamp": {
+          ".validate": "newData.isNumber()"
+        },
+        "source": {
+          ".validate": "newData.val() === 'phone_gps'"
+        },
+        "speed": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "heading": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 360"
+        },
+        "accuracy": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}

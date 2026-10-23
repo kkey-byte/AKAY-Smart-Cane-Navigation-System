@@ -1,3 +1,4 @@
+import 'secure_api.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -15,7 +16,7 @@ import 'navigator_location_service.dart';
 
 /// Persists navigation sessions to:
 /// - PostgreSQL `navigationsessions` via `/api/navigation/*`
-/// - Firebase Realtime Database `live_location/{deviceID}` for caregivers
+/// - account-owned phone GPS in Firebase (not physical cane telemetry)
 class NavigationPersistenceService {
   NavigationPersistenceService._();
 
@@ -33,8 +34,13 @@ class NavigationPersistenceService {
   LatLng? _lastLivePoint;
   Timer? _liveThrottle;
   bool _ending = false;
+  int? _identityRevision;
+  String? syncError;
 
-  bool get hasActiveSession => sessionId != null && sessionId!.isNotEmpty;
+  bool get hasActiveSession =>
+      sessionId != null &&
+      sessionId!.isNotEmpty &&
+      _identityRevision == AppSessionService.instance.identityRevision;
 
   Future<String> _ensureDeviceId() async {
     final id = await _liveLocation.ensureDeviceId();
@@ -42,12 +48,13 @@ class NavigationPersistenceService {
     return id;
   }
 
-  /// Start Postgres session + seed Firebase live_location node.
+  /// Start a legacy phone navigation session and publish its phone GPS.
   Future<void> startSession({
     required LatLng origin,
     required MapPlace destination,
     String? originAddress,
   }) async {
+    final revision = AppSessionService.instance.identityRevision;
     final device = await _ensureDeviceId();
     final session = AppSessionService.instance;
     final firebaseUid = FirebaseAuth.instance.currentUser?.uid;
@@ -60,7 +67,7 @@ class NavigationPersistenceService {
       'deviceId': device,
       'originLatitude': origin.latitude,
       'originLongitude': origin.longitude,
-      'originAddress': originAddress ?? session.email ?? '',
+      'originAddress': originAddress ?? '',
       'destinationLatitude': destination.latitude,
       'destinationLongitude': destination.longitude,
       'destinationAddress':
@@ -68,11 +75,18 @@ class NavigationPersistenceService {
     };
 
     try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/navigation/start');
+      final uri = Uri.parse(
+        '${SecureApi.preferredBase ?? ApiConfig.baseUrl}/navigation/start',
+      );
+      if (kReleaseMode && uri.scheme != 'https') {
+        throw StateError('HTTPS is required for navigation persistence.');
+      }
       final response = await _client
           .post(
             uri,
-            headers: const {
+            headers: {
+              'Authorization':
+                  'Bearer ${await FirebaseAuth.instance.currentUser?.getIdToken()}',
               'Content-Type': 'application/json; charset=UTF-8',
               'Accept': 'application/json',
             },
@@ -81,10 +95,9 @@ class NavigationPersistenceService {
           .timeout(const Duration(seconds: 15));
 
       final body = _decode(response.body);
+      if (revision != session.identityRevision || !session.isLoggedIn) return;
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        debugPrint(
-          'Navigation start failed (${response.statusCode}): ${response.body}',
-        );
+        debugPrint('Navigation start failed (${response.statusCode})');
         return;
       }
 
@@ -98,6 +111,8 @@ class NavigationPersistenceService {
       }
 
       sessionId = id;
+      _identityRevision = revision;
+      syncError = null;
       _startedAt = DateTime.now();
       _travelledMeters = 0;
       _lastLivePoint = origin;
@@ -108,13 +123,14 @@ class NavigationPersistenceService {
         longitude: origin.longitude,
       );
 
-      debugPrint('Navigation session started: $sessionId device=$device');
-    } catch (e) {
-      debugPrint('Navigation start error: $e');
+      debugPrint('Phone navigation session started.');
+    } catch (_) {
+      syncError = 'Navigation session could not be saved.';
+      debugPrint('Navigation start unavailable.');
     }
   }
 
-  /// Push live GPS to Firebase `live_location/{deviceID}`; sync Postgres periodically.
+  /// Publish own phone GPS; sync legacy Postgres summary periodically.
   Future<void> publishLiveLocation(LatLng point) async {
     if (!hasActiveSession || _ending) return;
 
@@ -123,15 +139,18 @@ class NavigationPersistenceService {
     }
     _lastLivePoint = point;
 
-    await _publishLiveFix(
-      latitude: point.latitude,
-      longitude: point.longitude,
-    );
+    await _publishLiveFix(latitude: point.latitude, longitude: point.longitude);
 
-    _liveThrottle?.cancel();
-    _liveThrottle = Timer(const Duration(seconds: 8), () {
-      unawaited(_syncLiveToPostgres());
-    });
+    if (_liveThrottle?.isActive != true) {
+      final revision = AppSessionService.instance.identityRevision;
+      final activeId = sessionId;
+      _liveThrottle = Timer(const Duration(seconds: 8), () {
+        if (revision == AppSessionService.instance.identityRevision &&
+            activeId == sessionId) {
+          unawaited(_syncLiveToPostgres());
+        }
+      });
+    }
   }
 
   Future<void> _publishLiveFix({
@@ -164,29 +183,46 @@ class NavigationPersistenceService {
         ? 0
         : DateTime.now().difference(_startedAt!).inSeconds;
     final hours = durationSec <= 0 ? 0.0 : durationSec / 3600.0;
-    final avgSpeed =
-        hours <= 0 ? 0.0 : (_travelledMeters / 1000.0) / hours; // km/h
+    final avgSpeed = hours <= 0
+        ? 0.0
+        : (_travelledMeters / 1000.0) / hours; // km/h
 
     try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/navigation/end');
-      await _client
+      final uri = Uri.parse(
+        '${SecureApi.preferredBase ?? ApiConfig.baseUrl}/navigation/end',
+      );
+      if (kReleaseMode && uri.scheme != 'https') {
+        throw StateError('HTTPS is required for navigation persistence.');
+      }
+      final response = await _client
           .post(
             uri,
-            headers: const {
+            headers: {
+              'Authorization':
+                  'Bearer ${await FirebaseAuth.instance.currentUser?.getIdToken()}',
               'Content-Type': 'application/json; charset=UTF-8',
               'Accept': 'application/json',
             },
             body: jsonEncode({
               'sessionId': sessionId,
               'status': cancelled ? 'Cancelled' : 'Completed',
-              'totalDistance': double.parse(_travelledMeters.toStringAsFixed(2)),
+              'totalDistance': double.parse(
+                _travelledMeters.toStringAsFixed(2),
+              ),
               'duration': durationSec,
               'averageSpeed': double.parse(avgSpeed.toStringAsFixed(2)),
             }),
           )
           .timeout(const Duration(seconds: 15));
-    } catch (e) {
-      debugPrint('Navigation end error: $e');
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw StateError('Navigation end rejected.');
+      }
+      syncError = null;
+    } catch (_) {
+      syncError = 'Navigation end could not be saved. Retry when connected.';
+      _ending = false;
+      await _liveLocation.clear(deviceId: deviceId);
+      return;
     }
 
     await _liveLocation.clear(deviceId: deviceId);
@@ -199,34 +235,47 @@ class NavigationPersistenceService {
         ? 0
         : DateTime.now().difference(_startedAt!).inSeconds;
     final hours = durationSec <= 0 ? 0.0 : durationSec / 3600.0;
-    final avgSpeed =
-        hours <= 0 ? 0.0 : (_travelledMeters / 1000.0) / hours;
+    final avgSpeed = hours <= 0 ? 0.0 : (_travelledMeters / 1000.0) / hours;
 
     try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/navigation/live');
-      await _client
+      final uri = Uri.parse(
+        '${SecureApi.preferredBase ?? ApiConfig.baseUrl}/navigation/live',
+      );
+      if (kReleaseMode && uri.scheme != 'https') {
+        throw StateError('HTTPS is required for navigation persistence.');
+      }
+      final response = await _client
           .put(
             uri,
-            headers: const {
+            headers: {
+              'Authorization':
+                  'Bearer ${await FirebaseAuth.instance.currentUser?.getIdToken()}',
               'Content-Type': 'application/json; charset=UTF-8',
               'Accept': 'application/json',
             },
             body: jsonEncode({
               'sessionId': sessionId,
-              'totalDistance':
-                  double.parse(_travelledMeters.toStringAsFixed(2)),
+              'totalDistance': double.parse(
+                _travelledMeters.toStringAsFixed(2),
+              ),
               'duration': durationSec,
               'averageSpeed': double.parse(avgSpeed.toStringAsFixed(2)),
               'status': 'Active',
             }),
           )
           .timeout(const Duration(seconds: 12));
-    } catch (e) {
-      debugPrint('Navigation live sync error: $e');
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw StateError('Navigation update rejected.');
+      }
+      syncError = null;
+    } catch (_) {
+      syncError = 'Navigation progress could not be saved.';
     }
   }
 
   void _resetLocal() {
+    _liveThrottle?.cancel();
+    _identityRevision = null;
     sessionId = null;
     _startedAt = null;
     _travelledMeters = 0;

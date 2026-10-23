@@ -27,7 +27,7 @@ class BottomNav extends StatelessWidget {
           GabayNavMetrics.horizontalMargin,
           GabayNavMetrics.bottomMargin,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: g.surface,
           borderRadius: BorderRadius.circular(40),
@@ -92,7 +92,7 @@ class BottomNav extends StatelessWidget {
           duration: const Duration(milliseconds: 350),
           curve: Curves.easeInOutCubic,
           padding: EdgeInsets.symmetric(
-            horizontal: selected ? 18 : 12,
+            horizontal: selected ? 16 : 12,
             vertical: 10,
           ),
           decoration: BoxDecoration(
@@ -106,7 +106,7 @@ class BottomNav extends StatelessWidget {
                 scale: selected ? 1.1 : 1,
                 child: Icon(
                   icon,
-                  size: 25,
+                  size: 23,
                   color: selected ? g.accent : g.textSecondary,
                 ),
               ),
@@ -119,7 +119,7 @@ class BottomNav extends StatelessWidget {
                         child: Text(
                           label,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             color: g.accent,
                             fontWeight: FontWeight.w600,
                           ),

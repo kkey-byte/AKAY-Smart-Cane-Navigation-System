@@ -1,0 +1,1863 @@
+{
+  "scope": "public catalog metadata only; no user rows",
+  "columns": [
+    {
+      "table_name": "PatientProfiles",
+      "column_name": "profile_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "column_name": "user_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "column_name": "age",
+      "data_type": "integer",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "column_name": "gender",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "column_name": "birthdate",
+      "data_type": "date",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "column_name": "medical_conditions",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "column_name": "allergies",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "column_name": "blood_type",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "column_name": "emergency_contact",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "column_name": "address",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "Users",
+      "column_name": "user_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "Users",
+      "column_name": "name",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "Users",
+      "column_name": "email",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "Users",
+      "column_name": "password",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "Users",
+      "column_name": "role",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "Users",
+      "column_name": "phone",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "Users",
+      "column_name": "profile_picture",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "Users",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "Users",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "Users",
+      "column_name": "firebase_uid",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "column_name": "profile_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "column_name": "user_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "column_name": "occupation",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "column_name": "workplace",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "column_name": "contact_number",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "column_name": "address",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "column_name": "updated_at",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "devicelogs",
+      "column_name": "log_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "devicelogs",
+      "column_name": "device_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "devicelogs",
+      "column_name": "battery",
+      "data_type": "integer",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "devicelogs",
+      "column_name": "firmware_version",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "devicelogs",
+      "column_name": "event_type",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "devicelogs",
+      "column_name": "timestamp",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "sessionid",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "user_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "deviceid",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "originlatitude",
+      "data_type": "numeric",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "originlongitude",
+      "data_type": "numeric",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "originaddress",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "destinationlatitude",
+      "data_type": "numeric",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "destinationlongitude",
+      "data_type": "numeric",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "destinationaddress",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "starttime",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "endtime",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "totaldistance",
+      "data_type": "numeric",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "duration",
+      "data_type": "integer",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "averagespeed",
+      "data_type": "numeric",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "status",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "createdat",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "navigationsessions",
+      "column_name": "updatedat",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "pairings",
+      "column_name": "pairing_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "pairings",
+      "column_name": "device_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "pairings",
+      "column_name": "vi_user_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "pairings",
+      "column_name": "caregiver_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "pairings",
+      "column_name": "pairing_code",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "pairings",
+      "column_name": "pairing_method",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "pairings",
+      "column_name": "status",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "pairings",
+      "column_name": "paired_at",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "pairings",
+      "column_name": "unpaired_at",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "patientmedication",
+      "column_name": "medication_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "patientmedication",
+      "column_name": "patient_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "patientmedication",
+      "column_name": "medicine_name",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "patientmedication",
+      "column_name": "dosage",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "patientmedication",
+      "column_name": "schedule",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "patientprofiles",
+      "column_name": "profile_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "patientprofiles",
+      "column_name": "user_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "patientprofiles",
+      "column_name": "age",
+      "data_type": "integer",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "patientprofiles",
+      "column_name": "gender",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "patientprofiles",
+      "column_name": "birthdate",
+      "data_type": "date",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "patientprofiles",
+      "column_name": "medical_conditions",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "patientprofiles",
+      "column_name": "allergies",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "patientprofiles",
+      "column_name": "blood_type",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "patientprofiles",
+      "column_name": "emergency_contact",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "patientprofiles",
+      "column_name": "address",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "patientprofiles",
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "patientprofiles",
+      "column_name": "updated_at",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "places",
+      "column_name": "place_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "places",
+      "column_name": "place_name",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "places",
+      "column_name": "category",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "places",
+      "column_name": "address",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "places",
+      "column_name": "latitude",
+      "data_type": "double precision",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "places",
+      "column_name": "longitude",
+      "data_type": "double precision",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "places",
+      "column_name": "is_accessible",
+      "data_type": "boolean",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "places",
+      "column_name": "description",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "places",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "places",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "routehistory",
+      "column_name": "route_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "routehistory",
+      "column_name": "sessionid",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "routehistory",
+      "column_name": "device_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "routehistory",
+      "column_name": "latitude",
+      "data_type": "numeric",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "routehistory",
+      "column_name": "longitude",
+      "data_type": "numeric",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "routehistory",
+      "column_name": "timestamp",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "routehistory",
+      "column_name": "sequence_number",
+      "data_type": "integer",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "savedplaces",
+      "column_name": "place_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "savedplaces",
+      "column_name": "user_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "savedplaces",
+      "column_name": "place_name",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "savedplaces",
+      "column_name": "latitude",
+      "data_type": "numeric",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "savedplaces",
+      "column_name": "longitude",
+      "data_type": "numeric",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "savedplaces",
+      "column_name": "category",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "savedplaces",
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "searchhistory",
+      "column_name": "search_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "searchhistory",
+      "column_name": "user_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "searchhistory",
+      "column_name": "searched_place",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "searchhistory",
+      "column_name": "searched_time",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "smartcanes",
+      "column_name": "device_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "smartcanes",
+      "column_name": "serial_number",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "smartcanes",
+      "column_name": "model",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "smartcanes",
+      "column_name": "firmware_version",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "smartcanes",
+      "column_name": "registered_user_id",
+      "data_type": "uuid",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "smartcanes",
+      "column_name": "device_status",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "smartcanes",
+      "column_name": "registered_date",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "smartcanes",
+      "column_name": "last_maintenance",
+      "data_type": "date",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "soshistory",
+      "column_name": "sos_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "soshistory",
+      "column_name": "device_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "soshistory",
+      "column_name": "user_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "soshistory",
+      "column_name": "sessionid",
+      "data_type": "uuid",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "soshistory",
+      "column_name": "strike_level",
+      "data_type": "integer",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "soshistory",
+      "column_name": "alert_type",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "soshistory",
+      "column_name": "latitude",
+      "data_type": "numeric",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "soshistory",
+      "column_name": "longitude",
+      "data_type": "numeric",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "soshistory",
+      "column_name": "time_sent",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "soshistory",
+      "column_name": "resolved",
+      "data_type": "boolean",
+      "is_nullable": "NO"
+    }
+  ],
+  "constraints": [
+    {
+      "table_name": "PatientProfiles",
+      "conname": "PatientProfiles_pkey",
+      "contype": "p",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (profile_id)"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "conname": "PatientProfiles_profile_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL profile_id"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "conname": "PatientProfiles_user_id_fkey",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (user_id) REFERENCES \"Users\"(user_id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "conname": "PatientProfiles_user_id_key",
+      "contype": "u",
+      "convalidated": true,
+      "definition": "UNIQUE (user_id)"
+    },
+    {
+      "table_name": "PatientProfiles",
+      "conname": "PatientProfiles_user_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL user_id"
+    },
+    {
+      "table_name": "Users",
+      "conname": "Users_email_key",
+      "contype": "u",
+      "convalidated": true,
+      "definition": "UNIQUE (email)"
+    },
+    {
+      "table_name": "Users",
+      "conname": "Users_email_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL email"
+    },
+    {
+      "table_name": "Users",
+      "conname": "Users_pkey",
+      "contype": "p",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (user_id)"
+    },
+    {
+      "table_name": "Users",
+      "conname": "Users_role_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL role"
+    },
+    {
+      "table_name": "Users",
+      "conname": "Users_user_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL user_id"
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "conname": "caregiverprofiles_contact_number_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL contact_number"
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "conname": "caregiverprofiles_pkey",
+      "contype": "p",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (profile_id)"
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "conname": "caregiverprofiles_profile_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL profile_id"
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "conname": "caregiverprofiles_user_id_key",
+      "contype": "u",
+      "convalidated": true,
+      "definition": "UNIQUE (user_id)"
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "conname": "caregiverprofiles_user_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL user_id"
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "conname": "fk_caregiverprofile_user",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (user_id) REFERENCES \"Users\"(user_id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "devicelogs",
+      "conname": "devicelogs_battery_check",
+      "contype": "c",
+      "convalidated": true,
+      "definition": "CHECK (((battery >= 0) AND (battery <= 100)))"
+    },
+    {
+      "table_name": "devicelogs",
+      "conname": "devicelogs_battery_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL battery"
+    },
+    {
+      "table_name": "devicelogs",
+      "conname": "devicelogs_device_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL device_id"
+    },
+    {
+      "table_name": "devicelogs",
+      "conname": "devicelogs_event_type_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL event_type"
+    },
+    {
+      "table_name": "devicelogs",
+      "conname": "devicelogs_log_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL log_id"
+    },
+    {
+      "table_name": "devicelogs",
+      "conname": "devicelogs_pkey",
+      "contype": "p",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (log_id)"
+    },
+    {
+      "table_name": "devicelogs",
+      "conname": "fk_devicelogs_device",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (device_id) REFERENCES smartcanes(device_id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "navigationsessions",
+      "conname": "fk_navigation_user",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (user_id) REFERENCES \"Users\"(user_id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "navigationsessions",
+      "conname": "navigationsessions_destinationlatitude_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL destinationlatitude"
+    },
+    {
+      "table_name": "navigationsessions",
+      "conname": "navigationsessions_destinationlongitude_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL destinationlongitude"
+    },
+    {
+      "table_name": "navigationsessions",
+      "conname": "navigationsessions_deviceid_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL deviceid"
+    },
+    {
+      "table_name": "navigationsessions",
+      "conname": "navigationsessions_originlatitude_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL originlatitude"
+    },
+    {
+      "table_name": "navigationsessions",
+      "conname": "navigationsessions_originlongitude_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL originlongitude"
+    },
+    {
+      "table_name": "navigationsessions",
+      "conname": "navigationsessions_pkey",
+      "contype": "p",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (sessionid)"
+    },
+    {
+      "table_name": "navigationsessions",
+      "conname": "navigationsessions_sessionid_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL sessionid"
+    },
+    {
+      "table_name": "navigationsessions",
+      "conname": "navigationsessions_starttime_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL starttime"
+    },
+    {
+      "table_name": "navigationsessions",
+      "conname": "navigationsessions_status_check",
+      "contype": "c",
+      "convalidated": true,
+      "definition": "CHECK (((status)::text = ANY ((ARRAY['Active'::character varying, 'Completed'::character varying, 'Cancelled'::character varying, 'Paused'::character varying])::text[])))"
+    },
+    {
+      "table_name": "navigationsessions",
+      "conname": "navigationsessions_status_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL status"
+    },
+    {
+      "table_name": "navigationsessions",
+      "conname": "navigationsessions_user_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL user_id"
+    },
+    {
+      "table_name": "pairings",
+      "conname": "fk_pairing_caregiver",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (caregiver_id) REFERENCES \"Users\"(user_id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "pairings",
+      "conname": "fk_pairing_device",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (device_id) REFERENCES smartcanes(device_id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "pairings",
+      "conname": "fk_pairing_vi_user",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (vi_user_id) REFERENCES \"Users\"(user_id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "pairings",
+      "conname": "pairings_caregiver_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL caregiver_id"
+    },
+    {
+      "table_name": "pairings",
+      "conname": "pairings_device_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL device_id"
+    },
+    {
+      "table_name": "pairings",
+      "conname": "pairings_pairing_code_key",
+      "contype": "u",
+      "convalidated": true,
+      "definition": "UNIQUE (pairing_code)"
+    },
+    {
+      "table_name": "pairings",
+      "conname": "pairings_pairing_code_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL pairing_code"
+    },
+    {
+      "table_name": "pairings",
+      "conname": "pairings_pairing_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL pairing_id"
+    },
+    {
+      "table_name": "pairings",
+      "conname": "pairings_pairing_method_check",
+      "contype": "c",
+      "convalidated": true,
+      "definition": "CHECK (((pairing_method)::text = ANY ((ARRAY['QR_CODE'::character varying, 'MANUAL_CODE'::character varying, 'NFC'::character varying, 'BLUETOOTH'::character varying])::text[])))"
+    },
+    {
+      "table_name": "pairings",
+      "conname": "pairings_pairing_method_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL pairing_method"
+    },
+    {
+      "table_name": "pairings",
+      "conname": "pairings_pkey",
+      "contype": "p",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (pairing_id)"
+    },
+    {
+      "table_name": "pairings",
+      "conname": "pairings_status_check",
+      "contype": "c",
+      "convalidated": true,
+      "definition": "CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'PENDING'::character varying, 'UNPAIRED'::character varying, 'EXPIRED'::character varying])::text[])))"
+    },
+    {
+      "table_name": "pairings",
+      "conname": "pairings_status_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL status"
+    },
+    {
+      "table_name": "pairings",
+      "conname": "pairings_vi_user_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL vi_user_id"
+    },
+    {
+      "table_name": "patientmedication",
+      "conname": "fk_patientmedication_patient",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (patient_id) REFERENCES patientprofiles(profile_id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "patientmedication",
+      "conname": "patientmedication_dosage_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL dosage"
+    },
+    {
+      "table_name": "patientmedication",
+      "conname": "patientmedication_medication_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL medication_id"
+    },
+    {
+      "table_name": "patientmedication",
+      "conname": "patientmedication_medicine_name_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL medicine_name"
+    },
+    {
+      "table_name": "patientmedication",
+      "conname": "patientmedication_patient_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL patient_id"
+    },
+    {
+      "table_name": "patientmedication",
+      "conname": "patientmedication_pkey",
+      "contype": "p",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (medication_id)"
+    },
+    {
+      "table_name": "patientmedication",
+      "conname": "patientmedication_schedule_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL schedule"
+    },
+    {
+      "table_name": "patientprofiles",
+      "conname": "fk_patientprofiles_user",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (user_id) REFERENCES \"Users\"(user_id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "patientprofiles",
+      "conname": "patientprofiles_age_check",
+      "contype": "c",
+      "convalidated": true,
+      "definition": "CHECK ((age >= 0))"
+    },
+    {
+      "table_name": "patientprofiles",
+      "conname": "patientprofiles_pkey",
+      "contype": "p",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (profile_id)"
+    },
+    {
+      "table_name": "patientprofiles",
+      "conname": "patientprofiles_profile_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL profile_id"
+    },
+    {
+      "table_name": "patientprofiles",
+      "conname": "patientprofiles_user_id_key",
+      "contype": "u",
+      "convalidated": true,
+      "definition": "UNIQUE (user_id)"
+    },
+    {
+      "table_name": "patientprofiles",
+      "conname": "patientprofiles_user_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL user_id"
+    },
+    {
+      "table_name": "places",
+      "conname": "places_category_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL category"
+    },
+    {
+      "table_name": "places",
+      "conname": "places_is_accessible_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL is_accessible"
+    },
+    {
+      "table_name": "places",
+      "conname": "places_latitude_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL latitude"
+    },
+    {
+      "table_name": "places",
+      "conname": "places_longitude_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL longitude"
+    },
+    {
+      "table_name": "places",
+      "conname": "places_pkey",
+      "contype": "p",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (place_id)"
+    },
+    {
+      "table_name": "places",
+      "conname": "places_place_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL place_id"
+    },
+    {
+      "table_name": "places",
+      "conname": "places_place_name_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL place_name"
+    },
+    {
+      "table_name": "routehistory",
+      "conname": "fk_routehistory_device",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (device_id) REFERENCES smartcanes(device_id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "routehistory",
+      "conname": "fk_routehistory_session",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (sessionid) REFERENCES navigationsessions(sessionid) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "routehistory",
+      "conname": "routehistory_device_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL device_id"
+    },
+    {
+      "table_name": "routehistory",
+      "conname": "routehistory_latitude_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL latitude"
+    },
+    {
+      "table_name": "routehistory",
+      "conname": "routehistory_longitude_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL longitude"
+    },
+    {
+      "table_name": "routehistory",
+      "conname": "routehistory_pkey",
+      "contype": "p",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (route_id)"
+    },
+    {
+      "table_name": "routehistory",
+      "conname": "routehistory_route_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL route_id"
+    },
+    {
+      "table_name": "routehistory",
+      "conname": "routehistory_sequence_number_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL sequence_number"
+    },
+    {
+      "table_name": "routehistory",
+      "conname": "routehistory_sessionid_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL sessionid"
+    },
+    {
+      "table_name": "routehistory",
+      "conname": "routehistory_timestamp_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL \"timestamp\""
+    },
+    {
+      "table_name": "savedplaces",
+      "conname": "fk_savedplaces_user",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (user_id) REFERENCES \"Users\"(user_id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "savedplaces",
+      "conname": "savedplaces_latitude_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL latitude"
+    },
+    {
+      "table_name": "savedplaces",
+      "conname": "savedplaces_longitude_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL longitude"
+    },
+    {
+      "table_name": "savedplaces",
+      "conname": "savedplaces_pkey",
+      "contype": "p",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (place_id)"
+    },
+    {
+      "table_name": "savedplaces",
+      "conname": "savedplaces_place_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL place_id"
+    },
+    {
+      "table_name": "savedplaces",
+      "conname": "savedplaces_place_name_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL place_name"
+    },
+    {
+      "table_name": "savedplaces",
+      "conname": "savedplaces_user_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL user_id"
+    },
+    {
+      "table_name": "searchhistory",
+      "conname": "fk_searchhistory_user",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (user_id) REFERENCES \"Users\"(user_id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "searchhistory",
+      "conname": "searchhistory_pkey",
+      "contype": "p",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (search_id)"
+    },
+    {
+      "table_name": "searchhistory",
+      "conname": "searchhistory_search_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL search_id"
+    },
+    {
+      "table_name": "searchhistory",
+      "conname": "searchhistory_searched_place_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL searched_place"
+    },
+    {
+      "table_name": "searchhistory",
+      "conname": "searchhistory_user_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL user_id"
+    },
+    {
+      "table_name": "smartcanes",
+      "conname": "fk_smartcane_registered_user",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (registered_user_id) REFERENCES \"Users\"(user_id) ON DELETE SET NULL"
+    },
+    {
+      "table_name": "smartcanes",
+      "conname": "smartcanes_device_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL device_id"
+    },
+    {
+      "table_name": "smartcanes",
+      "conname": "smartcanes_device_status_check",
+      "contype": "c",
+      "convalidated": true,
+      "definition": "CHECK (((device_status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'INACTIVE'::character varying])::text[])))"
+    },
+    {
+      "table_name": "smartcanes",
+      "conname": "smartcanes_device_status_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL device_status"
+    },
+    {
+      "table_name": "smartcanes",
+      "conname": "smartcanes_model_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL model"
+    },
+    {
+      "table_name": "smartcanes",
+      "conname": "smartcanes_pkey",
+      "contype": "p",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (device_id)"
+    },
+    {
+      "table_name": "smartcanes",
+      "conname": "smartcanes_serial_number_key",
+      "contype": "u",
+      "convalidated": true,
+      "definition": "UNIQUE (serial_number)"
+    },
+    {
+      "table_name": "smartcanes",
+      "conname": "smartcanes_serial_number_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL serial_number"
+    },
+    {
+      "table_name": "soshistory",
+      "conname": "fk_soshistory_device",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (device_id) REFERENCES smartcanes(device_id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "soshistory",
+      "conname": "fk_soshistory_session",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (sessionid) REFERENCES navigationsessions(sessionid) ON DELETE SET NULL"
+    },
+    {
+      "table_name": "soshistory",
+      "conname": "fk_soshistory_user",
+      "contype": "f",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (user_id) REFERENCES \"Users\"(user_id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "soshistory",
+      "conname": "soshistory_alert_type_check",
+      "contype": "c",
+      "convalidated": true,
+      "definition": "CHECK (((alert_type)::text = ANY ((ARRAY['SOS_BUTTON'::character varying, 'NO_MOVEMENT'::character varying, 'FALL_DETECTION'::character varying, 'MANUAL'::character varying, 'EMERGENCY'::character varying])::text[])))"
+    },
+    {
+      "table_name": "soshistory",
+      "conname": "soshistory_alert_type_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL alert_type"
+    },
+    {
+      "table_name": "soshistory",
+      "conname": "soshistory_device_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL device_id"
+    },
+    {
+      "table_name": "soshistory",
+      "conname": "soshistory_latitude_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL latitude"
+    },
+    {
+      "table_name": "soshistory",
+      "conname": "soshistory_longitude_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL longitude"
+    },
+    {
+      "table_name": "soshistory",
+      "conname": "soshistory_pkey",
+      "contype": "p",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (sos_id)"
+    },
+    {
+      "table_name": "soshistory",
+      "conname": "soshistory_resolved_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL resolved"
+    },
+    {
+      "table_name": "soshistory",
+      "conname": "soshistory_sos_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL sos_id"
+    },
+    {
+      "table_name": "soshistory",
+      "conname": "soshistory_strike_level_check",
+      "contype": "c",
+      "convalidated": true,
+      "definition": "CHECK (((strike_level >= 1) AND (strike_level <= 3)))"
+    },
+    {
+      "table_name": "soshistory",
+      "conname": "soshistory_strike_level_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL strike_level"
+    },
+    {
+      "table_name": "soshistory",
+      "conname": "soshistory_user_id_not_null",
+      "contype": "n",
+      "convalidated": true,
+      "definition": "NOT NULL user_id"
+    }
+  ],
+  "indexes": [
+    {
+      "tablename": "PatientProfiles",
+      "indexname": "PatientProfiles_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"PatientProfiles_pkey\" ON public.\"PatientProfiles\" USING btree (profile_id)"
+    },
+    {
+      "tablename": "PatientProfiles",
+      "indexname": "PatientProfiles_user_id_key",
+      "indexdef": "CREATE UNIQUE INDEX \"PatientProfiles_user_id_key\" ON public.\"PatientProfiles\" USING btree (user_id)"
+    },
+    {
+      "tablename": "PatientProfiles",
+      "indexname": "idx_patient_profiles_user_id",
+      "indexdef": "CREATE INDEX idx_patient_profiles_user_id ON public.\"PatientProfiles\" USING btree (user_id)"
+    },
+    {
+      "tablename": "Users",
+      "indexname": "Users_email_key",
+      "indexdef": "CREATE UNIQUE INDEX \"Users_email_key\" ON public.\"Users\" USING btree (email)"
+    },
+    {
+      "tablename": "Users",
+      "indexname": "Users_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"Users_pkey\" ON public.\"Users\" USING btree (user_id)"
+    },
+    {
+      "tablename": "Users",
+      "indexname": "idx_users_email",
+      "indexdef": "CREATE INDEX idx_users_email ON public.\"Users\" USING btree (email)"
+    },
+    {
+      "tablename": "Users",
+      "indexname": "idx_users_firebase_uid_unique",
+      "indexdef": "CREATE UNIQUE INDEX idx_users_firebase_uid_unique ON public.\"Users\" USING btree (firebase_uid)"
+    },
+    {
+      "tablename": "caregiverprofiles",
+      "indexname": "caregiverprofiles_pkey",
+      "indexdef": "CREATE UNIQUE INDEX caregiverprofiles_pkey ON public.caregiverprofiles USING btree (profile_id)"
+    },
+    {
+      "tablename": "caregiverprofiles",
+      "indexname": "caregiverprofiles_user_id_key",
+      "indexdef": "CREATE UNIQUE INDEX caregiverprofiles_user_id_key ON public.caregiverprofiles USING btree (user_id)"
+    },
+    {
+      "tablename": "devicelogs",
+      "indexname": "devicelogs_pkey",
+      "indexdef": "CREATE UNIQUE INDEX devicelogs_pkey ON public.devicelogs USING btree (log_id)"
+    },
+    {
+      "tablename": "devicelogs",
+      "indexname": "idx_devicelogs_device",
+      "indexdef": "CREATE INDEX idx_devicelogs_device ON public.devicelogs USING btree (device_id)"
+    },
+    {
+      "tablename": "devicelogs",
+      "indexname": "idx_devicelogs_event",
+      "indexdef": "CREATE INDEX idx_devicelogs_event ON public.devicelogs USING btree (event_type)"
+    },
+    {
+      "tablename": "devicelogs",
+      "indexname": "idx_devicelogs_timestamp",
+      "indexdef": "CREATE INDEX idx_devicelogs_timestamp ON public.devicelogs USING btree (\"timestamp\")"
+    },
+    {
+      "tablename": "navigationsessions",
+      "indexname": "navigationsessions_pkey",
+      "indexdef": "CREATE UNIQUE INDEX navigationsessions_pkey ON public.navigationsessions USING btree (sessionid)"
+    },
+    {
+      "tablename": "pairings",
+      "indexname": "pairings_pairing_code_key",
+      "indexdef": "CREATE UNIQUE INDEX pairings_pairing_code_key ON public.pairings USING btree (pairing_code)"
+    },
+    {
+      "tablename": "pairings",
+      "indexname": "pairings_pkey",
+      "indexdef": "CREATE UNIQUE INDEX pairings_pkey ON public.pairings USING btree (pairing_id)"
+    },
+    {
+      "tablename": "patientmedication",
+      "indexname": "idx_patientmedication_medicine",
+      "indexdef": "CREATE INDEX idx_patientmedication_medicine ON public.patientmedication USING btree (medicine_name)"
+    },
+    {
+      "tablename": "patientmedication",
+      "indexname": "idx_patientmedication_patient",
+      "indexdef": "CREATE INDEX idx_patientmedication_patient ON public.patientmedication USING btree (patient_id)"
+    },
+    {
+      "tablename": "patientmedication",
+      "indexname": "patientmedication_pkey",
+      "indexdef": "CREATE UNIQUE INDEX patientmedication_pkey ON public.patientmedication USING btree (medication_id)"
+    },
+    {
+      "tablename": "patientprofiles",
+      "indexname": "idx_patientprofiles_user_id_unique",
+      "indexdef": "CREATE UNIQUE INDEX idx_patientprofiles_user_id_unique ON public.patientprofiles USING btree (user_id)"
+    },
+    {
+      "tablename": "patientprofiles",
+      "indexname": "patientprofiles_pkey",
+      "indexdef": "CREATE UNIQUE INDEX patientprofiles_pkey ON public.patientprofiles USING btree (profile_id)"
+    },
+    {
+      "tablename": "patientprofiles",
+      "indexname": "patientprofiles_user_id_key",
+      "indexdef": "CREATE UNIQUE INDEX patientprofiles_user_id_key ON public.patientprofiles USING btree (user_id)"
+    },
+    {
+      "tablename": "places",
+      "indexname": "idx_places_category",
+      "indexdef": "CREATE INDEX idx_places_category ON public.places USING btree (lower((category)::text))"
+    },
+    {
+      "tablename": "places",
+      "indexname": "idx_places_coords",
+      "indexdef": "CREATE INDEX idx_places_coords ON public.places USING btree (latitude, longitude)"
+    },
+    {
+      "tablename": "places",
+      "indexname": "idx_places_name_trgm",
+      "indexdef": "CREATE INDEX idx_places_name_trgm ON public.places USING btree (lower((place_name)::text))"
+    },
+    {
+      "tablename": "places",
+      "indexname": "places_pkey",
+      "indexdef": "CREATE UNIQUE INDEX places_pkey ON public.places USING btree (place_id)"
+    },
+    {
+      "tablename": "routehistory",
+      "indexname": "idx_routehistory_device",
+      "indexdef": "CREATE INDEX idx_routehistory_device ON public.routehistory USING btree (device_id)"
+    },
+    {
+      "tablename": "routehistory",
+      "indexname": "idx_routehistory_sequence",
+      "indexdef": "CREATE INDEX idx_routehistory_sequence ON public.routehistory USING btree (sessionid, sequence_number)"
+    },
+    {
+      "tablename": "routehistory",
+      "indexname": "idx_routehistory_session",
+      "indexdef": "CREATE INDEX idx_routehistory_session ON public.routehistory USING btree (sessionid)"
+    },
+    {
+      "tablename": "routehistory",
+      "indexname": "idx_routehistory_timestamp",
+      "indexdef": "CREATE INDEX idx_routehistory_timestamp ON public.routehistory USING btree (\"timestamp\")"
+    },
+    {
+      "tablename": "routehistory",
+      "indexname": "routehistory_pkey",
+      "indexdef": "CREATE UNIQUE INDEX routehistory_pkey ON public.routehistory USING btree (route_id)"
+    },
+    {
+      "tablename": "savedplaces",
+      "indexname": "idx_savedplaces_category",
+      "indexdef": "CREATE INDEX idx_savedplaces_category ON public.savedplaces USING btree (category)"
+    },
+    {
+      "tablename": "savedplaces",
+      "indexname": "idx_savedplaces_place_name",
+      "indexdef": "CREATE INDEX idx_savedplaces_place_name ON public.savedplaces USING btree (place_name)"
+    },
+    {
+      "tablename": "savedplaces",
+      "indexname": "idx_savedplaces_user",
+      "indexdef": "CREATE INDEX idx_savedplaces_user ON public.savedplaces USING btree (user_id)"
+    },
+    {
+      "tablename": "savedplaces",
+      "indexname": "savedplaces_pkey",
+      "indexdef": "CREATE UNIQUE INDEX savedplaces_pkey ON public.savedplaces USING btree (place_id)"
+    },
+    {
+      "tablename": "searchhistory",
+      "indexname": "idx_searchhistory_place",
+      "indexdef": "CREATE INDEX idx_searchhistory_place ON public.searchhistory USING btree (searched_place)"
+    },
+    {
+      "tablename": "searchhistory",
+      "indexname": "idx_searchhistory_time",
+      "indexdef": "CREATE INDEX idx_searchhistory_time ON public.searchhistory USING btree (searched_time)"
+    },
+    {
+      "tablename": "searchhistory",
+      "indexname": "idx_searchhistory_user",
+      "indexdef": "CREATE INDEX idx_searchhistory_user ON public.searchhistory USING btree (user_id)"
+    },
+    {
+      "tablename": "searchhistory",
+      "indexname": "searchhistory_pkey",
+      "indexdef": "CREATE UNIQUE INDEX searchhistory_pkey ON public.searchhistory USING btree (search_id)"
+    },
+    {
+      "tablename": "smartcanes",
+      "indexname": "smartcanes_pkey",
+      "indexdef": "CREATE UNIQUE INDEX smartcanes_pkey ON public.smartcanes USING btree (device_id)"
+    },
+    {
+      "tablename": "smartcanes",
+      "indexname": "smartcanes_serial_number_key",
+      "indexdef": "CREATE UNIQUE INDEX smartcanes_serial_number_key ON public.smartcanes USING btree (serial_number)"
+    },
+    {
+      "tablename": "soshistory",
+      "indexname": "idx_soshistory_device",
+      "indexdef": "CREATE INDEX idx_soshistory_device ON public.soshistory USING btree (device_id)"
+    },
+    {
+      "tablename": "soshistory",
+      "indexname": "idx_soshistory_resolved",
+      "indexdef": "CREATE INDEX idx_soshistory_resolved ON public.soshistory USING btree (resolved)"
+    },
+    {
+      "tablename": "soshistory",
+      "indexname": "idx_soshistory_session",
+      "indexdef": "CREATE INDEX idx_soshistory_session ON public.soshistory USING btree (sessionid)"
+    },
+    {
+      "tablename": "soshistory",
+      "indexname": "idx_soshistory_time",
+      "indexdef": "CREATE INDEX idx_soshistory_time ON public.soshistory USING btree (time_sent)"
+    },
+    {
+      "tablename": "soshistory",
+      "indexname": "idx_soshistory_user",
+      "indexdef": "CREATE INDEX idx_soshistory_user ON public.soshistory USING btree (user_id)"
+    },
+    {
+      "tablename": "soshistory",
+      "indexname": "soshistory_pkey",
+      "indexdef": "CREATE UNIQUE INDEX soshistory_pkey ON public.soshistory USING btree (sos_id)"
+    }
+  ],
+  "serviceRoleCapabilities": {
+    "rolsuper": true,
+    "rolbypassrls": true,
+    "rolcreatedb": true,
+    "rolcreaterole": true
+  },
+  "rowSecurity": [
+    {
+      "table_name": "places",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "Users",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "patientprofiles",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "PatientProfiles",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "navigationsessions",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "smartcanes",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "pairings",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "caregiverprofiles",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "routehistory",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "savedplaces",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "searchhistory",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "soshistory",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "patientmedication",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    },
+    {
+      "table_name": "devicelogs",
+      "relrowsecurity": false,
+      "relforcerowsecurity": false
+    }
+  ]
+}

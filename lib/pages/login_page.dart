@@ -52,7 +52,8 @@ class _LoginPageState extends State<LoginPage> {
         name: result.user.name,
         phone: result.user.phone,
         profilePicture: result.user.profilePicture,
-        profileComplete: (result.user.name?.trim().isNotEmpty == true) &&
+        profileComplete:
+            (result.user.name?.trim().isNotEmpty == true) &&
             (result.user.phone?.trim().isNotEmpty == true),
       );
 
@@ -114,6 +115,10 @@ class _LoginPageState extends State<LoginPage> {
     final g = context.gabay;
     final size = MediaQuery.of(context).size;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final panelColor = isDark ? g.surface : const Color(0xFFF3F3F3);
+    final headingColor = isDark ? g.heading : const Color(0xFF103B7D);
+    final mutedColor = isDark ? g.textSecondary : const Color(0xFFA3A3A3);
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -127,7 +132,7 @@ class _LoginPageState extends State<LoginPage> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF143E87), Color(0xFF082A67)],
+                colors: [Color(0xFF104694), Color(0xFF021D43)],
               ),
             ),
           ),
@@ -135,6 +140,7 @@ class _LoginPageState extends State<LoginPage> {
             child: Padding(
               padding: const EdgeInsets.only(left: 8),
               child: IconButton(
+                tooltip: 'Back',
                 onPressed: isLoading ? null : () => Navigator.pop(context),
                 icon: const Icon(
                   Icons.arrow_back_ios_new_rounded,
@@ -148,17 +154,17 @@ class _LoginPageState extends State<LoginPage> {
             right: 0,
             bottom: 0,
             child: Container(
-              height: size.height * .66,
+              height: size.height * .65,
               decoration: BoxDecoration(
-                color: g.surface,
+                color: panelColor,
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(36),
-                  topRight: Radius.circular(36),
+                  topLeft: Radius.circular(40),
+                  topRight: Radius.circular(40),
                 ),
               ),
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(28, 70, 28, 32 + bottomInset),
+                padding: EdgeInsets.fromLTRB(24, 64, 24, 32 + bottomInset),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -167,112 +173,104 @@ class _LoginPageState extends State<LoginPage> {
                       Text(
                         'Welcome Back',
                         style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                          color: g.heading,
+                          fontSize: 25,
+                          fontWeight: FontWeight.w700,
+                          color: headingColor,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         'Sign in to continue your journey with GABAY.',
-                        style: TextStyle(
-                          color: g.textSecondary,
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: mutedColor, fontSize: 13),
                       ),
-                      const SizedBox(height: 28),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 6),
-                        child: Text(
-                          'Email',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: g.textPrimary,
+                      const SizedBox(height: 40),
+                      TextFormField(
+                        controller: emailController,
+                        enabled: !isLoading,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: _validateEmail,
+                        style: TextStyle(color: g.textPrimary, fontSize: 13),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: isDark ? g.chipBackground : Colors.white,
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          labelStyle: TextStyle(
+                            color: headingColor,
+                            fontSize: 16,
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: g.chipBackground,
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: g.border),
-                        ),
-                        child: TextFormField(
-                          controller: emailController,
-                          enabled: !isLoading,
-                          keyboardType: TextInputType.emailAddress,
-                          validator: _validateEmail,
-                          style: TextStyle(color: g.textPrimary),
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            errorBorder: InputBorder.none,
-                            focusedErrorBorder: InputBorder.none,
-                            hintText: '@gmail.com',
-                            hintStyle: TextStyle(color: g.textSecondary),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 16,
-                            ),
-                            errorStyle: TextStyle(
-                              color: g.danger,
-                              height: 0.8,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30),
+                            borderSide: BorderSide(
+                              color: isDark
+                                  ? g.border
+                                  : const Color(0xFFDAD7D7),
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 6),
-                        child: Text(
-                          'Password',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: g.textPrimary,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          labelText: 'Email',
+                          hintText: '@gmail.com',
+                          hintStyle: TextStyle(color: mutedColor),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 16,
                           ),
+                          errorStyle: TextStyle(color: g.danger, height: 0.8),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: g.chipBackground,
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: g.border),
-                        ),
-                        child: TextFormField(
-                          controller: passwordController,
-                          enabled: !isLoading,
-                          obscureText: obscurePassword,
-                          validator: _validatePassword,
-                          style: TextStyle(color: g.textPrimary),
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            errorBorder: InputBorder.none,
-                            focusedErrorBorder: InputBorder.none,
-                            hintText: 'Enter your password',
-                            hintStyle: TextStyle(color: g.textSecondary),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 16,
+                      const SizedBox(height: 26),
+                      TextFormField(
+                        controller: passwordController,
+                        enabled: !isLoading,
+                        obscureText: obscurePassword,
+                        validator: _validatePassword,
+                        style: TextStyle(color: g.textPrimary, fontSize: 13),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: isDark ? g.chipBackground : Colors.white,
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          labelStyle: TextStyle(
+                            color: headingColor,
+                            fontSize: 16,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30),
+                            borderSide: BorderSide(
+                              color: isDark
+                                  ? g.border
+                                  : const Color(0xFFDAD7D7),
                             ),
-                            errorStyle: TextStyle(
-                              color: g.danger,
-                              height: 0.8,
-                            ),
-                            suffixIcon: IconButton(
-                              onPressed: () {
-                                setState(() {
-                                  obscurePassword = !obscurePassword;
-                                });
-                              },
-                              icon: Icon(
-                                obscurePassword
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                                color: g.textSecondary,
-                              ),
+                          ),
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          labelText: 'Password',
+                          hintText: 'Enter your password',
+                          hintStyle: TextStyle(color: mutedColor),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 16,
+                          ),
+                          errorStyle: TextStyle(color: g.danger, height: 0.8),
+                          suffixIcon: IconButton(
+                            tooltip: obscurePassword
+                                ? 'Show password'
+                                : 'Hide password',
+                            onPressed: () {
+                              setState(() {
+                                obscurePassword = !obscurePassword;
+                              });
+                            },
+                            icon: Icon(
+                              obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: mutedColor,
                             ),
                           ),
                         ),
@@ -284,9 +282,9 @@ class _LoginPageState extends State<LoginPage> {
                             scale: 0.9,
                             child: Checkbox(
                               value: rememberMe,
-                              activeColor: g.accent,
+                              activeColor: headingColor,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(1),
                               ),
                               onChanged: isLoading
                                   ? null
@@ -300,14 +298,11 @@ class _LoginPageState extends State<LoginPage> {
                           const SizedBox(width: 4),
                           Text(
                             'Remember me',
-                            style: TextStyle(
-                              color: g.textSecondary,
-                              fontSize: 15,
-                            ),
+                            style: TextStyle(color: mutedColor, fontSize: 13),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 28),
                       if (errorMessage != null)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
@@ -322,22 +317,15 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       SizedBox(
                         width: double.infinity,
-                        height: 58,
+                        height: 54,
                         child: Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(30),
                             gradient: const LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
-                              colors: [Color(0xFF1EA4FF), Color(0xFF0057B8)],
+                              colors: [Color(0xFF008FE5), Color(0xFF004878)],
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: g.accent.withValues(alpha: 0.2),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
                           ),
                           child: ElevatedButton(
                             onPressed: isLoading ? null : _login,
@@ -361,8 +349,8 @@ class _LoginPageState extends State<LoginPage> {
                                 : const Text(
                                     'Login',
                                     style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
                                       color: Colors.white,
                                     ),
                                   ),
@@ -371,14 +359,14 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       Center(
                         child: Container(
-                          margin: const EdgeInsets.only(top: 20),
+                          margin: const EdgeInsets.only(top: 36),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
                                 "Don't have an account?",
                                 style: TextStyle(
-                                  color: g.textSecondary,
+                                  color: mutedColor,
                                   fontSize: 13,
                                 ),
                               ),
@@ -396,8 +384,8 @@ class _LoginPageState extends State<LoginPage> {
                                 child: Text(
                                   'Sign up',
                                   style: TextStyle(
-                                    color: g.accent,
-                                    fontWeight: FontWeight.bold,
+                                    color: headingColor,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
@@ -412,22 +400,22 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
           Positioned(
-            top: size.height * .29,
+            top: size.height * .35 - 36,
             left: 0,
             right: 0,
             child: Center(
               child: Hero(
                 tag: 'gabay_logo',
                 child: Container(
-                  width: 90,
-                  height: 90,
+                  width: 72,
+                  height: 72,
                   decoration: BoxDecoration(
-                    color: g.surface,
+                    color: const Color(0xFFBDE2FA),
                     shape: BoxShape.circle,
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: GabayLogo(size: 50, color: g.accent),
+                    padding: const EdgeInsets.all(6),
+                    child: const GabayLogo(size: 60, color: Color(0xFF008DE0)),
                   ),
                 ),
               ),

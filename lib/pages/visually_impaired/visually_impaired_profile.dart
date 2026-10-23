@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../models/navigator_health_profile.dart';
 import '../../services/app_session_service.dart';
 import '../../services/profile_service.dart';
 import '../../widgets/profile/profile_menu_widgets.dart';
@@ -21,6 +20,9 @@ class VisuallyImpairedProfilePage extends StatefulWidget {
 
 class _VisuallyImpairedProfilePageState
     extends State<VisuallyImpairedProfilePage> {
+  bool _loadingProfile = true;
+  bool _profileError = false;
+
   @override
   void initState() {
     super.initState();
@@ -28,10 +30,18 @@ class _VisuallyImpairedProfilePageState
   }
 
   Future<void> _refreshProfile() async {
+    if (mounted) {
+      setState(() {
+        _loadingProfile = true;
+        _profileError = false;
+      });
+    }
     try {
       await ProfileService.instance.fetchProfile();
     } catch (_) {
-      // Keep cached session values if offline.
+      if (mounted) setState(() => _profileError = true);
+    } finally {
+      if (mounted) setState(() => _loadingProfile = false);
     }
   }
 
@@ -61,10 +71,21 @@ class _VisuallyImpairedProfilePageState
           email: email,
           role: 'Navigator',
           avatarUrl: picture,
-          avatarAsset: (picture == null || picture.isEmpty)
-              ? 'assets/profile.jpg'
-              : null,
+          avatarAsset: null,
           sections: [
+            if (_loadingProfile || _profileError)
+              ProfileSectionGroup(
+                title: 'Profile status',
+                items: [
+                  ProfileMenuItem(
+                    icon: _loadingProfile ? Icons.sync : Icons.error_outline,
+                    title: _loadingProfile
+                        ? 'Loading profile...'
+                        : 'Profile refresh failed. Tap to retry.',
+                    onTap: _loadingProfile ? null : _refreshProfile,
+                  ),
+                ],
+              ),
             ProfileSectionGroup(
               title: 'Your Account',
               items: [
@@ -92,16 +113,14 @@ class _VisuallyImpairedProfilePageState
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const InformationHealthStatusPage(
-                          profile: NavigatorHealthProfile.navigatorUser,
-                        ),
+                        builder: (_) => const InformationHealthStatusPage(),
                       ),
                     );
                   },
                 ),
                 ProfileMenuItem(
                   icon: Icons.link_rounded,
-                  title: 'Caregivers',
+                  title: 'Caregivers & Smart Canes',
                   onTap: () {
                     Navigator.push(
                       context,

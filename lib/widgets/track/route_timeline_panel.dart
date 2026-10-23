@@ -1,13 +1,11 @@
+import 'readable_place_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/route_timeline_entry.dart';
 import '../../theme/gabay_theme.dart';
 
 class RouteTimelinePanel extends StatelessWidget {
-  const RouteTimelinePanel({
-    super.key,
-    required this.entries,
-  });
+  const RouteTimelinePanel({super.key, required this.entries});
 
   final List<RouteTimelineEntry> entries;
 
@@ -111,25 +109,14 @@ class _TimelineRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  RichText(
-                    text: TextSpan(
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: g.textPrimary,
-                        height: 1.35,
-                      ),
-                      children: [
-                        TextSpan(text: title),
-                        if (entry.isArrived)
-                          TextSpan(
-                            text: ' (Arrived)',
-                            style: TextStyle(
-                              color: g.success,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                      ],
+                  ReadablePlaceText(
+                    title,
+                    suffix: entry.isArrived ? ' (Arrived)' : '',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: entry.isArrived ? g.success : g.textPrimary,
+                      height: 1.35,
                     ),
                   ),
                   const SizedBox(height: 4),

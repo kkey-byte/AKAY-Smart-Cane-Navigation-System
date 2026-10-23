@@ -1,0 +1,6 @@
+{
+  "database": {
+    "instance": "gabay-application-db-default-rtdb",
+    "rules": "database.rules.json"
+  }
+}

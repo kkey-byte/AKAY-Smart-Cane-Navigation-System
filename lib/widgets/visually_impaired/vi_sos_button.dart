@@ -39,7 +39,7 @@ class _ViSosButtonState extends State<ViSosButton>
 
     return Semantics(
       button: true,
-      label: 'Emergency SOS. Double tap to send alert.',
+      label: 'Emergency SOS. Alert service unavailable.',
       child: ScaleTransition(
         scale: _pulseAnimation,
         child: Material(
@@ -49,8 +49,7 @@ class _ViSosButtonState extends State<ViSosButton>
           borderRadius: BorderRadius.circular(28),
           child: InkWell(
             borderRadius: BorderRadius.circular(28),
-            onTap: widget.onPressed ??
-                () => _confirmSos(context),
+            onTap: widget.onPressed ?? () => _confirmSos(context),
             child: Container(
               width: double.infinity,
               height: 88,
@@ -90,26 +89,34 @@ class _ViSosButtonState extends State<ViSosButton>
           style: TextStyle(color: context.gabay.textPrimary),
         ),
         content: Text(
-          'Your caregiver and emergency contacts will be alerted immediately with your live location.',
+          'Emergency alerts are unavailable. Contact your caregiver or emergency services directly.',
           style: TextStyle(color: context.gabay.textSecondary, height: 1.45),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: Text('Cancel', style: TextStyle(color: context.gabay.textSecondary)),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: context.gabay.textSecondary),
+            ),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(dialogContext);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: const Text('Emergency SOS activated — help is on the way'),
+                  content: const Text(
+                    'Alert unavailable. No emergency message was sent.',
+                  ),
                   backgroundColor: danger,
                   behavior: SnackBarBehavior.floating,
                 ),
               );
             },
-            child: Text('Activate SOS', style: TextStyle(color: danger, fontWeight: FontWeight.w700)),
+            child: Text(
+              'Activate SOS',
+              style: TextStyle(color: danger, fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),

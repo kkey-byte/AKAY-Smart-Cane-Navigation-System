@@ -7,9 +7,12 @@ const mapboxToken = String.fromEnvironment('MAPBOX_ACCESS_TOKEN');
 class LocationCard extends StatelessWidget {
   final String navigatorName;
 
-  final double latitude;
+  /// Optional Home preview supplied by the existing Track screen.
+  final Widget? activeMap;
 
-  final double longitude;
+  final double? latitude;
+
+  final double? longitude;
 
   final VoidCallback? onViewMapPressed;
 
@@ -22,17 +25,18 @@ class LocationCard extends StatelessWidget {
   const LocationCard({
     super.key,
 
-    this.navigatorName = 'Glaisa Regine Mariel',
+    this.navigatorName = 'Location unavailable',
 
-    this.latitude = 7.3081,
+    this.latitude,
 
-    this.longitude = 125.6842,
+    this.longitude,
 
     this.onViewMapPressed,
 
     this.isNavigating = false,
 
     this.onStartNavigationPressed,
+    this.activeMap,
   });
 
   bool get _usesNavigationToggle => onStartNavigationPressed != null;
@@ -63,27 +67,43 @@ class LocationCard extends StatelessWidget {
           fit: StackFit.expand,
 
           children: [
-            Image.network(
-              'https://api.mapbox.com/styles/v1/mapbox/light-v11/static/$longitude,$latitude,13/600x300?access_token=$mapboxToken',
+            if (isNavigating && activeMap != null)
+              activeMap!
+            else if (latitude == null ||
+                longitude == null ||
+                !latitude!.isFinite ||
+                !longitude!.isFinite ||
+                latitude!.abs() > 90 ||
+                longitude!.abs() > 180 ||
+                !mapboxToken.startsWith('pk.'))
+              Center(
+                child: Text(
+                  'Location unavailable',
+                  style: TextStyle(color: g.textSecondary),
+                ),
+              )
+            else
+              Image.network(
+                'https://api.mapbox.com/styles/v1/mapbox/light-v11/static/$longitude,$latitude,13/600x300?access_token=$mapboxToken',
 
-              fit: BoxFit.cover,
+                fit: BoxFit.cover,
 
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  decoration: BoxDecoration(color: g.mapPlaceholder),
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    decoration: BoxDecoration(color: g.mapPlaceholder),
 
-                  child: Center(
-                    child: Icon(
-                      Icons.map_outlined,
+                    child: Center(
+                      child: Icon(
+                        Icons.map_outlined,
 
-                      size: 56,
+                        size: 56,
 
-                      color: g.textSecondary,
+                        color: g.textSecondary,
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                },
+              ),
 
             Positioned(
               top: 18,

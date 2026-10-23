@@ -1,0 +1,52 @@
+{
+  "rules": {
+    "breadcrumb_trips": {
+      "$owner": {
+        ".read": "auth != null && (auth.uid === $owner || root.child('breadcrumb_shares').child($owner).child(auth.uid).exists())",
+        ".write": "auth != null && auth.uid === $owner",
+        ".indexOn": ["startedAt"],
+        "$trip": {
+          ".validate": "newData.hasChildren(['ownerId', 'name', 'startedAt', 'status', 'points']) && newData.child('ownerId').val() === $owner",
+          "ownerId": { ".validate": "newData.isString() && newData.val() === $owner" },
+          "name": { ".validate": "newData.isString() && newData.val().length <= 500" },
+          "startedAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 30000" },
+          "endedAt": { ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('startedAt').val()" },
+          "status": { ".validate": "newData.val() === 'recording' || newData.val() === 'completed' || newData.val() === 'interrupted'" },
+          "points": {
+            "$point": {
+              ".validate": "newData.hasChildren(['latitude', 'longitude', 'time', 'accuracy'])",
+              "latitude": { ".validate": "newData.isNumber() && newData.val() >= -90 && newData.val() <= 90" },
+              "longitude": { ".validate": "newData.isNumber() && newData.val() >= -180 && newData.val() <= 180" },
+              "time": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 30000" },
+              "accuracy": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 50" },
+              "$other": { ".validate": false }
+            }
+          },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+    "breadcrumb_shares": {
+      "$owner": {
+        ".read": "auth != null && auth.uid === $owner",
+        "$caregiver": {
+          ".write": "auth != null && auth.uid === $owner && $caregiver !== $owner",
+          ".validate": "newData.hasChildren(['name'])",
+          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 200" },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+    "breadcrumb_links": {
+      "$caregiver": {
+        ".read": "auth != null && auth.uid === $caregiver",
+        "$owner": {
+          ".write": "auth != null && auth.uid === $owner && $caregiver !== $owner",
+          ".validate": "newData.hasChildren(['name'])",
+          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 200" },
+          "$other": { ".validate": false }
+        }
+      }
+    }
+  }
+}

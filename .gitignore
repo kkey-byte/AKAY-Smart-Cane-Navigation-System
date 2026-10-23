@@ -39,8 +39,18 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
+# Local Gradle cache junction (machine-specific)
+/.gradle-home/
+
 # Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile
 /android/app/release
 
+
+# Isolated security tests and private hardware provisioning artifacts
+/backend_patch/node_modules/
+/tmp/pairing_pg/
+/tmp/pairing_pg.log
+*.private.json
+/backend_patch/original_backup/

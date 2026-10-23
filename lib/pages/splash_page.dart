@@ -2,15 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../models/user_role.dart';
+import '../navigation/role_router.dart';
 import '../services/app_session_service.dart';
 import '../theme/gabay_theme.dart';
 import '../widgets/gabay_logo.dart';
 import '../widgets/shared/gabay_page_route.dart';
-import 'caregiver/caregiver_dashboard.dart';
 import 'landing_page.dart';
-import 'onboarding/onboarding_router.dart';
-import 'visually_impaired/visually_impaired_dashboard.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -35,24 +32,14 @@ class _SplashPageState extends State<SplashPage> {
 
   void _navigateNext() {
     final session = AppSessionService.instance;
-    Widget destination;
+    // Use the same role routing as login/signup, including older accounts
+    // whose saved onboardingComplete flag is false.
+    final destination = session.isLoggedIn
+        ? RoleRouter.dashboardForRole(session.role?.backendValue) ??
+              const LandingPage()
+        : const LandingPage();
 
-    if (session.isLoggedIn) {
-      if (!session.onboardingComplete) {
-        destination = const OnboardingRouter();
-      } else if (session.role == UserRole.navigator) {
-        destination = const VisuallyImpairedDashboard();
-      } else {
-        destination = const CaregiverDashboard();
-      }
-    } else {
-      destination = const LandingPage();
-    }
-
-    Navigator.pushReplacement(
-      context,
-      GabayPageRoute(page: destination),
-    );
+    Navigator.pushReplacement(context, GabayPageRoute(page: destination));
   }
 
   @override
@@ -68,10 +55,7 @@ class _SplashPageState extends State<SplashPage> {
           gradient: RadialGradient(
             center: Alignment(0.0, -0.1),
             radius: 1.2,
-            colors: [
-              Color(0xFF0F52BA),
-              Color(0xFF03163A),
-            ],
+            colors: [Color(0xFF0F52BA), Color(0xFF03163A)],
             stops: [0.0, 1.0],
           ),
         ),
@@ -95,10 +79,7 @@ class _SplashPageState extends State<SplashPage> {
                 children: [
                   Hero(
                     tag: 'gabay_logo',
-                    child: GabayLogo(
-                      size: 150,
-                      color: g.accent,
-                    ),
+                    child: GabayLogo(size: 150, color: g.accent),
                   ),
                   const SizedBox(height: 24),
                   const Hero(

@@ -1,0 +1,135 @@
+import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/breadcrumb_trip.dart';
+import '../models/user_role.dart';
+import 'app_session_service.dart';
+import 'breadcrumb_recorder.dart';
+import 'breadcrumb_repository.dart';
+import 'navigator_location_service.dart';
+
+/// Owns recording independently of map/report widget lifetimes.
+class BreadcrumbService extends ChangeNotifier {
+  BreadcrumbService._();
+  static final instance = BreadcrumbService._();
+  final repository = FirebaseBreadcrumbRepository();
+  BreadcrumbRecorder? recorder;
+  Future<void>? _initializing;
+  Future<void> _accountQueue = Future.value();
+  bool _starting = false;
+  bool connected = false;
+  int _startGeneration = 0;
+  bool get isRecording => recorder?.active != null;
+  String? get error => recorder?.storageError ?? recorder?.syncError;
+  List<BreadcrumbTrip> get trips => recorder?.trips ?? [];
+  List<BreadcrumbPoint> get points => recorder?.active?.points ?? [];
+
+  Future<void> initialize() => _initializing ??= _initialize();
+  Future<void> _initialize() async {
+    recorder = BreadcrumbRecorder(
+      repository,
+      await SharedPreferences.getInstance(),
+    );
+    recorder!.addListener(notifyListeners);
+    repository.watchConnection().listen(
+      (value) {
+        connected = value;
+        notifyListeners();
+        if (value) unawaited(recorder!.sync());
+      },
+      onError: (Object error) {
+        connected = false;
+        notifyListeners();
+      },
+    );
+    NavigatorLocationService.instance.addListener(_onLocation);
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      _accountQueue = _accountQueue.then((_) async {
+        if (recorder!.ownerId != user?.uid) {
+          if (isRecording) await stop();
+          await recorder!.openAccount(user?.uid);
+        }
+      });
+    });
+    Timer.periodic(const Duration(seconds: 10), (_) {
+      unawaited(recorder!.sync());
+    });
+    await recorder!.openAccount(FirebaseAuth.instance.currentUser?.uid);
+  }
+
+  Future<void> start({String? destination}) async {
+    await initialize();
+    await _accountQueue;
+    if (_starting || isRecording) return;
+    if (AppSessionService.instance.role != UserRole.navigator) {
+      throw StateError('Only the navigator can record their location.');
+    }
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) throw StateError('Sign in to record a track.');
+    _starting = true;
+    final generation = _startGeneration;
+    try {
+      await recorder!.openAccount(uid);
+      final location = NavigatorLocationService.instance;
+      await location.startTracking();
+      await location.refreshCurrentLocation();
+      final fix = location.lastPosition;
+      if (fix == null ||
+          location.permissionDenied ||
+          location.errorMessage != null) {
+        throw StateError(
+          location.errorMessage ?? 'Waiting for a GPS location.',
+        );
+      }
+      final first = BreadcrumbPoint(
+        fix.latitude,
+        fix.longitude,
+        fix.timestamp,
+        fix.accuracy,
+      );
+      if (!shouldRecordBreadcrumb(null, first, DateTime.now())) {
+        throw StateError(
+          'Waiting for an accurate GPS location. Move outdoors and try again.',
+        );
+      }
+      if (FirebaseAuth.instance.currentUser?.uid != uid ||
+          generation != _startGeneration) {
+        return;
+      }
+      await recorder!.start(destination ?? 'Walking track', first);
+      await location.setBackgroundRecording(true);
+      unawaited(recorder!.sync());
+    } finally {
+      _starting = false;
+    }
+  }
+
+  void _onLocation() {
+    if (!isRecording ||
+        recorder!.ownerId != FirebaseAuth.instance.currentUser?.uid) {
+      return;
+    }
+    final fix = NavigatorLocationService.instance.lastPosition;
+    if (fix == null) return;
+    unawaited(
+      recorder!.record(
+        BreadcrumbPoint(
+          fix.latitude,
+          fix.longitude,
+          fix.timestamp,
+          fix.accuracy,
+        ),
+        DateTime.now(),
+      ),
+    );
+  }
+
+  Future<void> stop() async {
+    _startGeneration++;
+    if (!isRecording) return;
+    await recorder?.stop();
+    await NavigatorLocationService.instance.setBackgroundRecording(false);
+    unawaited(recorder?.sync() ?? Future.value());
+  }
+}

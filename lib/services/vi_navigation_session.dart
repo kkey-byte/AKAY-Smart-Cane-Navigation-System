@@ -6,12 +6,22 @@ class ViNavigationSession extends ChangeNotifier {
 
   static final ViNavigationSession instance = ViNavigationSession._();
 
+  String? destination;
+  String? estimatedTime;
+  String? estimatedDistance;
   bool _isNavigating = false;
 
   bool get isNavigating => _isNavigating;
 
-  void setNavigating(bool value) {
-    if (_isNavigating == value) return;
+  void setNavigating(
+    bool value, {
+    String? destination,
+    String? estimatedTime,
+    String? estimatedDistance,
+  }) {
+    this.destination = value ? destination : null;
+    this.estimatedTime = value ? estimatedTime : null;
+    this.estimatedDistance = value ? estimatedDistance : null;
     _isNavigating = value;
     notifyListeners();
   }

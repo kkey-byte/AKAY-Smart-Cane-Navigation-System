@@ -10,10 +10,10 @@ class EmergencyContact {
   final String relationship;
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'phone': phone,
-        'relationship': relationship,
-      };
+    'name': name,
+    'phone': phone,
+    'relationship': relationship,
+  };
 
   factory EmergencyContact.fromJson(Map<String, dynamic> json) {
     return EmergencyContact(
@@ -60,13 +60,13 @@ class AccessibilityPreferences {
   }
 
   Map<String, dynamic> toJson() => {
-        'textScale': textScale,
-        'highContrast': highContrast,
-        'voiceGuidance': voiceGuidance,
-        'speechSpeed': speechSpeed,
-        'language': language,
-        'hapticFeedback': hapticFeedback,
-      };
+    'textScale': textScale,
+    'highContrast': highContrast,
+    'voiceGuidance': voiceGuidance,
+    'speechSpeed': speechSpeed,
+    'language': language,
+    'hapticFeedback': hapticFeedback,
+  };
 
   factory AccessibilityPreferences.fromJson(Map<String, dynamic> json) {
     return AccessibilityPreferences(
@@ -87,7 +87,6 @@ class OnboardingSetupData {
     this.emergencyContacts = const [],
     this.locationGranted = false,
     this.notificationsGranted = false,
-    this.linkedInviteCode = '',
     this.tutorialSkipped = false,
     this.accessibility = const AccessibilityPreferences(),
   });
@@ -97,7 +96,6 @@ class OnboardingSetupData {
   final List<EmergencyContact> emergencyContacts;
   final bool locationGranted;
   final bool notificationsGranted;
-  final String linkedInviteCode;
   final bool tutorialSkipped;
   final AccessibilityPreferences accessibility;
 
@@ -107,7 +105,6 @@ class OnboardingSetupData {
     List<EmergencyContact>? emergencyContacts,
     bool? locationGranted,
     bool? notificationsGranted,
-    String? linkedInviteCode,
     bool? tutorialSkipped,
     AccessibilityPreferences? accessibility,
   }) {
@@ -117,7 +114,6 @@ class OnboardingSetupData {
       emergencyContacts: emergencyContacts ?? this.emergencyContacts,
       locationGranted: locationGranted ?? this.locationGranted,
       notificationsGranted: notificationsGranted ?? this.notificationsGranted,
-      linkedInviteCode: linkedInviteCode ?? this.linkedInviteCode,
       tutorialSkipped: tutorialSkipped ?? this.tutorialSkipped,
       accessibility: accessibility ?? this.accessibility,
     );

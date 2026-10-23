@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'linked_navigator.dart';
+import '../utils/destination_labels.dart';
 
 /// A place with coordinates — ready for Google Places API integration.
 class MapPlace {
@@ -34,7 +35,16 @@ class MapPlace {
     this.distanceMeters,
   });
 
+  bool get hasValidCoordinates =>
+      latitude.isFinite &&
+      longitude.isFinite &&
+      latitude.abs() <= 90 &&
+      longitude.abs() <= 180;
+
   LatLng get latLng => LatLng(latitude, longitude);
+
+  String get displayName => DestinationLabels.name(name, address);
+  String get shortAddress => DestinationLabels.shortAddress(address, name);
 
   MapPlace copyWith({
     String? name,
@@ -75,6 +85,7 @@ class RoutePlanResult {
   final String navigationStatus;
   final List<LatLng> polylinePoints;
   final DateTime tripStartedAt;
+
   /// Real OSRM / routing turn instructions for the Turn-by-Turn panel.
   final List<RouteTurnInstruction> turnInstructions;
 
@@ -166,8 +177,8 @@ class GabayMapDefaults {
     final lat1 = _toRad(a.latitude);
     final lat2 = _toRad(b.latitude);
 
-    final h = pow(sin(dLat / 2), 2) +
-        cos(lat1) * cos(lat2) * pow(sin(dLng / 2), 2);
+    final h =
+        pow(sin(dLat / 2), 2) + cos(lat1) * cos(lat2) * pow(sin(dLng / 2), 2);
     return earthRadius * 2 * asin(sqrt(h));
   }
 

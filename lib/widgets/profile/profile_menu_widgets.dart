@@ -33,7 +33,7 @@ class GabayProfileScaffold extends StatelessWidget {
     required this.role,
     required this.sections,
     required this.onLogout,
-    this.avatarAsset = 'assets/profile.jpg',
+    this.avatarAsset,
     this.avatarUrl,
     this.bottomPadding = GabayNavMetrics.contentClearance,
   });
@@ -44,6 +44,7 @@ class GabayProfileScaffold extends StatelessWidget {
   final List<ProfileSectionGroup> sections;
   final VoidCallback onLogout;
   final String? avatarAsset;
+
   /// Network URL or `data:image/...;base64,...` from Users.profile_picture.
   final String? avatarUrl;
   final double bottomPadding;
@@ -135,24 +136,22 @@ class GabayProfileScaffold extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-              ...sections.map(
-                (section) => ProfileSectionCard(
-                  title: section.title,
-                  items: section.items,
-                ),
+            ...sections.map(
+              (section) => ProfileSectionCard(
+                title: section.title,
+                items: section.items,
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: _LogoutCard(
-                  onTap: () => showLogoutConfirmationDialog(
-                    context,
-                    onConfirm: onLogout,
-                  ),
-                ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: _LogoutCard(
+                onTap: () =>
+                    showLogoutConfirmationDialog(context, onConfirm: onLogout),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
     );
   }
 }
@@ -203,10 +202,7 @@ class _ProfileHeaderBar extends StatelessWidget {
 }
 
 class ProfileSectionGroup {
-  const ProfileSectionGroup({
-    required this.title,
-    required this.items,
-  });
+  const ProfileSectionGroup({required this.title, required this.items});
 
   final String title;
   final List<ProfileMenuItem> items;
@@ -363,23 +359,23 @@ class _ProfileAvatar extends StatelessWidget {
           child = Image.memory(
             base64Decode(raw),
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => fallback,
+            errorBuilder: (_, _, _) => fallback,
           );
         } catch (_) {
           child = fallback;
         }
-      } else if (url.startsWith('http://') || url.startsWith('https://')) {
+      } else if (url.startsWith('https://')) {
         child = Image.network(
           url,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => fallback,
+          errorBuilder: (_, _, _) => fallback,
         );
       }
     } else if (asset != null && asset!.isNotEmpty) {
       child = Image.asset(
         asset!,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => fallback,
+        errorBuilder: (_, _, _) => fallback,
       );
     }
 

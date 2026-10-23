@@ -1,3 +1,4 @@
+import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -193,7 +194,7 @@ class _SearchBarCard extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
         child: Row(
           children: [
-            Semantics(
+            if (isNavigating) Semantics(
               label: isNavigating
                   ? 'Currently navigating'
                   : 'Your current location',
@@ -220,7 +221,7 @@ class _SearchBarCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            if (isNavigating) const SizedBox(width: 10),
             Expanded(
               child: isNavigating
                   ? Column(
@@ -398,7 +399,13 @@ class _CategoryChips extends StatelessWidget {
       label: 'Nearby place categories',
       child: SizedBox(
         height: 40,
-        child: ListView.separated(
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(
+            dragDevices: {PointerDeviceKind.touch, PointerDeviceKind.mouse,
+              PointerDeviceKind.stylus, PointerDeviceKind.trackpad},
+          ),
+          child: ListView.separated(
+          primary: false,
           scrollDirection: Axis.horizontal,
           itemCount: categories.length,
           separatorBuilder: (_, _) => const SizedBox(width: 8),
@@ -437,6 +444,7 @@ class _CategoryChips extends StatelessWidget {
               },
             );
           },
+          ),
         ),
       ),
     );
@@ -656,7 +664,7 @@ class _DestinationResultCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      place.name,
+                      place.displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -692,7 +700,7 @@ class _DestinationResultCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      place.address,
+                      place.shortAddress,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

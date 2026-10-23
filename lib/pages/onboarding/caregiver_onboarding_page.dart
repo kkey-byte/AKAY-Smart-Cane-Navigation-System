@@ -5,25 +5,23 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../services/app_session_service.dart';
 import '../../theme/gabay_theme.dart';
 import '../../widgets/onboarding/onboarding_widgets.dart';
-import '../../widgets/shared/gabay_card.dart';
 import 'onboarding_router.dart';
 
 class CaregiverOnboardingPage extends StatefulWidget {
   const CaregiverOnboardingPage({super.key});
 
   @override
-  State<CaregiverOnboardingPage> createState() => _CaregiverOnboardingPageState();
+  State<CaregiverOnboardingPage> createState() =>
+      _CaregiverOnboardingPageState();
 }
 
 class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
-  static const _setupSteps = 4;
+  static const _setupSteps = 3;
 
   int _step = 0;
   bool _notificationsGranted = false;
   bool _locationGranted = false;
-  bool _linkCompleted = false;
 
-  final _inviteController = TextEditingController();
   final _tutorialController = PageController();
   int _tutorialIndex = 0;
 
@@ -51,13 +49,10 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
     final saved = AppSessionService.instance.setupData;
     _notificationsGranted = saved.notificationsGranted;
     _locationGranted = saved.locationGranted;
-    _linkCompleted = saved.linkedInviteCode.isNotEmpty;
-    _inviteController.text = saved.linkedInviteCode;
   }
 
   @override
   void dispose() {
-    _inviteController.dispose();
     _tutorialController.dispose();
     super.dispose();
   }
@@ -75,11 +70,10 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
   bool get _canContinue {
     return switch (_step) {
       0 => true,
-      1 => _linkCompleted,
-      2 => _notificationsGranted,
+      1 => _notificationsGranted,
+      2 => true,
       3 => true,
       4 => true,
-      5 => true,
       _ => false,
     };
   }
@@ -87,7 +81,6 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
   Future<void> _persistPartial() async {
     await AppSessionService.instance.updateSetupData(
       AppSessionService.instance.setupData.copyWith(
-        linkedInviteCode: _inviteController.text.trim(),
         notificationsGranted: _notificationsGranted,
         locationGranted: _locationGranted,
       ),
@@ -95,13 +88,14 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
   }
 
   void _nextStep() async {
-    if (!_canContinue && _step != 0 && _step != 3 && _step != 4) return;
+    if (!_canContinue && _step != 0 && _step != 2 && _step != 3) return;
 
-    if (_step > 0 && _step < 5) {
+    if (_step > 0 && _step < 4) {
       await _persistPartial();
     }
 
-    if (_step >= 5) {
+    if (!mounted) return;
+    if (_step >= 4) {
       await OnboardingRouter.openDashboard(context);
       return;
     }
@@ -125,21 +119,11 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    final granted = permission == LocationPermission.always ||
+    final granted =
+        permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse;
     setState(() => _locationGranted = granted);
     if (granted) await _persistPartial();
-  }
-
-  void _linkNavigator() {
-    if (_inviteController.text.trim().length < 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid invite code.')),
-      );
-      return;
-    }
-    setState(() => _linkCompleted = true);
-    _persistPartial();
   }
 
   @override
@@ -147,17 +131,14 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
     return OnboardingScaffold(
       stepLabel: _stepLabel,
       progress: _progress,
-      onBack: _step > 0 && _step < 5 ? _previousStep : null,
+      onBack: _step > 0 && _step < 4 ? _previousStep : null,
       bottomBar: _buildBottomBar(),
-      child: KeyedSubtree(
-        key: ValueKey(_step),
-        child: _buildStepContent(),
-      ),
+      child: KeyedSubtree(key: ValueKey(_step), child: _buildStepContent()),
     );
   }
 
   Widget _buildBottomBar() {
-    if (_step == 5) {
+    if (_step == 4) {
       return OnboardingPrimaryButton(
         label: 'Go to Dashboard',
         onPressed: _nextStep,
@@ -165,10 +146,13 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
     }
 
     if (_step == 0) {
-      return OnboardingPrimaryButton(label: 'Get Started', onPressed: _nextStep);
+      return OnboardingPrimaryButton(
+        label: 'Get Started',
+        onPressed: _nextStep,
+      );
     }
 
-    if (_step == 4) {
+    if (_step == 3) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -210,11 +194,8 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
           onPressed: _canContinue ? _nextStep : null,
           enabled: _canContinue,
         ),
-        if (_step == 3)
-          OnboardingTextButton(
-            label: 'Skip for now',
-            onPressed: _nextStep,
-          ),
+        if (_step == 2)
+          OnboardingTextButton(label: 'Skip for now', onPressed: _nextStep),
       ],
     );
   }
@@ -222,10 +203,9 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
   Widget _buildStepContent() {
     return switch (_step) {
       0 => _welcomeStep(),
-      1 => _linkStep(),
-      2 => _notificationsStep(),
-      3 => _locationStep(),
-      4 => _tutorialStep(),
+      1 => _notificationsStep(),
+      2 => _locationStep(),
+      3 => _tutorialStep(),
       _ => _completeStep(),
     };
   }
@@ -258,66 +238,14 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
     );
   }
 
-  Widget _linkStep() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
-      child: Column(
-        children: [
-          const OnboardingIllustration(icon: Icons.qr_code_scanner_rounded),
-          const SizedBox(height: 24),
-          Text('Link Navigator', style: GabayTheme.sectionTitle(context)),
-          const SizedBox(height: 10),
-          const OnboardingInfoCard(
-            title: 'Connect with your navigator',
-            subtitle:
-                'Scan their QR code or enter an invite code to link accounts and start monitoring.',
-          ),
-          const SizedBox(height: 18),
-          GabayCard(
-            child: Column(
-              children: [
-                Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: context.gabay.chipBackground,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.qr_code_2_rounded,
-                      size: 72,
-                      color: context.gabay.accent,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: _inviteController,
-                  decoration: const InputDecoration(
-                    labelText: 'Invite Code',
-                    hintText: 'e.g. GABAY-4821',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                OnboardingPrimaryButton(
-                  label: _linkCompleted ? 'Linked Successfully' : 'Link Navigator',
-                  onPressed: _linkCompleted ? null : _linkNavigator,
-                  enabled: !_linkCompleted,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _notificationsStep() {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
       child: Column(
         children: [
-          const OnboardingIllustration(icon: Icons.notifications_active_rounded),
+          const OnboardingIllustration(
+            icon: Icons.notifications_active_rounded,
+          ),
           const SizedBox(height: 24),
           Text('Notifications', style: GabayTheme.sectionTitle(context)),
           const SizedBox(height: 12),
