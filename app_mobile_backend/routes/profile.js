@@ -6,6 +6,9 @@ const {
 } = require("../database/ensurePatientProfilesTable");
 
 const router = express.Router();
+const {verifyFirebase,requireProfile}=require("../middleware/identity");
+router.use(verifyFirebase,requireProfile);
+router.use((_req,res,next)=>{res.set("Cache-Control","no-store");next();});
 
 function mapUser(row) {
   return {
@@ -26,7 +29,7 @@ function mapPatient(row) {
   return {
     profileId: row.profile_id,
     userId: row.user_id,
-    age: row.age,
+    age: row.birthdate ? computeAge(row.birthdate) : row.age,
     gender: row.gender,
     birthdate: row.birthdate,
     medicalConditions: row.medical_conditions,
@@ -37,25 +40,6 @@ function mapPatient(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
-}
-
-async function resolveUserId({ userId, firebaseUid }) {
-  const table = usersTable();
-  if (userId) {
-    const byId = await pool.query(
-      `SELECT user_id FROM ${table} WHERE user_id = $1 LIMIT 1`,
-      [userId]
-    );
-    if (byId.rows[0]) return byId.rows[0].user_id;
-  }
-  if (firebaseUid) {
-    const byFb = await pool.query(
-      `SELECT user_id FROM ${table} WHERE firebase_uid = $1 LIMIT 1`,
-      [firebaseUid]
-    );
-    if (byFb.rows[0]) return byFb.rows[0].user_id;
-  }
-  return null;
 }
 
 function parseBirthdate(value) {
@@ -99,10 +83,7 @@ function isProfileComplete(user, patient) {
  */
 router.get("/", async (req, res) => {
   try {
-    const resolvedUserId = await resolveUserId({
-      userId: req.query.userId || req.query.user_id,
-      firebaseUid: req.query.firebaseUid || req.query.firebase_uid,
-    });
+    const resolvedUserId = req.actor.id;
     if (!resolvedUserId) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -130,11 +111,10 @@ router.get("/", async (req, res) => {
       user: mapUser(user),
       patientProfile: mapPatient(patient),
       profileComplete: isProfileComplete(user, patient),
-      _meta: { patientTable: patients },
     });
   } catch (err) {
-    console.error("GET /api/profile:", err.message);
-    return res.status(500).json({ message: err.message || "Failed to load profile" });
+
+    return res.status(500).json({ message: "Profile service unavailable." });
   }
 });
 
@@ -142,16 +122,14 @@ router.get("/", async (req, res) => {
  * PUT /api/profile
  * Transactional update into Users + patientprofiles.
  */
-router.put("/", async (req, res) => {
-  const client = await pool.connect();
+router.put("/", require('../middleware/validateProfile'), async (req, res) => {
+  let client;
   try {
+    client = await pool.connect();
     const body = req.body || {};
-    console.log("PUT /api/profile body keys:", Object.keys(body));
+    const owns = (...keys) => keys.some(key => Object.hasOwn(body, key));
 
-    const resolvedUserId = await resolveUserId({
-      userId: body.userId || body.user_id,
-      firebaseUid: body.firebaseUid || body.firebase_uid,
-    });
+    const resolvedUserId = req.actor.id;
 
     if (!resolvedUserId) {
       return res.status(404).json({
@@ -165,24 +143,32 @@ router.put("/", async (req, res) => {
     const profilePicture =
       body.profilePicture ?? body.profile_picture ?? null;
 
-    const birthdate = parseBirthdate(body.birthdate ?? body.birthDate);
+    let birthdate = parseBirthdate(body.birthdate ?? body.birthDate);
     const ageFromBody =
       body.age != null && body.age !== "" ? Number(body.age) : null;
     let age = Number.isFinite(ageFromBody) ? ageFromBody : computeAge(birthdate);
-    if (age != null && age < 0) age = 0;
+    if(age != null && age > 150) return res.status(400).json({message:'Age must not exceed 150.'});
+    if (owns('age') && body.age != null && body.age !== '' &&
+        (!Number.isInteger(ageFromBody) || ageFromBody < 0 || ageFromBody > 150)) {
+      return res.status(400).json({message: 'Age must be a whole number from 0 to 150.'});
+    }
+    if (owns('birthdate','birthDate') && (body.birthdate ?? body.birthDate) &&
+        (!birthdate || new Date(birthdate).toISOString().slice(0,10) !== birthdate || computeAge(birthdate) == null)) {
+      return res.status(400).json({message: 'A valid past birthdate is required.'});
+    }
 
-    const gender = body.gender ?? null;
-    const medicalConditions =
+    let gender = body.gender ?? null;
+    let medicalConditions =
       body.medicalConditions ?? body.medical_conditions ?? null;
-    const allergies = body.allergies ?? null;
-    const bloodType = body.bloodType ?? body.blood_type ?? null;
+    let allergies = body.allergies ?? null;
+    let bloodType = body.bloodType ?? body.blood_type ?? null;
     let emergencyContact =
       body.emergencyContact ?? body.emergency_contact ?? null;
     // patientprofiles.emergency_contact may be varchar — keep it reasonable.
     if (typeof emergencyContact === "string" && emergencyContact.length > 250) {
       emergencyContact = emergencyContact.slice(0, 250);
     }
-    const address = body.address ?? null;
+    let address = body.address ?? null;
 
     const users = usersTable();
     const patients = patientProfilesTable();
@@ -224,10 +210,24 @@ router.put("/", async (req, res) => {
     // Upsert without relying solely on ON CONFLICT (works even if unique
     // constraint name differs). Prefer update-then-insert for clarity.
     const existing = await client.query(
-      `SELECT profile_id FROM ${patients} WHERE user_id = $1 LIMIT 1`,
+      `SELECT * FROM ${patients} WHERE user_id = $1 LIMIT 1`,
       [resolvedUserId]
     );
 
+    // The preceding Users UPDATE locks the owner row, serializing concurrent
+    // first saves. Omitted health fields retain their existing values.
+    const previous = existing.rows[0] || {};
+    if (!owns('birthdate','birthDate')) birthdate = previous.birthdate ?? null;
+    if (!owns('age','birthdate','birthDate')) age = previous.age ?? null;
+    if (!owns('gender')) gender = previous.gender ?? null;
+    if (!owns('medicalConditions','medical_conditions')) medicalConditions = previous.medical_conditions ?? null;
+    if (!owns('allergies')) allergies = previous.allergies ?? null;
+    if (!owns('bloodType','blood_type')) bloodType = previous.blood_type ?? null;
+    if (!owns('emergencyContact','emergency_contact')) emergencyContact = previous.emergency_contact ?? null;
+    if (!owns('address')) address = previous.address ?? null;
+    // A known birthdate is authoritative; retain manually supplied age only
+    // when the birthdate is unknown. Recalculate on reads as birthdays pass.
+    if (birthdate) age=computeAge(birthdate);
     let patientResult;
     if (existing.rows[0]) {
       patientResult = await client.query(
@@ -298,29 +298,25 @@ router.put("/", async (req, res) => {
     const user = userResult.rows[0];
     const patient = patientResult.rows[0];
 
-    console.log(
-      `PUT /api/profile saved user=${resolvedUserId} patient=${patient?.profile_id} table=${patients}`
-    );
 
     return res.json({
       message: "Profile saved successfully",
       user: mapUser(user),
       patientProfile: mapPatient(patient),
       profileComplete: isProfileComplete(user, patient),
-      _meta: { patientTable: patients },
     });
   } catch (err) {
     try {
-      await client.query("ROLLBACK");
+      await client?.query("ROLLBACK");
     } catch (_) {
       // ignore
     }
-    console.error("PUT /api/profile:", err.message);
+
     return res.status(500).json({
-      message: err.message || "Failed to save profile",
+      message: "Profile service unavailable.",
     });
   } finally {
-    client.release();
+    client?.release();
   }
 });
 

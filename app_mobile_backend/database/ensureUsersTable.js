@@ -11,6 +11,12 @@ function usersTable() {
 }
 
 async function ensureUsersTable() {
+  // Normal server startup must not perform implicit migrations.
+  if (process.env.AKAY_ALLOW_SCHEMA_BOOTSTRAP !== 'yes') {
+    usersTableSql = await require('./schemaCatalog').resolveTable(pool,['Users','users'],process.env.AKAY_USERS_TABLE,
+      ['user_id','firebase_uid','email','role','name','phone','profile_picture','created_at','updated_at'],['user_id','firebase_uid']);
+    return;
+  }
   await pool.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
 
   const existing = await pool.query(`
@@ -23,6 +29,7 @@ async function ensureUsersTable() {
   `);
 
   const names = existing.rows.map((r) => r.name);
+  if (names.length > 1) throw new Error("Ambiguous Users table; explicit schema review required.");
   if (names.includes("Users")) {
     usersTableSql = '"Users"';
   } else if (names.includes("users")) {
@@ -66,7 +73,7 @@ async function ensureUsersTable() {
        ON ${table} (firebase_uid)`
     );
   } catch (_) {
-    // Index may already exist under another name
+    throw new Error("Firebase identity uniqueness could not be established.");
   }
 
   await pool.query(

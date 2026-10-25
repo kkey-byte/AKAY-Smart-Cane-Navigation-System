@@ -1,4 +1,5 @@
 const { Pool } = require("pg");
+require('./dateTypes');
 require("dotenv").config();
 
 const pool = new Pool({
@@ -11,8 +12,8 @@ const pool = new Pool({
 });
 
 pool.connect()
-    .then(() => console.log("PostgreSQL Connected"))
-    .catch(err => console.error("Database Connection Error:", err));
+    .then(client => { client.release(); console.log("PostgreSQL Connected"); })
+    .catch(() => console.error("Database connection unavailable."));
 
 module.exports = pool;
 

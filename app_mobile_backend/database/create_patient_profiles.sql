@@ -1,6 +1,5 @@
--- PatientProfiles ↔ Users (1:1)
--- Prefer lowercase `patientprofiles` (unquoted CREATE TABLE PatientProfiles).
--- ensurePatientProfilesTable.js applies this on boot.
+-- patientprofiles ↔ Users (1:1). Use only the lowercase physical table.
+-- Explicit schema setup; normal server startup validates without applying DDL.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 

@@ -2,8 +2,7 @@ const pool = require("./db");
 const { usersTable } = require("./ensureUsersTable");
 
 /**
- * Resolves the physical PatientProfiles table name.
- * Prefer the user's original unquoted table (`patientprofiles`) when present.
+ * Maps profile storage exclusively to the lowercase `patientprofiles` table.
  */
 let patientTableSql = "patientprofiles";
 
@@ -12,6 +11,14 @@ function patientProfilesTable() {
 }
 
 async function ensurePatientProfilesTable() {
+  if (process.env.AKAY_PATIENT_TABLE && process.env.AKAY_PATIENT_TABLE !== 'patientprofiles') {
+    throw new Error('AKAY_PATIENT_TABLE must be patientprofiles.');
+  }
+  if (process.env.AKAY_ALLOW_SCHEMA_BOOTSTRAP !== 'yes') {
+    patientTableSql = await require('./schemaCatalog').resolveTable(pool,['patientprofiles'],process.env.AKAY_PATIENT_TABLE,
+      ['profile_id','user_id','age','gender','birthdate','medical_conditions','allergies','blood_type','emergency_contact','address','created_at','updated_at'],['user_id']);
+    return;
+  }
   const users = usersTable();
 
   const existing = await pool.query(`
@@ -20,16 +27,13 @@ async function ensurePatientProfilesTable() {
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public'
       AND c.relkind = 'r'
-      AND c.relname IN ('PatientProfiles', 'patientprofiles')
+      AND c.relname = 'patientprofiles'
   `);
 
   const names = existing.rows.map((r) => r.name);
 
-  // Prefer the original lowercase table the app / DB tools usually show.
   if (names.includes("patientprofiles")) {
     patientTableSql = "patientprofiles";
-  } else if (names.includes("PatientProfiles")) {
-    patientTableSql = '"PatientProfiles"';
   } else {
     await pool.query(`
       CREATE TABLE patientprofiles (
@@ -70,7 +74,7 @@ async function ensurePatientProfilesTable() {
     try {
       await pool.query(sql);
     } catch (_) {
-      // ignore incompatible alters
+      throw new Error("Patient schema update failed; review the approved schema.");
     }
   }
 
@@ -80,10 +84,10 @@ async function ensurePatientProfilesTable() {
        ON ${table} (user_id)`
     );
   } catch (_) {
-    // unique may already exist under another name
+    throw new Error("Patient profile uniqueness could not be established.");
   }
 
-  console.log(`✅ PatientProfiles table ready (${table})`);
+  console.log(`✅ patientprofiles table ready (${table})`);
 }
 
 module.exports = ensurePatientProfilesTable;

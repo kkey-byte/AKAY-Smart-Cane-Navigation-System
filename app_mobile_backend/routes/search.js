@@ -2,6 +2,18 @@ const express = require("express");
 const { searchDestinations } = require("../services/searchService");
 
 const router = express.Router();
+const requests = new Map();
+router.use((req,res,next)=> {
+  const now=Date.now(),key=req.ip;
+  let entry=requests.get(key);
+  if (!entry || now-entry.start >= 60000) {
+    if (requests.size >= 1000) requests.delete(requests.keys().next().value);
+    requests.set(key,entry={start:now,count:0});
+  }
+  if (++entry.count > 30) return res.status(429).json({message:'Search limit reached. Try again shortly.'});
+  res.set('Cache-Control','no-store');
+  return next();
+});
 
 /**
  * GET /api/search?query=hospital&latitude=7.308&longitude=125.684&radius=5000
@@ -22,9 +34,8 @@ router.get("/", async (req, res) => {
     res.json(results);
   } catch (err) {
     const status = err.status || 500;
-    console.error("GET /api/search:", err.message);
     res.status(status).json({
-      message: err.message || "Search failed",
+      message: status === 400 ? "Valid query, coordinates, and radius are required." : "Search unavailable.",
       results: [],
     });
   }
