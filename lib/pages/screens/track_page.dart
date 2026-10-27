@@ -14,7 +14,8 @@ import '../../services/destination_search_service.dart';
 import '../../services/gabay_tts_service.dart';
 import '../../services/map_place_service.dart';
 import '../../services/app_session_service.dart';
-import '../../models/breadcrumb_trip.dart';
+import '../../models/dashboard_snapshot.dart';
+import '../../services/dashboard_service.dart';
 import '../../services/navigation_persistence_service.dart';
 import '../../services/breadcrumb_service.dart';
 import '../../widgets/track/breadcrumb_feature_card.dart';
@@ -124,11 +125,11 @@ class TrackPageState extends State<TrackPage> {
   String? _selectedCategoryQuery;
 
   List<LinkedNavigator> _navigators = [];
-  final _liveLocationSubscriptions =
-      <StreamSubscription<List<BreadcrumbTrip>>>[];
+  final _liveLocationSubscriptions = <StreamSubscription<DashboardSnapshot>>[];
   StreamSubscription<User?>? _caregiverAuth;
   StreamSubscription<Map<String, String>>? _caregiverLinks;
-  final _patientTrips = <String, BreadcrumbTrip>{};
+  final _patientLive = <String, DashboardSnapshot>{};
+  Map<String, String> _patientNames = {};
   Timer? _freshnessTimer;
   int _patientGeneration = 0;
   String? _patientError;
@@ -214,6 +215,7 @@ class TrackPageState extends State<TrackPage> {
       _showAllNavigatorsOnMap = false;
     } else {
       _selectedNavigatorId = '';
+      _showAllNavigatorsOnMap = false;
     }
 
     _timelineTracker.addListener(_onTimelineUpdated);
@@ -257,12 +259,19 @@ class TrackPageState extends State<TrackPage> {
 
   void _replacePatients(Map<String, String> patients) {
     if (!mounted) return;
+    if (patients.length == _patientNames.length &&
+        patients.entries.every(
+          (entry) => _patientNames[entry.key] == entry.value,
+        )) {
+      return;
+    }
+    _patientNames = Map.of(patients);
     final generation = ++_patientGeneration;
     for (final subscription in _liveLocationSubscriptions) {
       unawaited(subscription.cancel());
     }
     _liveLocationSubscriptions.clear();
-    _patientTrips.clear();
+    _patientLive.clear();
     _patientError = null;
     _navigators = patients.entries
         .map(
@@ -287,17 +296,16 @@ class TrackPageState extends State<TrackPage> {
     setState(() {});
     for (final owner in patients.keys) {
       _liveLocationSubscriptions.add(
-        BreadcrumbService.instance.repository
-            .watchTrips(owner, limit: 1)
+        DashboardService.instance
+            .watch(owner)
             .listen(
-              (trips) {
+              (data) {
                 if (!mounted || generation != _patientGeneration) return;
-                final hadLocation =
-                    _patientTrips[owner]?.points.isNotEmpty ?? false;
-                if (trips.isEmpty) {
-                  _patientTrips.remove(owner);
+                final hadLocation = _patientLive[owner]?.position != null;
+                if (data.uid != owner) {
+                  _patientLive.remove(owner);
                 } else {
-                  _patientTrips[owner] = trips.first;
+                  _patientLive[owner] = data;
                 }
                 _refreshPatientLocations();
                 if (!hadLocation &&
@@ -308,7 +316,7 @@ class TrackPageState extends State<TrackPage> {
               },
               onError: (Object error) {
                 if (!mounted || generation != _patientGeneration) return;
-                _patientTrips.remove(owner);
+                _patientLive.remove(owner);
                 _patientError =
                     'Track unavailable. Check connection or sharing access.';
                 _refreshPatientLocations();
@@ -323,25 +331,16 @@ class TrackPageState extends State<TrackPage> {
     final now = DateTime.now();
     setState(() {
       _navigators = _navigators.map((navigator) {
-        final trip = _patientTrips[navigator.id];
-        final point = trip?.points.lastOrNull;
-        final live =
-            BreadcrumbService.instance.connected &&
-            (trip?.isFresh(now) ?? false);
+        final data = _patientLive[navigator.id];
+        final position = data?.position;
         return navigator.copyWith(
-          location: point?.location ?? GabayMapDefaults.mapCenter,
-          address: point == null
-              ? (_patientError ?? 'No recorded location yet')
-              : '${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)}',
-          status: live
-              ? 'Recording track'
-              : trip == null
-              ? 'No track available'
-              : trip.isRecording
-              ? 'Last known location'
-              : 'Saved track',
-          isOnline: live,
-          lastLocationUpdated: point?.time,
+          location: position ?? GabayMapDefaults.mapCenter,
+          address: position == null
+              ? (_patientError ?? 'Waiting for shared GPS location')
+              : '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}',
+          status: data?.trackingLabel(now) ?? 'Location unavailable',
+          isOnline: position != null && (data?.fresh(now) ?? false),
+          lastLocationUpdated: position == null ? null : data?.locationTime,
           replaceLastLocationUpdated: true,
         );
       }).toList();
@@ -1185,13 +1184,11 @@ class TrackPageState extends State<TrackPage> {
               initialCamera: _initialCamera,
               markers: _buildMarkerData(),
               routePoints: _activeRoute?.polylinePoints ?? const [],
-              breadcrumbPoints:
-                  (_isNavigatorMode
-                          ? BreadcrumbService.instance.points
-                          : _patientTrips[_selectedNavigatorId]?.points ??
-                                <BreadcrumbPoint>[])
-                      .map((point) => point.location)
-                      .toList(),
+              breadcrumbPoints: _isNavigatorMode
+                  ? BreadcrumbService.instance.points
+                        .map((point) => point.location)
+                        .toList()
+                  : _patientLive[_selectedNavigatorId]?.points ?? const [],
               googleMarkerIcons: _mapIcons,
               followUser:
                   (_isNavigatorMode || !_showAllNavigatorsOnMap) &&

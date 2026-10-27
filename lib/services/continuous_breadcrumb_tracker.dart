@@ -11,6 +11,7 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
     required this.startLocation,
     required this.backgroundRecording,
     required this.currentPoint,
+    this.publishLocation,
     DateTime Function()? clock,
   }) : clock = clock ?? DateTime.now;
   final BreadcrumbRecorder recorder;
@@ -19,6 +20,7 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
   final Future<void> Function(bool) backgroundRecording;
   final BreadcrumbPoint? Function() currentPoint;
   final DateTime Function() clock;
+  final Future<void> Function(BreadcrumbPoint)? publishLocation;
   Future<void> _queue = Future.value();
   String? _sessionOwner;
   bool _paused = false;
@@ -75,6 +77,17 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
           'Waiting for a fresh, accurate GPS location. Check GPS and location access.';
       notifyListeners();
       return;
+    }
+    if (eligibleOwner() != owner || recorder.ownerId != owner || _paused) {
+      return;
+    }
+    // Publish live fixes independently of historical filtering and upload.
+    final publish = publishLocation;
+    if (publish != null) {
+      // Cloud acknowledgment must never block local recording or user pause.
+      unawaited(
+        Future<void>.sync(() => publish(point)).catchError((Object _) {}),
+      );
     }
     if (eligibleOwner() != owner || recorder.ownerId != owner || _paused) {
       return;

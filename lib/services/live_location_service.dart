@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
@@ -23,6 +24,9 @@ class LiveLocationService {
   static const rtdbRoot = 'phone_location';
 
   String? _deviceId;
+
+  /// Controlled by the consent-based, session-owned breadcrumb recorder.
+  bool sharingEnabled = false;
 
   String? get deviceId => _deviceId;
 
@@ -72,10 +76,23 @@ class LiveLocationService {
     double? heading,
     double? accuracy,
     String? deviceId,
+    DateTime? sampledAt,
   }) async {
+    if (!sharingEnabled) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final sample = sampledAt ?? DateTime.now();
+    final age = DateTime.now().difference(sample);
+    if (uid == null ||
+        age > const Duration(seconds: 45) ||
+        age < const Duration(seconds: -30)) {
+      return;
+    }
     final id = deviceId?.trim().isNotEmpty == true
         ? deviceId!.trim()
         : await ensureDeviceId();
+    if (!sharingEnabled || FirebaseAuth.instance.currentUser?.uid != uid) {
+      return;
+    }
     _deviceId = id;
 
     final payload = <String, dynamic>{
@@ -85,11 +102,11 @@ class LiveLocationService {
       'speed': _finiteOrZero(speed),
       'heading': _finiteOrNull(heading),
       'accuracy': _finiteOrNull(accuracy),
-      'timestamp': ServerValue.timestamp,
+      'timestamp': sample.millisecondsSinceEpoch,
     };
 
     try {
-      await _refFor(id).update(payload);
+      await _refFor(id).update(payload).timeout(const Duration(seconds: 5));
     } catch (e) {
       debugPrint('Phone GPS publication unavailable.');
     }
@@ -103,6 +120,7 @@ class LiveLocationService {
       heading: position.heading,
       accuracy: position.accuracy,
       deviceId: deviceId,
+      sampledAt: position.timestamp,
     );
   }
 
@@ -112,7 +130,7 @@ class LiveLocationService {
       final id = deviceId?.trim().isNotEmpty == true
           ? deviceId!.trim()
           : await ensureDeviceId();
-      await _refFor(id).remove();
+      await _refFor(id).remove().timeout(const Duration(seconds: 5));
     } catch (e) {
       debugPrint('Phone GPS cleanup unavailable.');
     }

@@ -12,7 +12,10 @@ class DashboardService {
   final SecureApi api;
   String? get currentUid => FirebaseAuth.instance.currentUser?.uid;
   Stream<DashboardSnapshot> watch(String uid) => api
-      .watchGet('/v2/navigators/${Uri.encodeComponent(uid)}/dashboard')
+      .watchGet(
+        '/v2/navigators/${Uri.encodeComponent(uid)}/dashboard',
+        interval: const Duration(seconds: 2),
+      )
       .map(DashboardSnapshot.fromJson);
   Future<void> presence(bool active) async {
     await api.request('POST', '/v2/dashboard/presence', {'active': active});

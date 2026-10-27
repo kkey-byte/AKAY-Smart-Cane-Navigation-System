@@ -9,6 +9,7 @@ import 'breadcrumb_recorder.dart';
 import 'breadcrumb_repository.dart';
 import 'continuous_breadcrumb_tracker.dart';
 import 'navigator_location_service.dart';
+import 'live_location_service.dart';
 
 /// App/session-owned recording, independent of navigation and screen lifetimes.
 class BreadcrumbService extends ChangeNotifier with WidgetsBindingObserver {
@@ -73,7 +74,22 @@ class BreadcrumbService extends ChangeNotifier with WidgetsBindingObserver {
           throw StateError('Location access is required for recording.');
         }
       },
-      backgroundRecording: location.setBackgroundRecording,
+      backgroundRecording: (enabled) async {
+        if (!enabled) LiveLocationService.instance.sharingEnabled = false;
+        if (!enabled && FirebaseAuth.instance.currentUser != null) {
+          await LiveLocationService.instance.clear();
+        }
+        await location.setBackgroundRecording(enabled);
+        LiveLocationService.instance.sharingEnabled = enabled;
+      },
+      publishLocation: (point) => LiveLocationService.instance.publish(
+        latitude: point.latitude,
+        longitude: point.longitude,
+        accuracy: point.accuracy,
+        sampledAt: point.time,
+        heading: location.headingDegrees,
+        speed: location.speedMetersPerSecond,
+      ),
       currentPoint: _currentPoint,
     )..addListener(notifyListeners);
     repository.watchConnection().listen(
@@ -158,6 +174,7 @@ class BreadcrumbService extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> stop() async {
+    LiveLocationService.instance.sharingEnabled = false;
     await _tracker?.pause();
     unawaited(recorder?.sync() ?? Future.value());
   }

@@ -18,6 +18,8 @@ void main() {
   BreadcrumbPoint? fix;
   final background = <bool>[];
   var starts = 0;
+  final published = <BreadcrumbPoint>[];
+  Completer<void>? publication;
   Completer<void>? startup;
 
   setUp(() async {
@@ -32,12 +34,18 @@ void main() {
     fix = BreadcrumbPoint(7.3, 125.68, now, 8);
     background.clear();
     starts = 0;
+    published.clear();
+    publication = null;
     startup = null;
     tracker = ContinuousBreadcrumbTracker(
       recorder: recorder,
       eligibleOwner: () => owner,
       currentPoint: () => fix,
       clock: () => now,
+      publishLocation: (point) async {
+        published.add(point);
+        await publication?.future;
+      },
       startLocation: () async {
         starts++;
         await startup?.future;
@@ -56,6 +64,29 @@ void main() {
     fix = BreadcrumbPoint(lat, 125.68, now, 8);
     await tracker.onLocation();
   }
+
+  test(
+    'live publication continues when history filters small movements',
+    () async {
+      await tracker.reconcile();
+      await move(elapsed: const Duration(seconds: 2), lat: 7.300001);
+      expect(published, hasLength(2));
+      expect(recorder.active!.points, hasLength(1));
+      await tracker.pause();
+      await move();
+      expect(published, hasLength(2));
+    },
+  );
+
+  test('pending cloud publication does not block recording or pause', () async {
+    publication = Completer<void>();
+    await tracker.reconcile();
+    await move();
+    expect(recorder.active!.points, hasLength(2));
+    await tracker.pause();
+    expect(recorder.active, isNull);
+    publication!.complete();
+  });
 
   test(
     'starts without a route and continues after arrival and route reset',

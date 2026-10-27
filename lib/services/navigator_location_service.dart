@@ -43,7 +43,7 @@ class NavigatorLocationService extends ChangeNotifier {
     if (kIsWeb) {
       return LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 5,
+        distanceFilter: _backgroundRecording ? 1 : 5,
       );
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -51,8 +51,8 @@ class NavigatorLocationService extends ChangeNotifier {
         accuracy: _allDayMode
             ? LocationAccuracy.high
             : LocationAccuracy.bestForNavigation,
-        distanceFilter: 5,
-        intervalDuration: Duration(seconds: _allDayMode ? 5 : 2),
+        distanceFilter: _backgroundRecording ? 1 : 5,
+        intervalDuration: const Duration(seconds: 2),
         foregroundNotificationConfig: _backgroundRecording
             ? const ForegroundNotificationConfig(
                 notificationTitle: 'AKAY is recording your track',
@@ -69,7 +69,7 @@ class NavigatorLocationService extends ChangeNotifier {
         accuracy: _allDayMode
             ? LocationAccuracy.high
             : LocationAccuracy.bestForNavigation,
-        distanceFilter: 5,
+        distanceFilter: _backgroundRecording ? 1 : 5,
         activityType: ActivityType.fitness,
         pauseLocationUpdatesAutomatically: false,
         allowBackgroundLocationUpdates: _backgroundRecording,

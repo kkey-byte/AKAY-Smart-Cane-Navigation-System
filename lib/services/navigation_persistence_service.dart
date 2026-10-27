@@ -167,12 +167,15 @@ class NavigationPersistenceService {
       speed: pos?.speed ?? _location.speedMetersPerSecond,
       heading: pos?.heading ?? _location.headingDegrees,
       accuracy: pos?.accuracy ?? _location.accuracyMeters,
+      sampledAt: pos?.timestamp,
     );
   }
 
   Future<void> endSession({bool cancelled = false}) async {
     if (!hasActiveSession || _ending) {
-      await _liveLocation.clear(deviceId: deviceId);
+      if (!_liveLocation.sharingEnabled) {
+        await _liveLocation.clear(deviceId: deviceId);
+      }
       _resetLocal();
       return;
     }
@@ -221,11 +224,15 @@ class NavigationPersistenceService {
     } catch (_) {
       syncError = 'Navigation end could not be saved. Retry when connected.';
       _ending = false;
-      await _liveLocation.clear(deviceId: deviceId);
+      if (!_liveLocation.sharingEnabled) {
+        await _liveLocation.clear(deviceId: deviceId);
+      }
       return;
     }
 
-    await _liveLocation.clear(deviceId: deviceId);
+    if (!_liveLocation.sharingEnabled) {
+      await _liveLocation.clear(deviceId: deviceId);
+    }
     _resetLocal();
   }
 

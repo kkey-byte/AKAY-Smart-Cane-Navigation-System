@@ -41,8 +41,11 @@ class SecureApi {
 
   /// Share one permission-checked polling subscription per account and resource.
   /// No response is cached across subscribers or account changes.
-  Stream<Map<String, dynamic>> watchGet(String path) {
-    final key = '${_revision()}:$path';
+  Stream<Map<String, dynamic>> watchGet(
+    String path, {
+    Duration interval = const Duration(seconds: 5),
+  }) {
+    final key = '${_revision()}:$path:${interval.inMilliseconds}';
     return _watches.putIfAbsent(key, () {
       late StreamController<Map<String, dynamic>> controller;
       StreamSubscription<Map<String, dynamic>>? subscription;
@@ -50,6 +53,7 @@ class SecureApi {
         onListen: () {
           subscription = poll(
             () => request('GET', path),
+            interval: interval,
           ).listen(controller.add, onError: controller.addError);
         },
         onCancel: () {
@@ -138,7 +142,10 @@ class SecureApi {
 
   /// Polling intentionally rechecks backend permission on every read. Errors
   /// remove old data in consumers; they do not become an empty success response.
-  Stream<T> poll<T>(Future<T> Function() fetch) {
+  Stream<T> poll<T>(
+    Future<T> Function() fetch, {
+    Duration interval = const Duration(seconds: 5),
+  }) {
     late StreamController<T> controller;
     Timer? timer;
     var busy = false, cancelled = false;
@@ -162,10 +169,7 @@ class SecureApi {
     controller = StreamController<T>(
       onListen: () {
         unawaited(refresh());
-        timer = Timer.periodic(
-          const Duration(seconds: 5),
-          (_) => unawaited(refresh()),
-        );
+        timer = Timer.periodic(interval, (_) => unawaited(refresh()));
       },
       onCancel: () {
         cancelled = true;

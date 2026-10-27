@@ -287,4 +287,40 @@ void main() {
       expect(calls, 2);
     },
   );
+  test(
+    'live polling refreshes, reports revoked access and stops on cancel',
+    () async {
+      var calls = 0;
+      final values = <int>[];
+      final revoked = Completer<Object>();
+      final api = SecureApi(
+        idToken: () async => 'synthetic',
+        revision: () => 1,
+        bases: ['https://api.example.test/api'],
+        client: MockClient((request) async {
+          calls++;
+          return calls < 3
+              ? http.Response('{"sequence":$calls}', 200)
+              : http.Response('{"message":"Access revoked"}', 403);
+        }),
+      );
+      final sub = api
+          .watchGet(
+            '/v2/navigators/synthetic/dashboard',
+            interval: const Duration(milliseconds: 20),
+          )
+          .listen(
+            (data) => values.add(data['sequence'] as int),
+            onError: (Object error) {
+              if (!revoked.isCompleted) revoked.complete(error);
+            },
+          );
+      expect(await revoked.future, isA<SecureApiException>());
+      await sub.cancel();
+      final callsAtCancel = calls;
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(values, [1, 2]);
+      expect(calls, callsAtCancel);
+    },
+  );
 }

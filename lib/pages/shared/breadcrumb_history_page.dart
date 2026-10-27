@@ -289,7 +289,7 @@ class _BreadcrumbHistoryPageState extends State<BreadcrumbHistoryPage> {
                 ),
             ] else ...[
               const Text(
-                'Your daily path records automatically while signed in, even without a destination. You can pause here. Shared caregivers can view your saved tracks.',
+                'With location permission, your daily path records automatically while signed in, even without a destination. Pause stops new shared locations and recording; approved caregivers can still view saved tracks.',
               ),
               const SizedBox(height: 12),
               FilledButton.icon(
@@ -307,8 +307,8 @@ class _BreadcrumbHistoryPageState extends State<BreadcrumbHistoryPage> {
                   _busy
                       ? 'Please wait…'
                       : service.isRecording
-                      ? 'Pause and save track'
-                      : 'Resume recording',
+                      ? 'Pause sharing and save track'
+                      : 'Resume sharing and recording',
                 ),
               ),
               Wrap(
