@@ -4,7 +4,7 @@ import '../../services/app_session_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/vi_navigation_session.dart';
 import '../../theme/gabay_theme.dart';
-import '../../widgets/shared/dashboard_pairing_card.dart';
+
 import '../../widgets/dashboard_widgets/activity_card.dart';
 import '../../widgets/dashboard_widgets/bottom_nav.dart';
 import '../../widgets/dashboard_widgets/dashboard_header.dart';
@@ -165,7 +165,6 @@ class _VisuallyImpairedDashboardState extends State<VisuallyImpairedDashboard> {
             const SizedBox(height: 8),
             const RecentActivityList(),
             const SizedBox(height: 16),
-            const DashboardPairingCard(caregiver: false),
           ],
         ),
       ),

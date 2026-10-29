@@ -68,6 +68,7 @@ void main() {
     WidgetTester tester,
     DashboardFake service, {
     required bool caregiver,
+    bool profilePresentation = false,
     ThemeData? theme,
     Future<String?> Function(BuildContext)? scanCode,
   }) async {
@@ -78,6 +79,7 @@ void main() {
           body: SingleChildScrollView(
             child: DashboardPairingCard(
               caregiver: caregiver,
+              profilePresentation: profilePresentation,
               service: service,
               scanCode: scanCode,
             ),
@@ -92,6 +94,24 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await service.close();
   }
+
+  testWidgets('profile invitation keeps pairing behind navigator consent', (
+    tester,
+  ) async {
+    final service = DashboardFake();
+    await mount(tester, service, caregiver: false, profilePresentation: true);
+    expect(find.text('Caregiver Connections'), findsOneWidget);
+    await tester.tap(find.text('Invite a Caregiver'));
+    await tester.pumpAndSettle();
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Show my pairing code'),
+    );
+    expect(button.onPressed, isNull);
+    expect(find.byType(CheckboxListTile), findsOneWidget);
+    expect(find.text('Manage connections and access'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await cleanup(tester, service);
+  });
 
   testWidgets(
     'navigator code is prominent, accessible, copyable and QR stays readable at large scale',

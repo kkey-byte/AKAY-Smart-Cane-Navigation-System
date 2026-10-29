@@ -4,6 +4,7 @@ import '../../services/app_session_service.dart';
 import '../../services/profile_service.dart';
 import '../../widgets/profile/profile_menu_widgets.dart';
 import '../../widgets/shared/gabay_page_route.dart';
+import '../../widgets/shared/dashboard_pairing_card.dart';
 import '../caregiver/caregiver_profile.dart';
 import '../login_page.dart';
 import '../shared/edit_profile_page.dart';
@@ -72,6 +73,10 @@ class _VisuallyImpairedProfilePageState
           role: 'Navigator',
           avatarUrl: picture,
           avatarAsset: null,
+          connectionsSection: const DashboardPairingCard(
+            caregiver: false,
+            profilePresentation: true,
+          ),
           sections: [
             if (_loadingProfile || _profileError)
               ProfileSectionGroup(

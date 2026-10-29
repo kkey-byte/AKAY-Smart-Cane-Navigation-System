@@ -8,11 +8,14 @@ import '../../models/patient_profile.dart';
 import '../../services/app_session_service.dart';
 import '../../services/profile_service.dart';
 import '../../theme/gabay_theme.dart';
+import '../../widgets/profile/profile_header_clipper.dart';
 
 /// Progressive profile completion form.
 /// Saves Account fields → Users, Health fields → PatientProfiles.
 class EditProfilePage extends StatefulWidget {
-  const EditProfilePage({super.key});
+  const EditProfilePage({super.key, this.profileService});
+
+  final ProfileService? profileService;
 
   @override
   State<EditProfilePage> createState() => _EditProfilePageState();
@@ -29,7 +32,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _emergencyController = TextEditingController();
   final _addressController = TextEditingController();
 
-  final _profileService = ProfileService.instance;
+  late final ProfileService _profileService;
   final _picker = ImagePicker();
 
   DateTime? _birthdate;
@@ -57,6 +60,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void initState() {
     super.initState();
+    _profileService = widget.profileService ?? ProfileService.instance;
     final session = AppSessionService.instance;
     _emailController.text = session.email ?? '';
     _nameController.text = session.displayName ?? '';
@@ -83,7 +87,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
       _birthdate = p.birthdate;
       _gender = _normalizeChoice(p.gender, _genders);
       _bloodType = _normalizeChoice(p.bloodType, _bloodTypes);
-      _ageController.text = p.age?.toString() ??
+      _ageController.text =
+          p.age?.toString() ??
           (_birthdate != null ? _ageFromBirthdate(_birthdate!).toString() : '');
       _medicalController.text = p.medicalConditions ?? '';
       _allergiesController.text = p.allergies ?? '';
@@ -127,6 +132,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       helpText: 'Select birthdate',
     );
     if (picked == null) return;
+    if (!mounted) return;
     setState(() {
       _birthdate = picked;
       _ageController.text = _ageFromBirthdate(picked).toString();
@@ -157,6 +163,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       },
     );
     if (source == null) return;
+    if (!mounted) return;
 
     final file = await _picker.pickImage(
       source: source,
@@ -166,10 +173,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
     if (file == null) return;
     final bytes = await file.readAsBytes();
+    if (!mounted) return;
     setState(() => _localPhotoBytes = bytes);
   }
 
   Future<void> _save() async {
+    if (_saving || _loading) return;
     if (!_formKey.currentState!.validate()) return;
     if (_gender == null) {
       _snack('Please select a gender.');
@@ -186,7 +195,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     setState(() => _saving = true);
     try {
-      final age = int.tryParse(_ageController.text.trim()) ??
+      final age =
+          int.tryParse(_ageController.text.trim()) ??
           _ageFromBirthdate(_birthdate!);
 
       // Store picture in Users.profile_picture as a data URL (reliable, no Storage).
@@ -249,12 +259,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final session = AppSessionService.instance;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: Theme.of(context).brightness == Brightness.light
+          ? const Color(0xFFF4F4F4)
+          : g.scaffoldBackground,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1D4ED8),
+        backgroundColor: const Color(0xFF10376F),
+        foregroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back',
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Edit Profile'),
@@ -281,12 +295,54 @@ class _EditProfilePageState extends State<EditProfilePage> {
               child: Form(
                 key: _formKey,
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                  padding: const EdgeInsets.only(bottom: 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      SizedBox(
+                        height: 148,
+                        child: Stack(
+                          children: [
+                            ClipPath(
+                              clipper: const ProfileHeaderClipper(
+                                notchRadius: 48,
+                                sideDrop: 16,
+                              ),
+                              child: Container(
+                                height: 64,
+                                color: const Color(0xFF10376F),
+                              ),
+                            ),
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              child: Column(
+                                children: [
+                                  _AvatarPicker(
+                                    localBytes: _localPhotoBytes,
+                                    networkUrl: _profilePictureUrl,
+                                    onTap: _pickPhoto,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    session.role?.label ?? 'Profile',
+                                    style: TextStyle(
+                                      color: g.heading,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       if (session.needsProfileCompletion)
-                        _IncompleteBanner(color: g),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: _IncompleteBanner(color: g),
+                        ),
                       if (_error != null) ...[
                         Text(
                           'Could not refresh from server. You can still edit and save.\n$_error',
@@ -294,21 +350,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         ),
                         const SizedBox(height: 12),
                       ],
-                      _AvatarPicker(
-                        localBytes: _localPhotoBytes,
-                        networkUrl: _profilePictureUrl,
-                        onTap: _pickPhoto,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tap the camera to upload a profile photo',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: g.textSecondary,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
                       _SectionCard(
                         title: 'Account Information',
                         subtitle: 'Saved to your AKAY user account',
@@ -318,10 +359,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             child: TextFormField(
                               controller: _nameController,
                               textCapitalization: TextCapitalization.words,
-                              validator: (v) =>
-                                  (v == null || v.trim().isEmpty)
-                                      ? 'Name is required'
-                                      : null,
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'Name is required'
+                                  : null,
                               decoration: _inputDecoration(context),
                             ),
                           ),
@@ -342,20 +382,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
                               keyboardType: TextInputType.phone,
                               validator: (v) =>
                                   (v == null || v.trim().length < 7)
-                                      ? 'Enter a valid phone number'
-                                      : null,
+                                  ? 'Enter a valid phone number'
+                                  : null,
                               decoration: _inputDecoration(context),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
                       _SectionCard(
                         title: 'Personal & Health Details',
                         subtitle: 'Saved to your patient profile',
                         children: [
                           _LabeledField(
-                            label: 'Birthdate',
+                            label: 'Date of birth',
                             child: InkWell(
                               onTap: _pickBirthdate,
                               borderRadius: BorderRadius.circular(12),
@@ -369,7 +408,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                 child: Text(
                                   _birthdate == null
                                       ? 'Select birthdate'
-                                      : '${_birthdate!.year}-${_birthdate!.month.toString().padLeft(2, '0')}-${_birthdate!.day.toString().padLeft(2, '0')}',
+                                      : MaterialLocalizations.of(
+                                          context,
+                                        ).formatMediumDate(_birthdate!),
                                   style: TextStyle(
                                     color: _birthdate == null
                                         ? g.textSecondary
@@ -377,16 +418,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                     fontSize: 15,
                                   ),
                                 ),
-                              ),
-                            ),
-                          ),
-                          _LabeledField(
-                            label: 'Age',
-                            child: TextFormField(
-                              controller: _ageController,
-                              keyboardType: TextInputType.number,
-                              decoration: _inputDecoration(context).copyWith(
-                                helperText: 'Auto-filled from birthdate',
                               ),
                             ),
                           ),
@@ -405,6 +436,24 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                   .toList(),
                               onChanged: (v) => setState(() => _gender = v),
                               decoration: _inputDecoration(context),
+                            ),
+                          ),
+                          _LabeledField(
+                            label: 'Address',
+                            child: TextFormField(
+                              controller: _addressController,
+                              maxLines: 3,
+                              decoration: _inputDecoration(context),
+                            ),
+                          ),
+                          _LabeledField(
+                            label: 'Age',
+                            child: TextFormField(
+                              controller: _ageController,
+                              keyboardType: TextInputType.number,
+                              decoration: _inputDecoration(context).copyWith(
+                                helperText: 'Auto-filled from birthdate',
+                              ),
                             ),
                           ),
                           _LabeledField(
@@ -439,51 +488,47 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             child: TextFormField(
                               controller: _allergiesController,
                               maxLines: 3,
-                              decoration: _inputDecoration(context).copyWith(
-                                hintText: 'e.g. Penicillin, Seafood',
-                              ),
+                              decoration: _inputDecoration(
+                                context,
+                              ).copyWith(hintText: 'e.g. Penicillin, Seafood'),
                             ),
                           ),
                           _LabeledField(
-                            label: 'Emergency contact',
+                            label: 'Emergency Contact',
                             child: TextFormField(
                               controller: _emergencyController,
-                              maxLines: 2,
+                              textCapitalization: TextCapitalization.words,
                               decoration: _inputDecoration(context).copyWith(
-                                hintText: 'Name · Relationship · Phone',
+                                hintText: "Registered Caregiver's Name",
                               ),
-                            ),
-                          ),
-                          _LabeledField(
-                            label: 'Address',
-                            child: TextFormField(
-                              controller: _addressController,
-                              maxLines: 3,
-                              decoration: _inputDecoration(context),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _saving ? null : _save,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: g.accent,
-                            disabledBackgroundColor:
-                                g.accent.withValues(alpha: 0.5),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _saving ? null : _save,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: g.accent,
+                              disabledBackgroundColor: g.accent.withValues(
+                                alpha: 0.5,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
-                          ),
-                          child: Text(
-                            _saving ? 'Saving…' : 'Save Changes',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                            child: Text(
+                              _saving ? 'Saving…' : 'Save Changes',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
@@ -499,21 +544,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
   InputDecoration _inputDecoration(BuildContext context) {
     final g = context.gabay;
     return InputDecoration(
-      fillColor: g.chipBackground,
+      fillColor: Theme.of(context).brightness == Brightness.light
+          ? const Color(0xFFE9E9E9)
+          : g.surfaceElevated,
       filled: true,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(26),
         borderSide: BorderSide(color: g.border),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(26),
         borderSide: BorderSide(color: g.border),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(26),
         borderSide: BorderSide(color: g.accent, width: 2),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
     );
   }
 }
@@ -555,11 +602,7 @@ class _IncompleteBanner extends StatelessWidget {
 }
 
 class _AvatarPicker extends StatelessWidget {
-  const _AvatarPicker({
-    required this.onTap,
-    this.localBytes,
-    this.networkUrl,
-  });
+  const _AvatarPicker({required this.onTap, this.localBytes, this.networkUrl});
 
   final VoidCallback onTap;
   final Uint8List? localBytes;
@@ -602,18 +645,22 @@ class _AvatarPicker extends StatelessWidget {
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: onTap,
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: g.surface, width: 2),
-                  ),
-                  child: const Icon(
-                    Icons.camera_alt,
-                    color: Colors.white,
-                    size: 16,
+                child: Semantics(
+                  button: true,
+                  label: 'Change profile photo',
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: g.surface, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                   ),
                 ),
               ),
@@ -638,43 +685,11 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final g = context.gabay;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
-      decoration: BoxDecoration(
-        color: g.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: g.border.withValues(alpha: 0.8)),
-        boxShadow: [
-          BoxShadow(
-            color: g.shadow,
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: g.heading,
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: g.textSecondary,
-              fontSize: 12.5,
-            ),
-          ),
-          const SizedBox(height: 14),
-          ...children,
-        ],
+        children: [...children],
       ),
     );
   }
@@ -689,21 +704,39 @@ class _LabeledField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final g = context.gabay;
+    final background = Theme.of(context).brightness == Brightness.light
+        ? const Color(0xFFF4F4F4)
+        : g.scaffoldBackground;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.only(bottom: 16, top: 4),
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: g.textSecondary,
+          Semantics(
+            label: label,
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                textTheme: Theme.of(context).textTheme.copyWith(
+                  bodyLarge: TextStyle(color: g.heading, fontSize: 14),
+                ),
+              ),
+              child: child,
             ),
           ),
-          const SizedBox(height: 8),
-          child,
+          Positioned(
+            top: -9,
+            left: 28,
+            child: ExcludeSemantics(
+              child: Container(
+                color: background,
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 12, color: g.textSecondary),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

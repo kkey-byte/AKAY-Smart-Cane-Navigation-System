@@ -33,11 +33,13 @@ class GabayProfileScaffold extends StatelessWidget {
     required this.role,
     required this.sections,
     required this.onLogout,
+    this.connectionsSection,
     this.avatarAsset,
     this.avatarUrl,
     this.bottomPadding = GabayNavMetrics.contentClearance,
   });
 
+  final Widget? connectionsSection;
   final String name;
   final String email;
   final String role;
@@ -136,6 +138,11 @@ class GabayProfileScaffold extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
+            if (connectionsSection != null)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: connectionsSection,
+              ),
             ...sections.map(
               (section) => ProfileSectionCard(
                 title: section.title,

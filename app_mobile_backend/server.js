@@ -52,6 +52,7 @@ app.use("/api/routing", require("./routes/routing"));
 app.use("/api/navigation", navigationRoutes);
 // Progressive profile completion → Users + patientprofiles
 app.use("/api/profile",storageGuard(()=>storage.profileReady,'Profile'), profileRoutes);
+app.use('/api/health-status', storageGuard(()=>storage.profileReady,'Health status'), require('./routes/healthStatus'));
 app.use("/api/v2", pairingRoutes);
 
 app.use((error,_req,res,_next)=> {
