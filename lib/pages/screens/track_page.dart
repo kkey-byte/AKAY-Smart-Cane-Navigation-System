@@ -1,6 +1,10 @@
+import '../../theme/gabay_typography.dart';
+import '../../widgets/track/tracking_overlay_layout.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../widgets/track/breadcrumb_feature_card.dart'
+    show openBreadcrumbHistory;
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -18,7 +22,6 @@ import '../../models/dashboard_snapshot.dart';
 import '../../services/dashboard_service.dart';
 import '../../services/navigation_persistence_service.dart';
 import '../../services/breadcrumb_service.dart';
-import '../../widgets/track/breadcrumb_feature_card.dart';
 
 import '../../services/route_timeline_tracker.dart';
 
@@ -93,9 +96,12 @@ class TrackPageState extends State<TrackPage> {
 
   RoutePlanResult? _activeRoute;
 
-  bool _isEtaPanelVisible = true;
-
-  bool _isTurnByTurnVisible = true;
+  TrackingPanel _visibleTrackingPanel = TrackingPanel.details;
+  bool get _isEtaPanelVisible => _visibleTrackingPanel == TrackingPanel.details;
+  bool get _isTurnByTurnVisible =>
+      _visibleTrackingPanel == TrackingPanel.directions;
+  bool get _hasExpandedTrackingPanel =>
+      _isNavigating && _visibleTrackingPanel != TrackingPanel.none;
 
   bool _voiceGuidanceEnabled = true;
 
@@ -616,8 +622,9 @@ class TrackPageState extends State<TrackPage> {
 
       setState(() {
         _activeRoute = result;
-        _isEtaPanelVisible = true;
-        _isTurnByTurnVisible = true;
+        _visibleTrackingPanel = _isNavigatorMode
+            ? TrackingPanel.directions
+            : TrackingPanel.details;
         _selectedNavigatorId = result.navigator.id;
         _isSearchingDestination = false;
       });
@@ -732,6 +739,7 @@ class TrackPageState extends State<TrackPage> {
   }
 
   Future<void> _openNavigatorMonitor() async {
+    _showTrackingPanel(TrackingPanel.none);
     if (_navigators.isEmpty) {
       openBreadcrumbHistory(context, caregiver: true);
       return;
@@ -795,6 +803,7 @@ class TrackPageState extends State<TrackPage> {
       return;
     }
 
+    _showTrackingPanel(TrackingPanel.none);
     final result = await context.pushGabayPage<RoutePlanResult>(
       RoutePlannerPage(
         initialNavigatorId: _activeRoute?.navigator.id ?? _selectedNavigatorId,
@@ -833,8 +842,9 @@ class TrackPageState extends State<TrackPage> {
 
     setState(() {
       _activeRoute = stamped;
-      _isEtaPanelVisible = true;
-      _isTurnByTurnVisible = true;
+      _visibleTrackingPanel = _isNavigatorMode
+          ? TrackingPanel.directions
+          : TrackingPanel.details;
       _selectedNavigatorId = stamped.navigator.id;
     });
 
@@ -860,9 +870,11 @@ class TrackPageState extends State<TrackPage> {
     await _fitRouteOnMap(result);
   }
 
-  void _collapseEtaPanel() {
-    setState(() => _isEtaPanelVisible = false);
+  void _showTrackingPanel(TrackingPanel panel) {
+    setState(() => _visibleTrackingPanel = panel);
   }
+
+  void _collapseEtaPanel() => _showTrackingPanel(TrackingPanel.none);
 
   void _clearMapRecentSearches() {
     _recentSearchGeneration++;
@@ -881,7 +893,7 @@ class TrackPageState extends State<TrackPage> {
     setState(() {
       _activeRoute = null;
 
-      _isEtaPanelVisible = true;
+      _visibleTrackingPanel = TrackingPanel.none;
 
       _pinnedDestination = null;
 
@@ -1114,28 +1126,8 @@ class TrackPageState extends State<TrackPage> {
     await _mapController?.zoomOut();
   }
 
-  static const _mapControlGap = 12.0;
-  static const _destinationControlSize = 52.0;
-  static const _voiceControlSize = 52.0;
-
-  double _leftMapControlsHeight() {
-    if (!_isNavigating) return 0;
-    if (_isNavigatorMode) {
-      return _voiceControlSize + _mapControlGap + _destinationControlSize;
-    }
-    if (!_isEtaPanelVisible) return _destinationControlSize;
-    return 0;
-  }
-
-  double _zoomControlsBottom(BuildContext context) {
-    final navInset = GabayNavMetrics.overlayBottom(context);
-    if (!_isNavigating) return navInset + 72;
-
-    final leftHeight = _leftMapControlsHeight();
-    if (leftHeight <= 0) return navInset + 16;
-
-    return navInset;
-  }
+  double _zoomControlsBottom(BuildContext context) =>
+      GabayNavMetrics.overlayBottom(context) + (_isNavigating ? 0 : 60);
 
   double _mapBottomPadding(BuildContext context) {
     final navInset = GabayNavMetrics.overlayBottom(context);
@@ -1216,277 +1208,170 @@ class TrackPageState extends State<TrackPage> {
             ),
           ),
 
-          // Locating overlay — map tiles still visible underneath.
-          if (_isNavigatorMode && !_locationService.hasLiveFix)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: GabayNavMetrics.overlayBottom(context) + 72,
-              child: Material(
-                color: Theme.of(
-                  context,
-                ).colorScheme.surface.withValues(alpha: 0.94),
-                elevation: 3,
-                borderRadius: BorderRadius.circular(14),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          color: context.gabay.accent,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _locationService.errorMessage ??
-                              'Detecting your exact GPS location…',
-                          style: TextStyle(
-                            color: context.gabay.textPrimary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => unawaited(
-                          _locationService.refreshCurrentLocation(),
-                        ),
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
           Positioned(
-            top: MediaQuery.of(context).padding.top + 12,
-
             left: 16,
-
             right: 16,
-
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-
-              mainAxisSize: MainAxisSize.min,
-
-              children: [
-                if (_isNavigatorMode)
-                  NavigatorDestinationPanel(
-                    controller: _destinationController,
-                    focusNode: _destinationFocusNode,
-                    suggestions: _destinationSuggestions,
-                    isNavigating: _isNavigating,
-                    isSearching: _isSearchingDestination,
-                    activeDestinationName: _activeRoute?.destination.name,
-                    onChanged: _onDestinationQueryChanged,
-                    onSubmitted: (_) => _submitDestinationSearch(),
-                    onSearchTap: _submitDestinationSearch,
-                    onSuggestionTap: _selectDestinationPlace,
-                    onClear: () {
-                      _destinationSearchToken++;
-                      _destinationController.clear();
-                      setState(() {
-                        _destinationSuggestions = [];
-                        _isSearchingDestination = false;
-                        _isResolvingMapPin = false;
-                        _pinnedDestination = null;
-                        _showSearchEmpty = false;
-                        _selectedCategoryQuery = null;
-                        _useWiderSearch = false;
-                      });
-                    },
-                    onCancelNavigation: _isNavigating
-                        ? _cancelDestination
-                        : null,
-                    showPinHint: !_isNavigating && _pinnedDestination == null,
-                    isResolvingPin: _isResolvingMapPin,
-                    categories: SearchCategory.all,
-                    onCategorySelected: _onCategorySelected,
-                    recentQueries: _recentSearchQueries,
-                    onRecentSelected: _onRecentSelected,
-                    onSpeakPlace: (place) => unawaited(_speakPlace(place)),
-                    onNavigatePlace: _selectDestinationPlace,
-                    showEmptyState: _showSearchEmpty,
-                    onSearchWider: () {
-                      final q = _destinationController.text.trim();
-                      if (q.isEmpty) return;
-                      setState(() {
-                        _isSearchingDestination = true;
-                        _showSearchEmpty = false;
-                        _useWiderSearch = true;
-                      });
-                      unawaited(_runNearbyDestinationSearch(q, wider: true));
-                    },
-                    onVoiceSearch: _onVoiceSearchTap,
-                    selectedCategoryQuery: _selectedCategoryQuery,
-                  )
-                else
-                  _CurrentAddressCard(
-                    navigatorName: selected.name,
-                    showNavigatorName: true,
-                    address: _displayAddress,
-                    status: selected.status,
-                    isLive: selected.isOnline,
-                    lastLocationUpdated: selected.lastLocationUpdated,
-                    onTap: _openNavigatorMonitor,
-                  ),
-                if (!_isNavigatorMode) ...[
-                  const SizedBox(height: 8),
-                  const BreadcrumbFeatureCard(caregiver: true, compact: true),
-                ],
-
-                if (_isNavigatorMode && _isNavigating) ...[
-                  const SizedBox(height: 10),
-
-                  AnimatedCrossFade(
-                    duration: const Duration(milliseconds: 280),
-
-                    crossFadeState: _isTurnByTurnVisible
-                        ? CrossFadeState.showFirst
-                        : CrossFadeState.showSecond,
-
-                    sizeCurve: Curves.easeOutCubic,
-
-                    firstChild: TurnByTurnPanel(
-                      steps: turnStepsFromRoute(_activeRoute),
-                      onClose: () =>
-                          setState(() => _isTurnByTurnVisible = false),
-                    ),
-
-                    secondChild: Align(
-                      alignment: Alignment.centerRight,
-
-                      child: OpenTurnByTurnButton(
-                        onPressed: () =>
-                            setState(() => _isTurnByTurnVisible = true),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          if (_isNavigating && (_isNavigatorMode || !_isEtaPanelVisible))
-            Positioned(
-              left: 16,
-
-              bottom: GabayNavMetrics.overlayBottom(context),
-
-              child: Column(
+            top: MediaQuery.paddingOf(context).top + 12,
+            bottom: GabayNavMetrics.overlayBottom(context) + 12,
+            child: TrackingOverlayLayout(
+              header: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
-
                 children: [
-                  if (_isNavigatorMode) ...[
-                    VoiceGuidanceButton(
-                      enabled: _voiceGuidanceEnabled,
-
-                      onPressed: () {
-                        setState(
-                          () => _voiceGuidanceEnabled = !_voiceGuidanceEnabled,
-                        );
-
-                        _showSnack(
-                          _voiceGuidanceEnabled
-                              ? 'Voice guidance enabled'
-                              : 'Voice guidance disabled',
-                        );
+                  if (_isNavigatorMode)
+                    NavigatorDestinationPanel(
+                      controller: _destinationController,
+                      focusNode: _destinationFocusNode,
+                      suggestions: _destinationSuggestions,
+                      isNavigating: _isNavigating,
+                      isSearching: _isSearchingDestination,
+                      activeDestinationName: _activeRoute?.destination.name,
+                      onChanged: _onDestinationQueryChanged,
+                      onSubmitted: (_) => _submitDestinationSearch(),
+                      onSearchTap: _submitDestinationSearch,
+                      onSuggestionTap: _selectDestinationPlace,
+                      onClear: () {
+                        _destinationSearchToken++;
+                        _destinationController.clear();
+                        setState(() {
+                          _destinationSuggestions = [];
+                          _isSearchingDestination = false;
+                          _isResolvingMapPin = false;
+                          _pinnedDestination = null;
+                          _showSearchEmpty = false;
+                          _selectedCategoryQuery = null;
+                          _useWiderSearch = false;
+                        });
                       },
-                    ),
-
-                    const SizedBox(height: _mapControlGap),
-                  ],
-
-                  if (!_isEtaPanelVisible)
-                    TweenAnimationBuilder<double>(
-                      key: const ValueKey('reopen_eta'),
-
-                      tween: Tween(begin: 0, end: 1),
-
-                      duration: const Duration(milliseconds: 300),
-
-                      curve: Curves.easeOutBack,
-
-                      builder: (context, value, child) {
-                        return Transform.scale(
-                          scale: value,
-
-                          child: Opacity(opacity: value, child: child),
-                        );
+                      onCancelNavigation: _isNavigating
+                          ? _cancelDestination
+                          : null,
+                      showPinHint: !_isNavigating && _pinnedDestination == null,
+                      isResolvingPin: _isResolvingMapPin,
+                      categories: SearchCategory.all,
+                      onCategorySelected: _onCategorySelected,
+                      recentQueries: _recentSearchQueries,
+                      onRecentSelected: _onRecentSelected,
+                      onSpeakPlace: (place) => unawaited(_speakPlace(place)),
+                      onNavigatePlace: _selectDestinationPlace,
+                      showEmptyState: _showSearchEmpty,
+                      onSearchWider: () {
+                        final q = _destinationController.text.trim();
+                        if (q.isEmpty) return;
+                        setState(() {
+                          _isSearchingDestination = true;
+                          _showSearchEmpty = false;
+                          _useWiderSearch = true;
+                        });
+                        unawaited(_runNearbyDestinationSearch(q, wider: true));
                       },
-
-                      child: ReopenEtaButton(
-                        onPressed: () =>
-                            setState(() => _isEtaPanelVisible = true),
-                      ),
+                      onVoiceSearch: _onVoiceSearchTap,
+                      selectedCategoryQuery: _selectedCategoryQuery,
                     )
-                  else if (_isNavigatorMode)
-                    const SizedBox(
-                      width: _destinationControlSize,
-
-                      height: _destinationControlSize,
+                  else
+                    _CurrentAddressCard(
+                      navigatorName: selected.name,
+                      showNavigatorName: true,
+                      address: _displayAddress,
+                      status: selected.status,
+                      isLive: selected.isOnline,
+                      lastLocationUpdated: selected.lastLocationUpdated,
+                      onTap: _openNavigatorMonitor,
                     ),
+
+                  if (_isNavigatorMode && !_locationService.hasLiveFix) ...[
+                    const SizedBox(height: 8),
+                    Material(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surface.withValues(alpha: 0.94),
+                      elevation: 3,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                                color: context.gabay.accent,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _locationService.errorMessage ??
+                                    'Detecting your exact GPS location…',
+                                style: TextStyle(
+                                  color: context.gabay.textPrimary,
+                                  fontWeight: GabayTypography.semibold,
+                                  fontSize: GabayTypography.supporting,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => unawaited(
+                                _locationService.refreshCurrentLocation(),
+                              ),
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
+              panel: _isNavigating ? _visibleTrackingPanel : TrackingPanel.none,
+              onPanelChanged: _showTrackingPanel,
+              reservedBottomHeight:
+                  MapZoomControls.totalHeight() + (_isNavigating ? 12 : 72),
+              directions: _isNavigatorMode && _isNavigating
+                  ? TurnByTurnPanel(
+                      steps: turnStepsFromRoute(_activeRoute),
+                      onClose: () => _showTrackingPanel(TrackingPanel.none),
+                    )
+                  : null,
+              details: _isNavigating
+                  ? EtaCard(
+                      route: _activeRoute!,
+                      timelineEntries: _timelineTracker.entries,
+                      currentLocationAddress: _displayAddress,
+                      onDragDismiss: _collapseEtaPanel,
+                      onCancelDestination: _cancelDestination,
+                    )
+                  : null,
             ),
-
-          Positioned(
-            right: 16,
-
-            bottom: _zoomControlsBottom(context),
-
-            child: MapZoomControls(onZoomIn: _zoomIn, onZoomOut: _zoomOut),
           ),
-
-          if (_isNavigating)
+          if (_isNavigatorMode && _isNavigating && !_hasExpandedTrackingPanel)
             Positioned(
               left: 16,
-
-              right: 16,
-
-              bottom: GabayNavMetrics.overlayBottom(context),
-
-              child: AnimatedSlide(
-                offset: _isEtaPanelVisible ? Offset.zero : const Offset(0, 1.2),
-
-                duration: const Duration(milliseconds: 320),
-
-                curve: Curves.easeOutCubic,
-
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 280),
-
-                  opacity: _isEtaPanelVisible ? 1 : 0,
-
-                  child: IgnorePointer(
-                    ignoring: !_isEtaPanelVisible,
-
-                    child: EtaCard(
-                      route: _activeRoute!,
-
-                      timelineEntries: _timelineTracker.entries,
-
-                      currentLocationAddress: _displayAddress,
-
-                      onDragDismiss: _collapseEtaPanel,
-
-                      onCancelDestination: _cancelDestination,
-                    ),
-                  ),
-                ),
+              bottom: _zoomControlsBottom(context),
+              child: VoiceGuidanceButton(
+                enabled: _voiceGuidanceEnabled,
+                onPressed: () {
+                  setState(
+                    () => _voiceGuidanceEnabled = !_voiceGuidanceEnabled,
+                  );
+                  _showSnack(
+                    _voiceGuidanceEnabled
+                        ? 'Voice guidance enabled'
+                        : 'Voice guidance disabled',
+                  );
+                },
               ),
             ),
-
+          if (!_hasExpandedTrackingPanel)
+            Positioned(
+              right: 16,
+              bottom: _zoomControlsBottom(context),
+              child: MapZoomControls(onZoomIn: _zoomIn, onZoomOut: _zoomOut),
+            ),
           Positioned(
             right: 16,
 
@@ -1573,9 +1458,9 @@ class _CurrentAddressCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 40,
+                width: 36,
 
-                height: 40,
+                height: 36,
 
                 decoration: BoxDecoration(
                   color: g.accentTint,
@@ -1605,37 +1490,40 @@ class _CurrentAddressCard extends StatelessWidget {
                       Text(
                         navigatorName,
 
-                        maxLines: 1,
+                        maxLines: 2,
 
                         overflow: TextOverflow.ellipsis,
 
                         style: GabayTheme.bodyLarge(
                           context,
-                        ).copyWith(fontSize: 15),
+                        ).copyWith(fontSize: GabayTypography.cardBody),
                       ),
 
                       const SizedBox(height: 2),
                     ],
 
-                    Text(
-                      address,
+                    if (address != status &&
+                        !address.startsWith('Track unavailable') &&
+                        !address.startsWith('Waiting for shared GPS'))
+                      Text(
+                        address,
 
-                      maxLines: showNavigatorName ? 1 : 2,
+                        maxLines: showNavigatorName ? 1 : 2,
 
-                      overflow: TextOverflow.ellipsis,
+                        overflow: TextOverflow.ellipsis,
 
-                      style: TextStyle(
-                        fontSize: showNavigatorName ? 13 : 16,
+                        style: TextStyle(
+                          fontSize: showNavigatorName ? 13 : 16,
 
-                        fontWeight: showNavigatorName
-                            ? FontWeight.w500
-                            : FontWeight.w700,
+                          fontWeight: showNavigatorName
+                              ? GabayTypography.medium
+                              : GabayTypography.bold,
 
-                        color: showNavigatorName
-                            ? g.textSecondary
-                            : g.textPrimary,
+                          color: showNavigatorName
+                              ? g.textSecondary
+                              : g.textPrimary,
+                        ),
                       ),
-                    ),
 
                     const SizedBox(height: 2),
 
@@ -1643,9 +1531,9 @@ class _CurrentAddressCard extends StatelessWidget {
                       status,
 
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: GabayTypography.caption,
 
-                        fontWeight: FontWeight.w600,
+                        fontWeight: GabayTypography.semibold,
 
                         color: isLive ? g.success : g.textSecondary,
                       ),
@@ -1653,17 +1541,18 @@ class _CurrentAddressCard extends StatelessWidget {
 
                     const SizedBox(height: 2),
 
-                    Text(
-                      _lastUpdatedLabel(lastLocationUpdated),
+                    if (lastLocationUpdated != null)
+                      Text(
+                        _lastUpdatedLabel(lastLocationUpdated),
 
-                      style: TextStyle(
-                        fontSize: 12,
+                        style: TextStyle(
+                          fontSize: GabayTypography.caption,
 
-                        fontWeight: FontWeight.w500,
+                          fontWeight: GabayTypography.medium,
 
-                        color: g.textSecondary,
+                          color: g.textSecondary,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -1687,9 +1576,9 @@ class _CurrentAddressCard extends StatelessWidget {
                     style: TextStyle(
                       color: g.success,
 
-                      fontWeight: FontWeight.w800,
+                      fontWeight: GabayTypography.bold,
 
-                      fontSize: 11,
+                      fontSize: GabayTypography.caption,
                     ),
                   ),
                 ),

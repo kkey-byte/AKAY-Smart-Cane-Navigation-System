@@ -1,3 +1,5 @@
+import '../../theme/gabay_typography.dart';
+import '../../widgets/shared/gabay_accent_icon.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/gabay_theme.dart';
@@ -37,10 +39,10 @@ class AboutPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'GABAY',
+                  'AKAY',
                   style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
+                    fontSize: GabayTypography.metric,
+                    fontWeight: GabayTypography.bold,
                     color: g.heading,
                     letterSpacing: 1.2,
                   ),
@@ -49,9 +51,9 @@ class AboutPage extends StatelessWidget {
                 Text(
                   'Version 1.0.0',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: GabayTypography.body,
                     color: g.textSecondary,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: GabayTypography.medium,
                   ),
                 ),
               ],
@@ -65,16 +67,16 @@ class AboutPage extends StatelessWidget {
                 Text(
                   'Our Mission',
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                    fontSize: GabayTypography.cardTitle,
+                    fontWeight: GabayTypography.bold,
                     color: g.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'GABAY empowers visually impaired navigators and their caregivers with accessible navigation, live safety monitoring, and meaningful connection — so every journey feels supported.',
+                  'AKAY empowers visually impaired navigators and their caregivers with accessible navigation, live safety monitoring, and meaningful connection — so every journey feels supported.',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: GabayTypography.body,
                     color: g.textSecondary,
                     height: 1.55,
                   ),
@@ -114,26 +116,35 @@ class AboutPage extends StatelessWidget {
                 Text(
                   'Contact & Support',
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                    fontSize: GabayTypography.cardBody,
+                    fontWeight: GabayTypography.bold,
                     color: g.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 12),
-                _ContactLine(icon: Icons.email_outlined, text: 'support@gabay.app'),
+                _ContactLine(
+                  icon: Icons.email_outlined,
+                  text: 'support@gabay.app',
+                ),
                 const SizedBox(height: 8),
-                _ContactLine(icon: Icons.language_rounded, text: 'www.gabay.app'),
+                _ContactLine(
+                  icon: Icons.language_rounded,
+                  text: 'www.gabay.app',
+                ),
                 const SizedBox(height: 8),
-                _ContactLine(icon: Icons.place_outlined, text: 'Panabo City, Davao del Norte, Philippines'),
+                _ContactLine(
+                  icon: Icons.place_outlined,
+                  text: 'Panabo City, Davao del Norte, Philippines',
+                ),
               ],
             ),
           ),
           const SizedBox(height: 20),
           Center(
             child: Text(
-              '© 2026 GABAY. All rights reserved.',
+              '© 2026 AKAY. All rights reserved.',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: GabayTypography.caption,
                 color: g.textSecondary,
               ),
             ),
@@ -168,7 +179,7 @@ class _AboutRow extends StatelessWidget {
             color: g.accentTint,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: g.accent, size: 22),
+          child: GabayAccentIcon(icon, color: g.accent, size: 22),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -178,15 +189,15 @@ class _AboutRow extends StatelessWidget {
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+                  fontSize: GabayTypography.cardBody,
+                  fontWeight: GabayTypography.bold,
                   color: g.textPrimary,
                 ),
               ),
               Text(
                 subtitle,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: GabayTypography.supporting,
                   color: g.textSecondary,
                 ),
               ),
@@ -210,15 +221,15 @@ class _ContactLine extends StatelessWidget {
 
     return Row(
       children: [
-        Icon(icon, size: 18, color: g.accent),
+        GabayAccentIcon(icon, size: 18, color: g.accent),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             text,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: GabayTypography.body,
               color: g.textSecondary,
-              fontWeight: FontWeight.w500,
+              fontWeight: GabayTypography.medium,
             ),
           ),
         ),

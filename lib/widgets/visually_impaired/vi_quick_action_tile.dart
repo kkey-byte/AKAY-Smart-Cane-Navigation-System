@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/gabay_theme.dart';
@@ -48,8 +49,8 @@ class ViQuickActionTile extends StatelessWidget {
                   label,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    fontSize: GabayTypography.body,
+                    fontWeight: GabayTypography.bold,
                     color: context.gabay.textPrimary,
                   ),
                 ),

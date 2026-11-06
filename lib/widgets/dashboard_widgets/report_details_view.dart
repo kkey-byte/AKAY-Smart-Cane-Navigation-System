@@ -1,7 +1,12 @@
+import '../../theme/gabay_typography.dart';
+import '../shared/gabay_accent_icon.dart';
 import 'package:flutter/material.dart';
 import '../../models/breadcrumb_trip.dart';
 import '../../theme/gabay_theme.dart';
 import '../shared/gabay_card.dart';
+import '../../pages/shared/breadcrumb_history_page.dart';
+import '../../services/breadcrumb_service.dart';
+import '../track/breadcrumb_trip_tile.dart';
 
 /// Presentation only: values are supplied by the existing report calculation.
 class ReportDetailsView extends StatelessWidget {
@@ -9,9 +14,13 @@ class ReportDetailsView extends StatelessWidget {
     super.key,
     required this.values,
     required this.trips,
+    this.recentTrips,
+    this.localOwner = false,
   });
   final Map<String, String> values;
   final List<BreadcrumbTrip>? trips;
+  final List<BreadcrumbTrip>? recentTrips;
+  final bool localOwner;
 
   @override
   Widget build(BuildContext context) {
@@ -23,10 +32,16 @@ class ReportDetailsView extends StatelessWidget {
             _reportColors(context),
           ],
         ),
-        child: ReportDetailsView(values: values, trips: trips),
+        child: ReportDetailsView(
+          values: values,
+          trips: trips,
+          recentTrips: recentTrips,
+          localOwner: localOwner,
+        ),
       );
     }
     final g = _reportColors(context);
+    final recent = recentTrips ?? trips;
     final fields = [
       (
         label: 'Trips Today',
@@ -41,7 +56,7 @@ class ReportDetailsView extends StatelessWidget {
       (
         label: 'Total Distance',
         value: values['Total Distance']!,
-        icon: Icons.straighten_rounded,
+        icon: Icons.location_on_outlined,
       ),
       (
         label: 'Walking Duration',
@@ -71,24 +86,16 @@ class ReportDetailsView extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(5),
-                            decoration: BoxDecoration(
-                              color: g.accent,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              field.icon,
-                              size: 18,
-                              color: Colors.white,
-                            ),
-                          ),
+                          _iconBadge(field.icon),
                           const SizedBox(height: 8),
                           Text(
-                            field.value,
+                            field.value == 'Unavailable' ||
+                                    field.value == 'Not available'
+                                ? '—'
+                                : field.value,
                             style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
+                              fontSize: GabayTypography.subheading,
+                              fontWeight: GabayTypography.regular,
                               color: g.textPrimary,
                             ),
                           ),
@@ -96,7 +103,7 @@ class ReportDetailsView extends StatelessWidget {
                           Text(
                             field.label,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: GabayTypography.caption,
                               color: g.textSecondary,
                             ),
                           ),
@@ -108,11 +115,6 @@ class ReportDetailsView extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 12),
-        Text(
-          values['Total Route']!,
-          style: TextStyle(fontSize: 12, color: g.textSecondary),
-        ),
         const SizedBox(height: 16),
         GabayCard(
           child: Column(
@@ -121,8 +123,8 @@ class ReportDetailsView extends StatelessWidget {
               Text(
                 'This week',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontSize: GabayTypography.cardTitle,
+                  fontWeight: GabayTypography.regular,
                   color: g.textPrimary,
                 ),
               ),
@@ -156,7 +158,7 @@ class ReportDetailsView extends StatelessWidget {
                             Text(
                               day,
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: GabayTypography.chartLabel,
                                 color: g.textSecondary,
                               ),
                             ),
@@ -168,10 +170,55 @@ class ReportDetailsView extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Daily activity breakdown unavailable.',
-                style: TextStyle(color: g.textSecondary, fontSize: 12),
+                'No daily activity data to display.',
+                style: TextStyle(
+                  color: g.textSecondary,
+                  fontSize: GabayTypography.caption,
+                ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        _heading(context, 'Recent Trips'),
+        const SizedBox(height: 12),
+        if (recent != null && recent.isEmpty)
+          GabayCard(
+            child: Text(
+              'No recorded tracks yet.',
+              style: TextStyle(
+                color: g.textSecondary,
+                fontSize: GabayTypography.supporting,
+                fontWeight: GabayTypography.regular,
+              ),
+            ),
+          ),
+        for (final trip in recent ?? <BreadcrumbTrip>[])
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: BreadcrumbTripTile(
+              trip: trip,
+              now: DateTime.now(),
+              connected: BreadcrumbService.instance.connected,
+              regularTypography: true,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      BreadcrumbTripPage(trip: trip, localOwner: localOwner),
+                ),
+              ),
+            ),
+          ),
+        const SizedBox(height: 24),
+        _heading(context, 'Navigation Events'),
+        const SizedBox(height: 12),
+        GabayCard(
+          child: Text(
+            'No navigation event data to display.',
+            style: TextStyle(
+              color: g.textSecondary,
+              fontSize: GabayTypography.supporting,
+            ),
           ),
         ),
         const SizedBox(height: 24),
@@ -181,87 +228,21 @@ class ReportDetailsView extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              _placeIcon(context),
+              _iconBadge(Icons.apartment),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Visit counts unavailable.',
-                  style: TextStyle(color: g.textSecondary, fontSize: 13),
+                  'No visit data to display.',
+                  style: TextStyle(
+                    color: g.textSecondary,
+                    fontSize: GabayTypography.supporting,
+                  ),
                 ),
               ),
             ],
           ),
         ),
         const SizedBox(height: 24),
-        _heading(context, 'Recent Trips'),
-        const SizedBox(height: 12),
-        if (trips == null || trips!.isEmpty)
-          GabayCard(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              trips == null
-                  ? 'Recorded trips unavailable.'
-                  : 'No recorded trips yet.',
-              style: TextStyle(color: g.textSecondary, fontSize: 13),
-            ),
-          ),
-        for (final trip in trips ?? <BreadcrumbTrip>[]) ...[
-          GabayCard(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            child: IntrinsicHeight(
-              child: Row(
-                children: [
-                  Container(
-                    width: 2,
-                    decoration: BoxDecoration(
-                      color: g.accent,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          trip.name,
-                          style: TextStyle(
-                            color: g.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${trip.startedAt.toLocal()} • ${trip.isRecording ? 'Recording' : trip.status}',
-                          style: TextStyle(
-                            color: g.textSecondary,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-        const SizedBox(height: 16),
-        Text(
-          'Movement duration unavailable. Track recording time does not establish walking time.',
-          style: TextStyle(color: g.textSecondary, fontSize: 12),
-        ),
-        const SizedBox(height: 20),
-        _heading(context, 'Navigation Events'),
-        const SizedBox(height: 12),
-        GabayCard(
-          child: Text(
-            'Device events unavailable.',
-            style: TextStyle(color: g.textSecondary, fontSize: 13),
-          ),
-        ),
       ],
     );
   }
@@ -270,18 +251,39 @@ class ReportDetailsView extends StatelessWidget {
     text,
     style: TextStyle(
       color: _reportColors(context).textPrimary,
-      fontSize: 21,
-      fontWeight: FontWeight.w600,
+      fontSize: GabayTypography.sectionTitle,
+      fontWeight: GabayTypography.semibold,
     ),
   );
-  Widget _placeIcon(BuildContext context) => Container(
-    padding: const EdgeInsets.all(6),
-    decoration: BoxDecoration(
-      color: _reportColors(context).accent,
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: const Icon(Icons.apartment, color: Colors.white, size: 20),
-  );
+  Widget _iconBadge(IconData icon) {
+    final accent = GabayAccentIcon.accent(icon);
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color.lerp(accent, Colors.white, .30)!, accent],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: accent.withValues(alpha: .18),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(icon, color: Colors.white, size: 18),
+      ),
+    );
+  }
 }
 
 GabayThemeExtension _reportColors(BuildContext context) =>

@@ -21,21 +21,21 @@ class VoiceGuidanceButton extends StatelessWidget {
       label: enabled ? 'Voice guidance on' : 'Voice guidance off',
       child: Material(
         color: enabled ? g.accent : g.surface,
-        elevation: 6,
+        elevation: 3,
         shadowColor: g.shadow,
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onPressed,
           child: SizedBox(
-            width: 52,
-            height: 52,
+            width: 48,
+            height: 48,
             child: Icon(
               enabled
                   ? Icons.record_voice_over_rounded
                   : Icons.voice_over_off_rounded,
               color: enabled ? Colors.white : g.accent,
-              size: 24,
+              size: 20,
             ),
           ),
         ),

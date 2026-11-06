@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 /// Clips the profile header into a navy banner with a central upward notch
 /// so the avatar can sit half inside the blue area and half on the body.
 class ProfileHeaderClipper extends CustomClipper<Path> {
-  const ProfileHeaderClipper({
-    this.notchRadius = 56,
-    this.sideDrop = 26,
-  });
+  const ProfileHeaderClipper({this.notchRadius = 56, this.sideDrop = 26});
 
   final double notchRadius;
   final double sideDrop;
@@ -60,11 +57,11 @@ class ProfileHeaderClipper extends CustomClipper<Path> {
 
 /// Layout constants shared by the profile header and avatar positioning.
 abstract final class ProfileHeaderMetrics {
-  static const navyBlue = Color(0xFF0A2463);
+  static const navyBlue = Color(0xFF173B82);
   static const notchRadius = 56.0;
   static const avatarSize = 112.0;
   static const avatarBorderWidth = 4.0;
-  static const clipHeight = 188.0;
+  static const clipHeight = 140.0;
   static const sideDrop = 26.0;
 
   static double get avatarCenterY => clipHeight - sideDrop;

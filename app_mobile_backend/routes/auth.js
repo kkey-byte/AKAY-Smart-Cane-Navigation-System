@@ -5,9 +5,14 @@ const pool=require('../database/db');
 const {usersTable}=require('../database/ensureUsersTable');
 const {verifyFirebase}=require('../middleware/identity');
 const router=express.Router();
+// Also identifies the loaded route version on unauthenticated health probes.
+router.use((_req,res,next)=>{res.set('X-Akay-Password-Change','v1');next();});
 router.use(verifyFirebase);
 router.use((_req,res,next)=>{res.set('Cache-Control','no-store');next();});
 const columns='user_id,firebase_uid,name,email,role,phone,profile_picture,created_at,updated_at';
+router.post('/change-password',require('../services/changePassword')({
+  pool,usersTable,firebase:require('../services/firebaseAdmin'),
+}));
 router.post('/register',require('../middleware/validateProfile'),async(req,res)=>{
   const password=req.body?.password;
   if(typeof password!=='string' || password.length<6 || password.length>4096) return res.status(400).json({message:'Password must be between 6 and 4096 characters.'});

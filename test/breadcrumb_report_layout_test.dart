@@ -47,7 +47,7 @@ void main() {
     },
   );
   testWidgets(
-    'both report pages retain report sections alongside breadcrumb entry',
+    'Reports retain sections and trip sections follow the requested order',
     (tester) async {
       tester.view.physicalSize = const Size(430, 932);
       tester.view.devicePixelRatio = 1;
@@ -65,7 +65,21 @@ void main() {
           expect(find.text('Walking Duration'), findsOneWidget);
           expect(find.text('Most Visited Places'), findsOneWidget);
           expect(find.text('Recent Trips'), findsOneWidget);
-          expect(find.byType(BreadcrumbFeatureCard), findsOneWidget);
+          expect(find.byType(BreadcrumbFeatureCard), findsNothing);
+          expect(find.text('Current and previous tracks'), findsNothing);
+          expect(
+            tester.getTopLeft(find.text('Navigation Events')).dy,
+            lessThan(tester.getTopLeft(find.text('Most Visited Places')).dy),
+          );
+          expect(
+            tester.getTopLeft(find.text('Recent Trips')).dy,
+            lessThan(tester.getTopLeft(find.text('Navigation Events')).dy),
+          );
+          expect(
+            find.textContaining('Movement duration unavailable'),
+            findsNothing,
+          );
+          expect(find.textContaining('Latest 100'), findsNothing);
           expect(tester.takeException(), isNull);
         }
       }

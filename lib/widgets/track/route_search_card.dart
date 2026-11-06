@@ -1,5 +1,8 @@
+import '../../theme/gabay_typography.dart';
 import 'readable_place_text.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../shared/gabay_selection_dialog.dart';
 
 import '../../models/linked_navigator.dart';
 
@@ -78,23 +81,28 @@ class RouteSearchCard extends StatelessWidget {
 
         const SizedBox(height: 14),
 
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-
-          children: [
-            _RouteConnector(),
-
-            const SizedBox(width: 10),
-
-            Expanded(child: _routeDetailsCard(context)),
-          ],
-        ),
+        _routeDetailsCard(context),
 
         if (suggestions.isNotEmpty) ...[
           const SizedBox(height: 12),
 
           _suggestionsList(context),
         ],
+        if (kIsWeb &&
+            ReadablePlaceText.coordinates(
+                  originAddress ?? selectedNavigator.address,
+                ) !=
+                null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Location names © OpenStreetMap contributors',
+              style: TextStyle(
+                color: context.gabay.textSecondary,
+                fontSize: GabayTypography.chartLabel,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -116,7 +124,7 @@ class RouteSearchCard extends StatelessWidget {
 
             style: GabayTheme.labelSmall(
               context,
-            ).copyWith(color: g.accent, fontWeight: FontWeight.w700),
+            ).copyWith(color: g.accent, fontWeight: GabayTypography.medium),
           ),
 
           const SizedBox(height: 8),
@@ -136,7 +144,7 @@ class RouteSearchCard extends StatelessWidget {
                   style: TextStyle(
                     color: g.accent,
 
-                    fontWeight: FontWeight.w800,
+                    fontWeight: GabayTypography.medium,
                   ),
                 ),
               ),
@@ -145,7 +153,14 @@ class RouteSearchCard extends StatelessWidget {
 
               Expanded(
                 child: DropdownButtonHideUnderline(
-                  child: DropdownButton<LinkedNavigator>(
+                  child: GabayDropdownFormField<LinkedNavigator>(
+                    dialogTitle: 'Choose Navigator',
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      isDense: true,
+                    ),
                     value: selectedNavigator,
 
                     isExpanded: true,
@@ -164,18 +179,18 @@ class RouteSearchCard extends StatelessWidget {
                       style: TextStyle(
                         color: g.textSecondary,
 
-                        fontSize: 15,
+                        fontSize: GabayTypography.cardBody,
 
-                        fontWeight: FontWeight.w500,
+                        fontWeight: GabayTypography.medium,
                       ),
                     ),
 
                     style: TextStyle(
                       color: g.textPrimary,
 
-                      fontSize: 15,
+                      fontSize: GabayTypography.cardBody,
 
-                      fontWeight: FontWeight.w600,
+                      fontWeight: GabayTypography.medium,
                     ),
 
                     items: navigators
@@ -197,13 +212,13 @@ class RouteSearchCard extends StatelessWidget {
                                       : 'Offline',
 
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: GabayTypography.caption,
 
                                     color: navigator.isOnline
                                         ? g.success
                                         : g.textSecondary,
 
-                                    fontWeight: FontWeight.w500,
+                                    fontWeight: GabayTypography.medium,
                                   ),
                                 ),
                               ],
@@ -245,7 +260,10 @@ class RouteSearchCard extends StatelessWidget {
                   ? selectedNavigator.name[0].toUpperCase()
                   : '?',
 
-              style: TextStyle(color: g.accent, fontWeight: FontWeight.w800),
+              style: TextStyle(
+                color: g.accent,
+                fontWeight: GabayTypography.medium,
+              ),
             ),
           ),
 
@@ -259,9 +277,10 @@ class RouteSearchCard extends StatelessWidget {
                 Text(
                   'Your location',
 
-                  style: GabayTheme.labelSmall(
-                    context,
-                  ).copyWith(color: g.accent, fontWeight: FontWeight.w700),
+                  style: GabayTheme.labelSmall(context).copyWith(
+                    color: g.accent,
+                    fontWeight: GabayTypography.medium,
+                  ),
                 ),
 
                 const SizedBox(height: 2),
@@ -272,18 +291,22 @@ class RouteSearchCard extends StatelessWidget {
                   style: TextStyle(
                     color: g.textPrimary,
 
-                    fontSize: 15,
+                    fontSize: GabayTypography.cardBody,
 
-                    fontWeight: FontWeight.w600,
+                    fontWeight: GabayTypography.medium,
                   ),
                 ),
 
                 ReadablePlaceText(
+                  showCoordinateFallback: false,
                   originAddress?.trim().isNotEmpty == true
                       ? originAddress!
                       : 'Locating you…',
 
-                  style: TextStyle(color: g.textSecondary, fontSize: 12),
+                  style: TextStyle(
+                    color: g.textSecondary,
+                    fontSize: GabayTypography.caption,
+                  ),
                 ),
               ],
             ),
@@ -385,25 +408,26 @@ class RouteSearchCard extends StatelessWidget {
                           : 'Your current location'),
 
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: GabayTypography.caption,
 
                     color: g.textSecondary,
 
-                    fontWeight: FontWeight.w500,
+                    fontWeight: GabayTypography.medium,
                   ),
                 ),
 
                 const SizedBox(height: 3),
 
                 ReadablePlaceText(
+                  showCoordinateFallback: false,
                   originAddress?.trim().isNotEmpty == true
                       ? originAddress!
                       : 'Locating you…',
 
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: GabayTypography.cardBody,
 
-                    fontWeight: FontWeight.w700,
+                    fontWeight: GabayTypography.medium,
 
                     color: g.textPrimary,
 
@@ -455,9 +479,9 @@ class RouteSearchCard extends StatelessWidget {
                 hintStyle: TextStyle(
                   color: g.textSecondary,
 
-                  fontSize: 15,
+                  fontSize: GabayTypography.cardBody,
 
-                  fontWeight: FontWeight.w500,
+                  fontWeight: GabayTypography.medium,
                 ),
 
                 border: InputBorder.none,
@@ -468,9 +492,9 @@ class RouteSearchCard extends StatelessWidget {
               ),
 
               style: TextStyle(
-                fontSize: 15,
+                fontSize: GabayTypography.cardBody,
 
-                fontWeight: FontWeight.w600,
+                fontWeight: GabayTypography.medium,
 
                 color: g.textPrimary,
               ),
@@ -501,105 +525,57 @@ class RouteSearchCard extends StatelessWidget {
         ],
       ),
 
-      child: Column(
-        children: suggestions.take(4).map((place) {
-          return ListTile(
-            dense: true,
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
+          children: suggestions.take(4).map((place) {
+            return ListTile(
+              dense: true,
 
-            leading: Icon(
-              Icons.place_outlined,
+              leading: Icon(
+                Icons.place_outlined,
 
-              color: g.accent.withValues(alpha: 0.85),
-            ),
-
-            title: Text(
-              place.displayName,
-
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-
-                fontSize: 14,
-
-                color: g.textPrimary,
+                color: g.accent.withValues(alpha: 0.85),
               ),
-            ),
 
-            subtitle: Text(
-              [
-                if (place.distance != null && place.distance!.isNotEmpty)
-                  place.distance!,
-                if (place.walkingTime != null && place.walkingTime!.isNotEmpty)
-                  place.walkingTime!,
-                if (place.source != null && place.source!.isNotEmpty)
-                  place.source!,
-                place.shortAddress,
-              ].join(' • '),
+              title: Text(
+                place.displayName,
 
-              maxLines: 2,
+                style: TextStyle(
+                  fontWeight: GabayTypography.medium,
 
-              overflow: TextOverflow.ellipsis,
+                  fontSize: GabayTypography.body,
 
-              style: TextStyle(fontSize: 12, color: g.textSecondary),
-            ),
+                  color: g.textPrimary,
+                ),
+              ),
 
-            onTap: () => onSuggestionSelected(place),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
+              subtitle: Text(
+                [
+                  if (place.distance != null && place.distance!.isNotEmpty)
+                    place.distance!,
+                  if (place.walkingTime != null &&
+                      place.walkingTime!.isNotEmpty)
+                    place.walkingTime!,
+                  if (place.source != null && place.source!.isNotEmpty)
+                    place.source!,
+                  place.shortAddress,
+                ].join(' • '),
 
-class _RouteConnector extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final g = context.gabay;
+                maxLines: 2,
 
-    return SizedBox(
-      width: 18,
+                overflow: TextOverflow.ellipsis,
 
-      height: 108,
+                style: TextStyle(
+                  fontSize: GabayTypography.caption,
+                  color: g.textSecondary,
+                ),
+              ),
 
-      child: Column(
-        children: [
-          Container(
-            width: 11,
-
-            height: 11,
-
-            decoration: BoxDecoration(
-              color: g.accent,
-
-              shape: BoxShape.circle,
-
-              border: Border.all(color: g.surface, width: 2),
-            ),
-          ),
-
-          Expanded(
-            child: Container(
-              width: 2,
-
-              margin: const EdgeInsets.symmetric(vertical: 4),
-
-              color: g.accent.withValues(alpha: 0.45),
-            ),
-          ),
-
-          Container(
-            width: 11,
-
-            height: 11,
-
-            decoration: BoxDecoration(
-              color: g.surface,
-
-              shape: BoxShape.circle,
-
-              border: Border.all(color: g.accent, width: 2),
-            ),
-          ),
-        ],
+              onTap: () => onSuggestionSelected(place),
+            );
+          }).toList(),
+        ),
       ),
     );
   }

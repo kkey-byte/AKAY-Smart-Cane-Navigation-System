@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 import '../../pages/shared/breadcrumb_history_page.dart';
 import '../../theme/gabay_theme.dart';
@@ -33,9 +34,10 @@ class BreadcrumbFeatureCard extends StatelessWidget {
             children: [
               Text(
                 'Breadcrumb tracks',
-                style: GabayTheme.bodyLarge(
-                  context,
-                ).copyWith(fontWeight: FontWeight.w600, fontSize: 16),
+                style: GabayTheme.bodyLarge(context).copyWith(
+                  fontWeight: GabayTypography.semibold,
+                  fontSize: GabayTypography.cardTitle,
+                ),
               ),
               Text(
                 compact
@@ -43,7 +45,9 @@ class BreadcrumbFeatureCard extends StatelessWidget {
                     : caregiver
                     ? 'Monitor your patient’s route and view saved tracks.'
                     : 'Your daily path records automatically. View tracks, pause recording, and manage caregiver sharing.',
-                style: GabayTheme.bodyMedium(context).copyWith(fontSize: 13),
+                style: GabayTheme.bodyMedium(
+                  context,
+                ).copyWith(fontSize: GabayTypography.supporting),
               ),
             ],
           ),

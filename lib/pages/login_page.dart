@@ -1,10 +1,12 @@
+import '../theme/gabay_typography.dart';
+import '../widgets/shared/gabay_accent_icon.dart';
 import 'package:flutter/material.dart';
 
 import '../navigation/role_router.dart';
 import '../services/app_session_service.dart';
 import '../services/auth_service.dart';
 import '../theme/gabay_theme.dart';
-import '../widgets/gabay_logo.dart';
+import '../widgets/auth/gabay_auth_scaffold.dart';
 import 'signup_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -113,315 +115,103 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final g = context.gabay;
-    final size = MediaQuery.of(context).size;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final panelColor = isDark ? g.surface : const Color(0xFFF3F3F3);
-    final headingColor = isDark ? g.heading : const Color(0xFF103B7D);
-    final mutedColor = isDark ? g.textSecondary : const Color(0xFFA3A3A3);
-
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      backgroundColor: const Color(0xFF082A67),
-      body: Stack(
-        children: [
-          Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF104694), Color(0xFF021D43)],
-              ),
+    return GabayAuthScaffold(
+      title: 'Welcome Back',
+      subtitle: 'Sign in to continue your journey with AKAY.',
+      onBack: isLoading ? null : () => Navigator.pop(context),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            GabayAuthField(
+              label: 'Email',
+              icon: Icons.person_outline_rounded,
+              controller: emailController,
+              validator: _validateEmail,
+              enabled: !isLoading,
+              keyboardType: TextInputType.emailAddress,
             ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: IconButton(
-                tooltip: 'Back',
-                onPressed: isLoading ? null : () => Navigator.pop(context),
-                icon: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white,
+            const SizedBox(height: 18),
+            GabayAuthField(
+              label: 'Password',
+              icon: Icons.lock_outline_rounded,
+              controller: passwordController,
+              validator: _validatePassword,
+              enabled: !isLoading,
+              obscureText: obscurePassword,
+              suffixIcon: IconButton(
+                tooltip: obscurePassword ? 'Show password' : 'Hide password',
+                onPressed: () {
+                  setState(() => obscurePassword = !obscurePassword);
+                },
+                icon: GabayAccentIcon(
+                  obscurePassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                 ),
               ),
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              height: size.height * .65,
-              decoration: BoxDecoration(
-                color: panelColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(40),
-                  topRight: Radius.circular(40),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Checkbox(
+                  value: rememberMe,
+                  onChanged: isLoading
+                      ? null
+                      : (value) => setState(() => rememberMe = value ?? false),
                 ),
-              ),
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(24, 64, 24, 32 + bottomInset),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Welcome Back',
-                        style: TextStyle(
-                          fontSize: 25,
-                          fontWeight: FontWeight.w700,
-                          color: headingColor,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Sign in to continue your journey with GABAY.',
-                        style: TextStyle(color: mutedColor, fontSize: 13),
-                      ),
-                      const SizedBox(height: 40),
-                      TextFormField(
-                        controller: emailController,
-                        enabled: !isLoading,
-                        keyboardType: TextInputType.emailAddress,
-                        validator: _validateEmail,
-                        style: TextStyle(color: g.textPrimary, fontSize: 13),
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: isDark ? g.chipBackground : Colors.white,
-                          floatingLabelBehavior: FloatingLabelBehavior.always,
-                          labelStyle: TextStyle(
-                            color: headingColor,
-                            fontSize: 16,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30),
-                            borderSide: BorderSide(
-                              color: isDark
-                                  ? g.border
-                                  : const Color(0xFFDAD7D7),
-                            ),
-                          ),
-                          errorBorder: InputBorder.none,
-                          focusedErrorBorder: InputBorder.none,
-                          labelText: 'Email',
-                          hintText: '@gmail.com',
-                          hintStyle: TextStyle(color: mutedColor),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 16,
-                          ),
-                          errorStyle: TextStyle(color: g.danger, height: 0.8),
-                        ),
-                      ),
-                      const SizedBox(height: 26),
-                      TextFormField(
-                        controller: passwordController,
-                        enabled: !isLoading,
-                        obscureText: obscurePassword,
-                        validator: _validatePassword,
-                        style: TextStyle(color: g.textPrimary, fontSize: 13),
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: isDark ? g.chipBackground : Colors.white,
-                          floatingLabelBehavior: FloatingLabelBehavior.always,
-                          labelStyle: TextStyle(
-                            color: headingColor,
-                            fontSize: 16,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30),
-                            borderSide: BorderSide(
-                              color: isDark
-                                  ? g.border
-                                  : const Color(0xFFDAD7D7),
-                            ),
-                          ),
-                          errorBorder: InputBorder.none,
-                          focusedErrorBorder: InputBorder.none,
-                          labelText: 'Password',
-                          hintText: 'Enter your password',
-                          hintStyle: TextStyle(color: mutedColor),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 16,
-                          ),
-                          errorStyle: TextStyle(color: g.danger, height: 0.8),
-                          suffixIcon: IconButton(
-                            tooltip: obscurePassword
-                                ? 'Show password'
-                                : 'Hide password',
-                            onPressed: () {
-                              setState(() {
-                                obscurePassword = !obscurePassword;
-                              });
-                            },
-                            icon: Icon(
-                              obscurePassword
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              color: mutedColor,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Transform.scale(
-                            scale: 0.9,
-                            child: Checkbox(
-                              value: rememberMe,
-                              activeColor: headingColor,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(1),
-                              ),
-                              onChanged: isLoading
-                                  ? null
-                                  : (value) {
-                                      setState(() {
-                                        rememberMe = value ?? false;
-                                      });
-                                    },
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Remember me',
-                            style: TextStyle(color: mutedColor, fontSize: 13),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 28),
-                      if (errorMessage != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Text(
-                            errorMessage!,
-                            style: TextStyle(
-                              color: g.danger,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(30),
-                            gradient: const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0xFF008FE5), Color(0xFF004878)],
-                            ),
-                          ),
-                          child: ElevatedButton(
-                            onPressed: isLoading ? null : _login,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                            ),
-                            child: isLoading
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.4,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text(
-                                    'Login',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ),
-                      Center(
-                        child: Container(
-                          margin: const EdgeInsets.only(top: 36),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                "Don't have an account?",
-                                style: TextStyle(
-                                  color: mutedColor,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: isLoading
-                                    ? null
-                                    : () {
-                                        Navigator.pushReplacement(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => const SignupPage(),
-                                          ),
-                                        );
-                                      },
-                                child: Text(
-                                  'Sign up',
-                                  style: TextStyle(
-                                    color: headingColor,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                const Expanded(child: Text('Remember me')),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    errorMessage!,
+                    style: TextStyle(
+                      color: g.danger,
+                      fontSize: GabayTypography.body,
+                    ),
                   ),
                 ),
               ),
+            GabayAuthPrimaryButton(
+              onPressed: isLoading ? null : _login,
+              child: isLoading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                        semanticsLabel: 'Signing in',
+                      ),
+                    )
+                  : const Text('Login'),
             ),
-          ),
-          Positioned(
-            top: size.height * .35 - 36,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Hero(
-                tag: 'gabay_logo',
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFBDE2FA),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: const GabayLogo(size: 60, color: Color(0xFF008DE0)),
-                  ),
-                ),
-              ),
+            const SizedBox(height: 20),
+            Text(
+              "Don't have an account?",
+              textAlign: TextAlign.center,
+              style: GabayTheme.bodyMedium(context),
             ),
-          ),
-        ],
+            TextButton(
+              onPressed: isLoading
+                  ? null
+                  : () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SignupPage()),
+                      );
+                    },
+              child: const Text('Sign Up'),
+            ),
+          ],
+        ),
       ),
     );
   }

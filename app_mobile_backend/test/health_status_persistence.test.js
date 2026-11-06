@@ -10,6 +10,31 @@ const config={host:'127.0.0.1',port:55439,database:'postgres',user:'akay_test',p
 const database=`health_status_test_${process.pid}_${Date.now()}`;
 function stub(name,exports){const id=require.resolve(name);require.cache[id]={id,filename:id,loaded:true,exports};}
 
+test('migration creates missing patientmedication without changing patientprofiles',async()=>{
+  const admin=new Pool(config); const name=`${database}_missing`;
+  let db,created=false;
+  try {
+    await admin.query(`CREATE DATABASE ${name}`);created=true;
+    db=new Pool({...config,database:name});
+    await db.query('CREATE TABLE public.patientprofiles(profile_id uuid PRIMARY KEY, user_id uuid UNIQUE NOT NULL)');
+    const patient=randomUUID(),user=randomUUID();
+    await db.query('INSERT INTO public.patientprofiles VALUES($1,$2)',[patient,user]);
+    const sql=fs.readFileSync(path.join(__dirname,'../database/migrations/006_patient_health_status.sql'),'utf8');
+    await db.query(sql);await db.query(sql);
+    const columns=(await db.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='patientmedication'")).rows.map(row=>row.column_name);
+    for(const key of ['height','weight','medical_conditions','allergies','emergency_contact_phone']) assert.ok(columns.includes(key));
+    assert.deepEqual((await db.query('SELECT * FROM public.patientprofiles')).rows,[{profile_id:patient,user_id:user}]);
+    assert.equal((await db.query("SELECT count(*)::int n FROM information_schema.columns WHERE table_schema='public' AND table_name='patientprofiles'")).rows[0].n,2);
+    await db.query('INSERT INTO public.patientmedication(patient_id,health_status_record,height,weight) VALUES($1,true,165,62)',[patient]);
+    assert.equal((await db.query('SELECT height::float8 height FROM public.patientmedication')).rows[0].height,165);
+    await assert.rejects(db.query('INSERT INTO public.patientmedication(patient_id) VALUES($1)',[randomUUID()]));
+  } finally {
+    await db?.end();
+    if(created) await admin.query(`DROP DATABASE ${name}`);
+    await admin.end();
+  }
+});
+
 test('migration preserves legacy history and health API persists only authenticated owner fields',async()=>{
   const admin=new Pool(config);let db,server,created=false;
   try {

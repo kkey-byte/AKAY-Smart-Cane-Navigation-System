@@ -47,6 +47,13 @@ RoutePlanResult resultFor(MapPlace place) => RoutePlanResult(
 class History extends DestinationSearchService {
   bool failSave = false;
   @override
+  Future<List<MapPlace>> searchAsMapPlaces({
+    required String query,
+    LatLng? near,
+    int radiusMeters = 5000,
+    bool wider = false,
+  }) async => [placeA, placeB];
+  @override
   Future<List<MapPlace>> loadRecentSentDestinations(String navigatorId) async =>
       [placeA, placeB];
   @override
@@ -135,10 +142,14 @@ void main() {
     );
     await tester.tap(find.text('Open planner'));
     await tester.pumpAndSettle();
+    expect(find.text('Recent Destinations'), findsNothing);
+    await tester.enterText(find.byType(TextField).first, 'Destination');
+    await tester.tap(find.byTooltip('Search destinations'));
+    await tester.pumpAndSettle();
   }
 
   testWidgets(
-    'recent destination remains retryable after error; history failure cannot block valid route',
+    'searched destination remains retryable after error; history failure cannot block valid route',
     (tester) async {
       var attempt = 0;
       RoutePlanResult? completed;

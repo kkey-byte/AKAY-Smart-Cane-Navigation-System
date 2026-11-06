@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 import '../../theme/gabay_theme.dart';
 
@@ -63,8 +64,8 @@ class _ViSosButtonState extends State<ViSosButton>
                     'EMERGENCY SOS',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
+                      fontSize: GabayTypography.metric,
+                      fontWeight: GabayTypography.bold,
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -115,7 +116,7 @@ class _ViSosButtonState extends State<ViSosButton>
             },
             child: Text(
               'Activate SOS',
-              style: TextStyle(color: danger, fontWeight: FontWeight.w700),
+              style: TextStyle(color: danger, fontWeight: GabayTypography.bold),
             ),
           ),
         ],

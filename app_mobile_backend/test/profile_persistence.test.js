@@ -34,7 +34,8 @@ test('profile save and fetch persist Users and patientprofiles atomically for th
       return {status:response.status,body:await response.json()};
     };
     const empty=await request();assert.equal(empty.status,200);assert.equal(empty.body.patientProfile,null);
-    const fields={name:'Synthetic owner',phone:'09000000000',profilePicture:'https://example.test/avatar.png',birthdate:'1990-01-01',gender:'Other',medicalConditions:'Synthetic condition',allergies:'Synthetic allergy',bloodType:'O+',emergencyContact:'Synthetic contact',address:'Synthetic address'};
+    const fullAddress='Region: Synthetic Region\nProvince: Synthetic Province\nCity/Municipality: Synthetic City\nBarangay: Synthetic Barangay\nPostal Code: 1234\nStreet: Unit: 2\nSynthetic Street';
+    const fields={name:'Synthetic owner',phone:'09000000000',profilePicture:'https://example.test/avatar.png',birthdate:'1990-01-01',gender:'Other',medicalConditions:'Synthetic condition',allergies:'Synthetic allergy',bloodType:'O+',emergencyContact:'Synthetic contact',address:fullAddress};
     const saved=await request({...fields,userId:other});
     assert.equal(saved.status,200);assert.equal(saved.body.profileComplete,true);
     assert.equal(saved.body.user.user_id,owner);
@@ -43,11 +44,20 @@ test('profile save and fetch persist Users and patientprofiles atomically for th
     assert.equal(account.name,fields.name);assert.equal(account.phone,fields.phone);assert.equal(account.profile_picture,fields.profilePicture);
     for(const [requestKey,column] of Object.entries({birthdate:'birthdate',gender:'gender',medicalConditions:'medical_conditions',allergies:'allergies',bloodType:'blood_type',emergencyContact:'emergency_contact',address:'address'})) assert.equal(health[column],fields[requestKey]);
     assert.deepEqual((await request()).body.patientProfile,saved.body.patientProfile);
+    // Updating an existing address must retain every section, including a
+    // multiline street; database grids can show only its first region line.
+    const changedAddress=fullAddress.replace('Synthetic Province','Updated Synthetic Province').replace('Unit: 2','Unit: 3');
+    const changed=await request({address:changedAddress});
+    assert.equal(changed.status,200);
+    assert.equal(changed.body.patientProfile.address,changedAddress);
+    assert.equal((await request()).body.patientProfile.address,changedAddress);
+    assert.equal((await pool.query('SELECT address FROM patientprofiles WHERE user_id=$1',[owner])).rows[0].address,changedAddress);
     assert.equal((await pool.query('SELECT name FROM "Users" WHERE user_id=$1',[other])).rows[0].name,null);
     // Snake-case aliases, explicit clears and omitted fields must round-trip.
     const updated=await request({medical_conditions:'Updated synthetic condition',blood_type:'A+',allergies:''});
     assert.equal(updated.status,200);assert.equal(updated.body.patientProfile.medicalConditions,'Updated synthetic condition');
     assert.equal(updated.body.patientProfile.allergies,'');assert.equal(updated.body.patientProfile.bloodType,'A+');assert.equal(updated.body.patientProfile.birthdate,fields.birthdate);
+    assert.equal(updated.body.patientProfile.address,changedAddress);
     const before=(await request()).body;
     for(const invalid of [{age:true},{birthdate:'2000-02-31'},{name:{}},{bloodType:'A+',blood_type:'O+'}]) assert.equal((await request(invalid)).status,400);
     // A health-table failure must roll back the Users update as well.

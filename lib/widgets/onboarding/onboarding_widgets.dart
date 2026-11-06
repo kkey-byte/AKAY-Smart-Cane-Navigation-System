@@ -1,3 +1,6 @@
+import '../../theme/gabay_typography.dart';
+import '../shared/gabay_page_background.dart';
+import '../shared/gabay_accent_icon.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/gabay_theme.dart';
@@ -24,80 +27,85 @@ class OnboardingScaffold extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: g.scaffoldBackground,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 20, 0),
-              child: Row(
-                children: [
-                  if (onBack != null)
-                    IconButton(
-                      onPressed: onBack,
-                      icon: Icon(Icons.arrow_back_rounded, color: g.textPrimary),
-                      tooltip: 'Back',
-                    )
-                  else
-                    const SizedBox(width: 48),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        if (stepLabel != null) ...[
-                          Text(
-                            stepLabel!,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: g.textSecondary,
-                              letterSpacing: 0.4,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                        ],
-                        if (progress != null)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(999),
-                            child: LinearProgressIndicator(
-                              value: progress!.clamp(0, 1),
-                              minHeight: 6,
-                              backgroundColor: g.chipBackground,
-                              color: g.accent,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
-            ),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 320),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.03),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    ),
-                  );
-                },
-                child: child,
-              ),
-            ),
-            if (bottomBar != null)
+      body: GabayPageBackground(
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                child: bottomBar,
+                padding: const EdgeInsets.fromLTRB(8, 8, 20, 0),
+                child: Row(
+                  children: [
+                    if (onBack != null)
+                      IconButton(
+                        onPressed: onBack,
+                        icon: GabayAccentIcon(
+                          Icons.arrow_back_rounded,
+                          color: g.textPrimary,
+                        ),
+                        tooltip: 'Back',
+                      )
+                    else
+                      const SizedBox(width: 48),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          if (stepLabel != null) ...[
+                            Text(
+                              stepLabel!,
+                              style: TextStyle(
+                                fontSize: GabayTypography.supporting,
+                                fontWeight: GabayTypography.medium,
+                                color: g.textSecondary,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                          if (progress != null)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: LinearProgressIndicator(
+                                value: progress!.clamp(0, 1),
+                                minHeight: 6,
+                                backgroundColor: g.chipBackground,
+                                color: g.accent,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 48),
+                  ],
+                ),
               ),
-          ],
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 320),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.03),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: child,
+                ),
+              ),
+              if (bottomBar != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  child: bottomBar,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -119,11 +127,7 @@ class OnboardingIllustration extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final g = context.gabay;
-    final gradientColors = colors ??
-        [
-          g.accent,
-          const Color(0xFF0057B8),
-        ];
+    final gradientColors = colors ?? [g.accent, GabayColors.darkNavy];
 
     return Container(
       width: size + 48,
@@ -143,7 +147,7 @@ class OnboardingIllustration extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(icon, color: Colors.white, size: size * 0.46),
+      child: GabayAccentIcon(icon, color: Colors.white, size: size * 0.46),
     );
   }
 }
@@ -171,16 +175,12 @@ class OnboardingPrimaryButton extends StatelessWidget {
       label: label,
       child: SizedBox(
         width: double.infinity,
-        height: 56,
+        height: GabayMetrics.buttonHeight,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(GabayMetrics.controlRadius),
             gradient: active
-                ? const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF1EA4FF), Color(0xFF0057B8)],
-                  )
+                ? GabayTheme.actionGradient
                 : LinearGradient(
                     colors: [g.border, g.textSecondary.withValues(alpha: 0.5)],
                   ),
@@ -201,15 +201,15 @@ class OnboardingPrimaryButton extends StatelessWidget {
               shadowColor: Colors.transparent,
               disabledBackgroundColor: Colors.transparent,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
+                borderRadius: BorderRadius.circular(GabayMetrics.controlRadius),
               ),
             ),
             child: Text(
               label,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
+                fontSize: GabayTypography.sectionTitle,
+                fontWeight: GabayTypography.medium,
               ),
             ),
           ),
@@ -237,8 +237,8 @@ class OnboardingTextButton extends StatelessWidget {
         label,
         style: TextStyle(
           color: context.gabay.textSecondary,
-          fontWeight: FontWeight.w700,
-          fontSize: 15,
+          fontWeight: GabayTypography.medium,
+          fontSize: GabayTypography.cardBody,
         ),
       ),
     );
@@ -264,16 +264,13 @@ class OnboardingInfoCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: GabayTheme.cardDecoration(context).copyWith(
-        borderRadius: BorderRadius.circular(22),
-      ),
+      decoration: GabayTheme.cardDecoration(
+        context,
+      ).copyWith(borderRadius: BorderRadius.circular(22)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (leading != null) ...[
-            leading!,
-            const SizedBox(width: 14),
-          ],
+          if (leading != null) ...[leading!, const SizedBox(width: 14)],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,8 +278,8 @@ class OnboardingInfoCard extends StatelessWidget {
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontSize: GabayTypography.cardTitle,
+                    fontWeight: GabayTypography.medium,
                     color: g.textPrimary,
                   ),
                 ),
@@ -290,7 +287,7 @@ class OnboardingInfoCard extends StatelessWidget {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: GabayTypography.body,
                     height: 1.45,
                     color: g.textSecondary,
                   ),

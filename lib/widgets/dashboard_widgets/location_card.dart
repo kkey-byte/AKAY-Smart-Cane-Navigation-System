@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/gabay_theme.dart';
@@ -164,9 +165,9 @@ class LocationCard extends StatelessWidget {
                       style: TextStyle(
                         color: g.accent,
 
-                        fontSize: 13,
+                        fontSize: GabayTypography.supporting,
 
-                        fontWeight: FontWeight.w700,
+                        fontWeight: GabayTypography.medium,
                       ),
                     ),
                   ],
@@ -209,9 +210,9 @@ class LocationCard extends StatelessWidget {
                           style: const TextStyle(
                             color: Colors.white,
 
-                            fontSize: 15,
+                            fontSize: GabayTypography.cardBody,
 
-                            fontWeight: FontWeight.w700,
+                            fontWeight: GabayTypography.medium,
                           ),
                         ),
 

@@ -124,8 +124,17 @@ class SecureApi {
       try {
         data = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
       } catch (_) {
-        throw const SecureApiException(
-          'Invalid service response. Please try again.',
+        final status = response.statusCode;
+        throw SecureApiException(
+          status == 404
+              ? 'This feature is unavailable on the running account server. Restart or update the backend.'
+              : status >= 500
+              ? 'The account server is unavailable (HTTP $status). Please try again later.'
+              : 'The server returned an unexpected response (HTTP $status). Check the API server address and restart the backend.',
+          status: status,
+          code: status == 404
+              ? 'endpoint_unavailable'
+              : 'invalid_service_response',
         );
       }
       if (response.statusCode < 200 || response.statusCode >= 300) {

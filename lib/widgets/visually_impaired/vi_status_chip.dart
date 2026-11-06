@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/gabay_theme.dart';
@@ -33,8 +34,8 @@ class ViStatusChip extends StatelessWidget {
             Text(
               value,
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
+                fontSize: GabayTypography.cardTitle,
+                fontWeight: GabayTypography.bold,
                 color: accent,
               ),
             ),

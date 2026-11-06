@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -219,11 +220,11 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
           const OnboardingIllustration(icon: Icons.favorite_rounded),
           const SizedBox(height: 28),
           Text(
-            'Welcome to GABAY!',
+            'Welcome to AKAY!',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
+              fontSize: GabayTypography.hero,
+              fontWeight: GabayTypography.bold,
               color: g.heading,
             ),
           ),
@@ -231,7 +232,11 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
           Text(
             "Let's set up your caregiver account so you can support your navigator safely.",
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, height: 1.5, color: g.textSecondary),
+            style: TextStyle(
+              fontSize: GabayTypography.cardTitle,
+              height: 1.5,
+              color: g.textSecondary,
+            ),
           ),
         ],
       ),
@@ -266,7 +271,7 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
                 'Notifications enabled',
                 style: TextStyle(
                   color: context.gabay.success,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: GabayTypography.bold,
                 ),
               ),
             ),
@@ -301,7 +306,7 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
                 'Location access granted',
                 style: TextStyle(
                   color: context.gabay.success,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: GabayTypography.bold,
                 ),
               ),
             ),
@@ -333,7 +338,7 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
                       page.$3,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: GabayTypography.cardTitle,
                         height: 1.5,
                         color: context.gabay.textSecondary,
                       ),
@@ -390,8 +395,8 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
             "You're All Set!",
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
+              fontSize: GabayTypography.hero,
+              fontWeight: GabayTypography.bold,
               color: g.heading,
             ),
           ),
@@ -399,7 +404,11 @@ class _CaregiverOnboardingPageState extends State<CaregiverOnboardingPage> {
           Text(
             'Your caregiver account is ready. You can now monitor and support your navigator.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, height: 1.5, color: g.textSecondary),
+            style: TextStyle(
+              fontSize: GabayTypography.cardTitle,
+              height: 1.5,
+              color: g.textSecondary,
+            ),
           ),
         ],
       ),

@@ -9,7 +9,8 @@ class PrivacyPolicyPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return GabayDetailPageScaffold(
       title: 'Privacy Policy',
-      subtitle: 'How GABAY protects your personal information.',
+      blueHeader: true,
+      subtitle: 'How AKAY protects your personal information.',
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
         children: const [
@@ -20,7 +21,7 @@ class PrivacyPolicyPage extends StatelessWidget {
                 GabayLegalSection(
                   title: 'Information We Collect',
                   body:
-                      'GABAY may collect account details (name, email, phone), navigator health information you choose to share, live location data, device battery status, route history, and emergency contact information.',
+                      'AKAY may collect account details (name, email, phone), navigator health information you choose to share, live location data, device battery status, route history, and emergency contact information.',
                 ),
                 GabayLegalSection(
                   title: 'How We Use Your Data',
@@ -40,7 +41,7 @@ class PrivacyPolicyPage extends StatelessWidget {
                 GabayLegalSection(
                   title: 'Third-Party Services',
                   body:
-                      'GABAY may integrate with mapping services (e.g., Google Maps) and cloud infrastructure providers. These services have their own privacy policies governing data they process.',
+                      'AKAY may integrate with mapping services (e.g., Google Maps) and cloud infrastructure providers. These services have their own privacy policies governing data they process.',
                 ),
                 GabayLegalSection(
                   title: 'Your Rights',

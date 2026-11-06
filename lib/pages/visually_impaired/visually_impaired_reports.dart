@@ -8,12 +8,8 @@ class VisuallyImpairedReportsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? Theme.of(context).scaffoldBackgroundColor
-          : const Color(0xFFF3F3F3),
-      body: const SafeArea(
-        child: ReportsBody(subtitle: 'Your walking history & insights'),
-      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: const ReportsBody(),
     );
   }
 }

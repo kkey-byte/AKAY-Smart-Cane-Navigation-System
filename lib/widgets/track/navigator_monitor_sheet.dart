@@ -1,10 +1,11 @@
+import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/linked_navigator.dart';
 
 import '../../theme/gabay_theme.dart';
 
-/// Bottom sheet for caregivers to switch between linked navigators.
+/// Centered selector for caregivers; existing monitoring callbacks are retained.
 
 class NavigatorMonitorSheet extends StatelessWidget {
   final List<LinkedNavigator> navigators;
@@ -44,26 +45,31 @@ class NavigatorMonitorSheet extends StatelessWidget {
 
     required ValueChanged<bool> onShowAllChanged,
   }) {
-    return showModalBottomSheet<void>(
+    var allOnMap = showAllOnMap;
+    return showDialog<void>(
       context: context,
-
-      isScrollControlled: true,
-
-      backgroundColor: Colors.transparent,
-
-      builder: (context) {
-        return NavigatorMonitorSheet(
-          navigators: navigators,
-
-          selectedId: selectedId,
-
-          showAllOnMap: showAllOnMap,
-
-          onNavigatorSelected: onNavigatorSelected,
-
-          onShowAllChanged: onShowAllChanged,
-        );
-      },
+      barrierColor: Colors.black54,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: StatefulBuilder(
+            builder: (context, setDialogState) => NavigatorMonitorSheet(
+              navigators: navigators,
+              selectedId: selectedId,
+              showAllOnMap: allOnMap,
+              onNavigatorSelected: onNavigatorSelected,
+              onShowAllChanged: (value) {
+                setDialogState(() => allOnMap = value);
+                onShowAllChanged(value);
+              },
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -81,27 +87,21 @@ class NavigatorMonitorSheet extends StatelessWidget {
       decoration: BoxDecoration(
         color: g.surface,
 
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: g.border.withValues(alpha: .65)),
+        boxShadow: [
+          BoxShadow(
+            color: g.shadow,
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
 
       child: Column(
         mainAxisSize: MainAxisSize.min,
 
         children: [
-          const SizedBox(height: 12),
-
-          Container(
-            width: 42,
-
-            height: 4,
-
-            decoration: BoxDecoration(
-              color: g.border,
-
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
 
@@ -129,9 +129,10 @@ class NavigatorMonitorSheet extends StatelessWidget {
                       Text(
                         'Monitor Navigators',
 
-                        style: GabayTheme.sectionTitle(
-                          context,
-                        ).copyWith(fontSize: 18),
+                        style: GabayTheme.sectionTitle(context).copyWith(
+                          fontSize: GabayTypography.sectionTitle,
+                          fontWeight: GabayTypography.semibold,
+                        ),
                       ),
 
                       Text(
@@ -139,10 +140,15 @@ class NavigatorMonitorSheet extends StatelessWidget {
 
                         style: GabayTheme.bodyMedium(
                           context,
-                        ).copyWith(fontSize: 13),
+                        ).copyWith(fontSize: GabayTypography.supporting),
                       ),
                     ],
                   ),
+                ),
+                IconButton(
+                  tooltip: 'Close navigator selector',
+                  onPressed: () => Navigator.pop(context),
+                  icon: Icon(Icons.close_rounded, color: g.textSecondary),
                 ),
               ],
             ),
@@ -162,17 +168,13 @@ class NavigatorMonitorSheet extends StatelessWidget {
 
               child: Row(
                 children: [
-                  Icon(Icons.map_rounded, color: g.accent, size: 20),
-
-                  const SizedBox(width: 10),
-
                   Expanded(
                     child: Text(
                       'Show all on map',
 
                       style: GabayTheme.bodyLarge(
                         context,
-                      ).copyWith(fontSize: 15),
+                      ).copyWith(fontSize: GabayTypography.cardBody),
                     ),
                   ),
 
@@ -284,9 +286,9 @@ class _NavigatorTile extends StatelessWidget {
                   style: TextStyle(
                     color: g.accent,
 
-                    fontWeight: FontWeight.w800,
+                    fontWeight: GabayTypography.medium,
 
-                    fontSize: 18,
+                    fontSize: GabayTypography.pageTitle,
                   ),
                 ),
               ),
@@ -302,9 +304,9 @@ class _NavigatorTile extends StatelessWidget {
                       navigator.name,
 
                       style: TextStyle(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: GabayTypography.semibold,
 
-                        fontSize: 15,
+                        fontSize: GabayTypography.body,
 
                         color: g.textPrimary,
                       ),
@@ -312,17 +314,19 @@ class _NavigatorTile extends StatelessWidget {
 
                     const SizedBox(height: 2),
 
-                    Text(
-                      navigator.address,
+                    if (!navigator.address.startsWith('Track unavailable') &&
+                        !navigator.address.startsWith('Waiting for shared GPS'))
+                      Text(
+                        navigator.address,
 
-                      maxLines: 1,
+                        maxLines: 1,
 
-                      overflow: TextOverflow.ellipsis,
+                        overflow: TextOverflow.ellipsis,
 
-                      style: GabayTheme.bodyMedium(
-                        context,
-                      ).copyWith(fontSize: 12),
-                    ),
+                        style: GabayTheme.bodyMedium(
+                          context,
+                        ).copyWith(fontSize: GabayTypography.caption),
+                      ),
 
                     const SizedBox(height: 6),
 
@@ -346,8 +350,8 @@ class _NavigatorTile extends StatelessWidget {
                           child: Text(
                             navigator.status,
                             style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                              fontSize: GabayTypography.caption,
+                              fontWeight: GabayTypography.medium,
                               color: statusColor,
                             ),
                           ),
@@ -375,7 +379,7 @@ class _NavigatorTile extends StatelessWidget {
 
                           style: GabayTheme.labelSmall(
                             context,
-                          ).copyWith(fontSize: 11),
+                          ).copyWith(fontSize: GabayTypography.caption),
                         ),
                       ],
                     ),
@@ -445,9 +449,9 @@ class NavigatorMonitorButton extends StatelessWidget {
                 style: const TextStyle(
                   color: Colors.white,
 
-                  fontWeight: FontWeight.w700,
+                  fontWeight: GabayTypography.medium,
 
-                  fontSize: 13,
+                  fontSize: GabayTypography.supporting,
                 ),
               ),
             ],

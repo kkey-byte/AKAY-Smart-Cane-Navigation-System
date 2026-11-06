@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/gabay_theme.dart';
@@ -77,8 +78,8 @@ class _BatterySection extends StatelessWidget {
               Text(
                 percent == null ? 'Unavailable' : '$percent%',
                 style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
+                  fontSize: GabayTypography.metric,
+                  fontWeight: GabayTypography.bold,
                   color: g.accent,
                 ),
               ),
@@ -86,9 +87,9 @@ class _BatterySection extends StatelessWidget {
               Text(
                 'Cane Battery',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: GabayTypography.supporting,
                   color: g.textSecondary,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: GabayTypography.medium,
                 ),
               ),
             ],
@@ -134,17 +135,17 @@ class _WalkingSection extends StatelessWidget {
                   Text(
                     statusLabel,
                     style: TextStyle(
-                      fontSize: 17,
+                      fontSize: GabayTypography.sectionTitle,
                       color: g.accent,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: GabayTypography.bold,
                     ),
                   ),
                   Text(
                     'Status',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: GabayTypography.supporting,
                       color: g.textSecondary,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: GabayTypography.medium,
                     ),
                   ),
                 ],

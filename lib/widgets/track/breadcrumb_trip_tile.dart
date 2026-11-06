@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 import '../../models/breadcrumb_trip.dart';
 
@@ -22,11 +23,13 @@ class BreadcrumbTripTile extends StatelessWidget {
     required this.now,
     required this.connected,
     required this.onTap,
+    this.regularTypography = false,
   });
   final BreadcrumbTrip trip;
   final DateTime now;
   final bool connected;
   final VoidCallback onTap;
+  final bool regularTypography;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -34,10 +37,24 @@ class BreadcrumbTripTile extends StatelessWidget {
       leading: Icon(
         connected && trip.isFresh(now) ? Icons.location_on : Icons.route,
       ),
-      title: Text(trip.name),
+      title: Text(
+        trip.name,
+        style: regularTypography
+            ? const TextStyle(
+                fontSize: GabayTypography.body,
+                fontWeight: GabayTypography.regular,
+              )
+            : null,
+      ),
       subtitle: Text(
         '${trip.startedAt.toLocal().toString().substring(0, 16)}\n'
         '${breadcrumbStatus(trip, now, connected: connected)} · ${trip.points.length} points',
+        style: regularTypography
+            ? const TextStyle(
+                fontSize: GabayTypography.caption,
+                fontWeight: GabayTypography.regular,
+              )
+            : null,
       ),
       isThreeLine: true,
       trailing: const Icon(Icons.chevron_right),

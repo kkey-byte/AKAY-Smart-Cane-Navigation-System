@@ -1,3 +1,7 @@
+import '../../theme/gabay_typography.dart';
+import '../shared/gabay_glass_surface.dart';
+import '../shared/gabay_accent_icon.dart';
+import '../shared/gabay_page_background.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -54,109 +58,115 @@ class GabayProfileScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final g = context.gabay;
+    final safeTop = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SingleChildScrollView(
-        padding: EdgeInsets.only(bottom: bottomPadding),
-        child: Column(
-          children: [
-            SizedBox(
-              height: ProfileHeaderMetrics.headerStackHeight + 88,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.topCenter,
-                children: [
-                  ClipPath(
-                    clipper: ProfileHeaderClipper(
-                      notchRadius: ProfileHeaderMetrics.notchRadius,
-                      sideDrop: ProfileHeaderMetrics.sideDrop,
-                    ),
-                    child: Container(
-                      height: ProfileHeaderMetrics.clipHeight,
-                      width: double.infinity,
-                      color: ProfileHeaderMetrics.navyBlue,
-                      child: SafeArea(
-                        bottom: false,
-                        child: _ProfileHeaderBar(
-                          onBack: Navigator.canPop(context)
-                              ? () => Navigator.pop(context)
-                              : null,
+      body: GabayPageBackground(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(bottom: bottomPadding),
+          child: Column(
+            children: [
+              SizedBox(
+                height: ProfileHeaderMetrics.headerStackHeight + 88 + safeTop,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.topCenter,
+                  children: [
+                    ClipPath(
+                      clipper: ProfileHeaderClipper(
+                        notchRadius: ProfileHeaderMetrics.notchRadius,
+                        sideDrop: ProfileHeaderMetrics.sideDrop,
+                      ),
+                      child: Container(
+                        height: ProfileHeaderMetrics.clipHeight + safeTop,
+                        width: double.infinity,
+                        color: Colors.transparent,
+                        child: SafeArea(
+                          bottom: false,
+                          child: _ProfileHeaderBar(
+                            onBack: Navigator.canPop(context)
+                                ? () => Navigator.pop(context)
+                                : null,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    top: ProfileHeaderMetrics.avatarTop,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: _ProfileAvatar(
-                        asset: avatarAsset,
-                        imageUrl: avatarUrl,
+                    Positioned(
+                      top: ProfileHeaderMetrics.avatarTop + safeTop,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: _ProfileAvatar(
+                          asset: avatarAsset,
+                          imageUrl: avatarUrl,
+                        ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    top: ProfileHeaderMetrics.headerStackHeight + 12,
-                    left: 24,
-                    right: 24,
-                    child: Column(
-                      children: [
-                        Text(
-                          name,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: g.textPrimary,
+                    Positioned(
+                      top:
+                          ProfileHeaderMetrics.headerStackHeight + 12 + safeTop,
+                      left: 24,
+                      right: 24,
+                      child: Column(
+                        children: [
+                          Text(
+                            name,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: GabayTypography.cardTitle,
+                              fontWeight: GabayTypography.regular,
+                              color: g.textPrimary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          email,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: g.textSecondary,
+                          const SizedBox(height: 4),
+                          Text(
+                            email,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: GabayTypography.supporting,
+                              color: g.textSecondary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          role,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: g.accent,
-                            fontWeight: FontWeight.w600,
+                          const SizedBox(height: 4),
+                          Text(
+                            role,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: GabayTypography.body,
+                              color: g.accent,
+                              fontWeight: GabayTypography.regular,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            if (connectionsSection != null)
+              const SizedBox(height: 4),
+              if (connectionsSection != null)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: connectionsSection,
+                ),
+              ...sections.map(
+                (section) => ProfileSectionCard(
+                  title: section.title,
+                  items: section.items,
+                ),
+              ),
               Padding(
-                padding: const EdgeInsets.all(16),
-                child: connectionsSection,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: _LogoutCard(
+                  onTap: () => showLogoutConfirmationDialog(
+                    context,
+                    onConfirm: onLogout,
+                  ),
+                ),
               ),
-            ...sections.map(
-              (section) => ProfileSectionCard(
-                title: section.title,
-                items: section.items,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: _LogoutCard(
-                onTap: () =>
-                    showLogoutConfirmationDialog(context, onConfirm: onLogout),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -180,23 +190,23 @@ class _ProfileHeaderBar extends StatelessWidget {
             child: onBack == null
                 ? null
                 : IconButton(
-                    icon: const Icon(
+                    icon: GabayAccentIcon(
                       Icons.arrow_back,
-                      color: Colors.white,
+                      color: context.gabay.textPrimary,
                       size: 24,
                     ),
                     onPressed: onBack,
                     tooltip: 'Back',
                   ),
           ),
-          const Expanded(
+          Expanded(
             child: Text(
               'Profile',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+                color: context.gabay.textPrimary,
+                fontSize: GabayTypography.pageTitle,
+                fontWeight: GabayTypography.semibold,
                 letterSpacing: 0.2,
               ),
             ),
@@ -234,28 +244,10 @@ class ProfileSectionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: g.textSecondary,
-            ),
-          ),
+          Text(title, style: GabayTheme.sectionTitle(context)),
           const SizedBox(height: 10),
-          Container(
-            decoration: BoxDecoration(
-              color: g.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: g.border.withValues(alpha: 0.45)),
-              boxShadow: [
-                BoxShadow(
-                  color: g.shadow,
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
+          GabayGlassSurface(
+            radius: 24,
             child: Column(
               children: [
                 for (var i = 0; i < items.length; i++) ...[
@@ -296,20 +288,20 @@ class ProfileMenuRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
-              Icon(item.icon, color: g.textPrimary, size: 22),
+              GabayAccentIcon(item.icon, color: g.textPrimary, size: 22),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   item.title,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: GabayTypography.body,
                     color: g.textPrimary,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: GabayTypography.regular,
                   ),
                 ),
               ),
               item.trailing ??
-                  Icon(
+                  GabayAccentIcon(
                     Icons.chevron_right_rounded,
                     color: g.textSecondary,
                     size: 20,
@@ -338,6 +330,21 @@ class ProfileDarkModeToggle extends StatelessWidget {
             value: ThemeController.instance.isDarkMode,
             onChanged: ThemeController.instance.setDarkMode,
             activeTrackColor: g.accent,
+            activeThumbColor: Colors.white,
+            inactiveTrackColor: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF334155)
+                : const Color(0xFFB6C9E4),
+            inactiveThumbColor: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFFE2E8F0)
+                : Colors.white,
+            trackOutlineColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.selected)
+                  ? g.accent
+                  : Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF94A3B8)
+                  : const Color(0xFF647FA5),
+            ),
+            trackOutlineWidth: const WidgetStatePropertyAll(1.5),
           ),
         );
       },
@@ -354,7 +361,11 @@ class _ProfileAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final g = context.gabay;
-    final fallback = Icon(Icons.person_rounded, size: 52, color: g.accent);
+    final fallback = GabayAccentIcon(
+      Icons.person_rounded,
+      size: 52,
+      color: g.accent,
+    );
 
     Widget child = fallback;
     final url = imageUrl?.trim();
@@ -391,21 +402,19 @@ class _ProfileAvatar extends StatelessWidget {
       height: ProfileHeaderMetrics.avatarSize,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.white,
-          width: ProfileHeaderMetrics.avatarBorderWidth,
-        ),
         color: g.accentTint,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
+            color: g.accent.withValues(alpha: 0.14),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: child,
+      child: child is Image
+          ? Transform.scale(scale: 1.08, child: child)
+          : child,
     );
   }
 }
@@ -420,18 +429,7 @@ class _LogoutCard extends StatelessWidget {
     final g = context.gabay;
 
     return Container(
-      decoration: BoxDecoration(
-        color: g.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: g.border.withValues(alpha: 0.45)),
-        boxShadow: [
-          BoxShadow(
-            color: g.shadow,
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: GabayTheme.cardDecoration(context),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -441,13 +439,17 @@ class _LogoutCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                Icon(Icons.logout_rounded, color: g.danger, size: 22),
+                GabayAccentIcon(
+                  Icons.logout_rounded,
+                  color: g.danger,
+                  size: 22,
+                ),
                 const SizedBox(width: 12),
                 Text(
                   'Logout',
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontSize: GabayTypography.body,
+                    fontWeight: GabayTypography.regular,
                     color: g.danger,
                   ),
                 ),

@@ -1,3 +1,5 @@
+import '../../theme/gabay_typography.dart';
+import '../shared/gabay_accent_icon.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -37,14 +39,14 @@ class StatCard extends StatelessWidget {
               color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, size: 24, color: color),
+            child: GabayAccentIcon(icon, size: 24, color: color),
           ),
           const SizedBox(height: 14),
           RichText(
             text: TextSpan(
               style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
+                fontSize: GabayTypography.metric,
+                fontWeight: GabayTypography.medium,
                 color: g.textPrimary,
               ),
               children: [
@@ -52,8 +54,8 @@ class StatCard extends StatelessWidget {
                 TextSpan(
                   text: ' $unit',
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontSize: GabayTypography.cardTitle,
+                    fontWeight: GabayTypography.medium,
                     color: color,
                   ),
                 ),
@@ -64,9 +66,9 @@ class StatCard extends StatelessWidget {
           Text(
             title,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: GabayTypography.supporting,
               color: g.textSecondary,
-              fontWeight: FontWeight.w500,
+              fontWeight: GabayTypography.medium,
             ),
           ),
           const SizedBox(height: 14),

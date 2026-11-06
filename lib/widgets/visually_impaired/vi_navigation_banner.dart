@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/gabay_theme.dart';
@@ -30,8 +31,8 @@ class ViNavigationBanner extends StatelessWidget {
           child: Text(
             "Here's your current navigation status.",
             style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+              fontSize: GabayTypography.body,
+              fontWeight: GabayTypography.medium,
               color: g.textSecondary,
               height: 1.35,
             ),
@@ -74,8 +75,8 @@ class ViNavigationBanner extends StatelessWidget {
                                   ? 'Navigation Active'
                                   : 'No Active Route',
                               style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
+                                fontSize: GabayTypography.caption,
+                                fontWeight: GabayTypography.bold,
                                 color: isActive ? g.success : g.textSecondary,
                               ),
                             ),
@@ -128,7 +129,7 @@ class ViNavigationBanner extends StatelessWidget {
                                 'ETA $eta • $distance away',
                                 style: GabayTheme.bodyMedium(context).copyWith(
                                   color: g.accent,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: GabayTypography.semibold,
                                 ),
                               ),
                             ],

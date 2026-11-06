@@ -1,3 +1,8 @@
+import '../../theme/gabay_typography.dart';
+import '../shared/gabay_accent_icon.dart';
+import 'dart:convert';
+import '../../models/pairing.dart';
+import '../../services/pairing_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -7,6 +12,7 @@ import '../../services/breadcrumb_service.dart';
 import '../../theme/gabay_theme.dart';
 import '../shared/gabay_card.dart';
 import 'report_details_view.dart';
+import '../shared/navigator_selection_modal.dart';
 
 /// A bounded view of recorded trips, not a claim about all lifetime activity.
 class RecordedReports extends StatelessWidget {
@@ -50,6 +56,40 @@ class RecordedReports extends StatelessWidget {
   );
 }
 
+class _ReportAvatar extends StatelessWidget {
+  const _ReportAvatar({this.picture});
+  final String? picture;
+  @override
+  Widget build(BuildContext context) {
+    final g = context.gabay;
+    final fallback = ColoredBox(
+      color: g.accentTint,
+      child: Center(
+        child: Icon(Icons.person_outline_rounded, color: g.accent, size: 24),
+      ),
+    );
+    Widget photo = fallback;
+    try {
+      if (picture?.startsWith('data:image/') == true) {
+        photo = Image.memory(
+          base64Decode(picture!.split(',').last),
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => fallback,
+        );
+      } else if (Uri.tryParse(picture ?? '')?.scheme == 'https') {
+        photo = Image.network(
+          picture!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => fallback,
+        );
+      }
+    } catch (_) {
+      photo = fallback;
+    }
+    return ClipOval(child: SizedBox.square(dimension: 44, child: photo));
+  }
+}
+
 class _AccountReports extends StatefulWidget {
   const _AccountReports({
     super.key,
@@ -65,20 +105,54 @@ class _AccountReports extends StatefulWidget {
 
 class _AccountReportsState extends State<_AccountReports> {
   late final Stream<Map<String, String>> _links;
+  late final Stream<List<PairingConnection>>? _photos;
   String? _owner;
   @override
   void initState() {
     super.initState();
     _links = BreadcrumbService.instance.repository.watchLinks(widget.uid);
+    _photos = widget.caregiver
+        ? PairingService.instance.watchConnections()
+        : null;
   }
 
   @override
   Widget build(BuildContext context) {
     if (!widget.caregiver) {
-      return _OwnerReports(
-        key: ValueKey(widget.uid),
-        uid: widget.uid,
-        compact: widget.compact,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (!widget.compact) ...[
+            GabayCard(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  _ReportAvatar(
+                    picture: AppSessionService.instance.profilePicture,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      AppSessionService.instance.displayName ?? 'Navigator',
+                      style: TextStyle(
+                        color: context.gabay.textPrimary,
+                        fontSize: GabayTypography.cardBody,
+                        fontWeight: GabayTypography.medium,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          _OwnerReports(
+            key: ValueKey(widget.uid),
+            uid: widget.uid,
+            compact: widget.compact,
+            localOwner: true,
+          ),
+        ],
       );
     }
     return StreamBuilder<Map<String, String>>(
@@ -101,30 +175,85 @@ class _AccountReportsState extends State<_AccountReports> {
         if (users.isEmpty) {
           return RecordedReportContent(
             compact: widget.compact,
-            message:
-                'No shared navigators. Manage access in Breadcrumb tracks.',
+            message: 'No shared navigators. Manage connections in Profile.',
           );
         }
         final owner = users.containsKey(_owner) ? _owner! : users.keys.first;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropdownButton<String>(
-              value: owner,
-              isExpanded: true,
-              items: [
-                for (final user in users.entries)
-                  DropdownMenuItem(
-                    value: user.key,
-                    child: Text(
-                      user.value.trim().isEmpty
-                          ? 'Name unavailable'
-                          : user.value,
+            GabayCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              onTap: () async {
+                final selected = await showNavigatorSelectionModal(
+                  context,
+                  navigatorOptions: [
+                    for (final user in users.entries)
+                      (
+                        uid: user.key,
+                        name: user.value.trim().isEmpty
+                            ? 'Name unavailable'
+                            : user.value,
+                      ),
+                  ],
+                  selectedUid: owner,
+                );
+                if (selected != null && mounted) {
+                  setState(() => _owner = selected);
+                }
+              },
+              semanticLabel: 'Select navigator for reports',
+              child: Row(
+                children: [
+                  StreamBuilder<List<PairingConnection>>(
+                    stream: _photos,
+                    builder: (context, snapshot) {
+                      final matches =
+                          (snapshot.data ?? const <PairingConnection>[]).where(
+                            (row) =>
+                                row.navigatorUid == owner &&
+                                row.status == 'active',
+                          );
+                      return _ReportAvatar(
+                        picture: matches.firstOrNull?.navigatorPicture,
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          users[owner]?.trim().isNotEmpty == true
+                              ? users[owner]!
+                              : 'Name unavailable',
+                          style: TextStyle(
+                            color: context.gabay.textPrimary,
+                            fontSize: GabayTypography.cardBody,
+                            fontWeight: GabayTypography.regular,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Navigator',
+                          style: TextStyle(
+                            color: context.gabay.textSecondary,
+                            fontSize: GabayTypography.caption,
+                            fontWeight: GabayTypography.regular,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-              ],
-              onChanged: (value) => setState(() => _owner = value),
+                  GabayAccentIcon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: context.gabay.textSecondary,
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(height: 16),
             _OwnerReports(
               key: ValueKey(owner),
               uid: owner,
@@ -138,68 +267,133 @@ class _AccountReportsState extends State<_AccountReports> {
 }
 
 class _OwnerReports extends StatefulWidget {
-  const _OwnerReports({super.key, required this.uid, required this.compact});
+  const _OwnerReports({
+    super.key,
+    required this.uid,
+    required this.compact,
+    this.localOwner = false,
+  });
   final String uid;
   final bool compact;
+  final bool localOwner;
   @override
   State<_OwnerReports> createState() => _OwnerReportsState();
 }
 
 class _OwnerReportsState extends State<_OwnerReports> {
   late Stream<List<BreadcrumbTrip>> _trips;
+  int _limit = 100;
   @override
   void initState() {
     super.initState();
+    if (widget.localOwner) {
+      BreadcrumbService.instance.addListener(_localTracksChanged);
+    }
     _reload();
   }
 
+  void _localTracksChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    if (widget.localOwner) {
+      BreadcrumbService.instance.removeListener(_localTracksChanged);
+    }
+    super.dispose();
+  }
+
   void _reload() {
-    _trips = BreadcrumbService.instance.repository.watchTrips(widget.uid);
+    _trips = BreadcrumbService.instance.repository.watchTrips(
+      widget.uid,
+      limit: _limit,
+    );
   }
 
   @override
   Widget build(BuildContext context) => StreamBuilder<List<BreadcrumbTrip>>(
     stream: _trips,
-    builder: (context, snapshot) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (snapshot.connectionState == ConnectionState.waiting)
-          const LinearProgressIndicator(
-            semanticsLabel: 'Loading recorded trips',
+    builder: (context, snapshot) {
+      final remote =
+          snapshot.hasError ||
+              snapshot.connectionState == ConnectionState.waiting
+          ? null
+          : snapshot.data;
+      final breadcrumbs = BreadcrumbService.instance;
+      final records = widget.localOwner
+          ? mergeNavigatorReportTrips(
+              ownerId: widget.uid,
+              remote: remote,
+              local: breadcrumbs.recorder?.ownerId == widget.uid
+                  ? breadcrumbs.trips
+                  : const [],
+            )
+          : remote;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (snapshot.connectionState == ConnectionState.waiting)
+            const LinearProgressIndicator(
+              semanticsLabel: 'Loading recorded trips',
+            ),
+          RecordedReportContent(
+            compact: widget.compact,
+            localOwner: widget.localOwner,
+            trips: remote,
+            recentTrips: widget.localOwner ? records : null,
+            message: snapshot.hasError
+                ? null
+                : snapshot.connectionState == ConnectionState.waiting
+                ? 'Loading trip history…'
+                : null,
           ),
-        RecordedReportContent(
-          compact: widget.compact,
-          trips:
-              snapshot.hasError ||
-                  snapshot.connectionState == ConnectionState.waiting
-              ? null
-              : snapshot.data,
-          message: snapshot.hasError
-              ? 'Recorded trips unavailable. Check connection or sharing access.'
-              : snapshot.connectionState == ConnectionState.waiting
-              ? 'Loading recorded trips...'
-              : null,
-        ),
-        if (snapshot.hasError)
-          TextButton(
-            onPressed: () => setState(_reload),
-            child: const Text('Retry'),
-          ),
-      ],
-    ),
+          if (!widget.compact && (snapshot.data?.length ?? 0) >= _limit)
+            TextButton(
+              onPressed: () => setState(() {
+                _limit += 100;
+                _reload();
+              }),
+              child: const Text('Load older tracks'),
+            ),
+        ],
+      );
+    },
   );
+}
+
+/// Same owner-local overlay used by breadcrumb history, including unsynced tracks.
+List<BreadcrumbTrip>? mergeNavigatorReportTrips({
+  required String ownerId,
+  required List<BreadcrumbTrip>? remote,
+  required List<BreadcrumbTrip> local,
+}) {
+  final records = <String, BreadcrumbTrip>{
+    for (final trip in remote ?? <BreadcrumbTrip>[])
+      if (trip.ownerId == ownerId) trip.id: trip,
+  };
+  for (final trip in local) {
+    if (trip.ownerId == ownerId) records[trip.id] = trip;
+  }
+  if (remote == null && records.isEmpty) return null;
+  return records.values.toList()
+    ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
 }
 
 class RecordedReportContent extends StatelessWidget {
   const RecordedReportContent({
     super.key,
     this.trips,
+    this.recentTrips,
     this.message,
     this.compact = false,
+    this.localOwner = false,
   });
   final List<BreadcrumbTrip>? trips;
+  final List<BreadcrumbTrip>? recentTrips;
   final String? message;
   final bool compact;
+  final bool localOwner;
   @override
   Widget build(BuildContext context) {
     final records = trips;
@@ -240,14 +434,11 @@ class RecordedReportContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (message != null) ...[Text(message!), const SizedBox(height: 12)],
-          ReportDetailsView(values: values, trips: records),
-          const SizedBox(height: 12),
-          Text(
-            'Latest 100 recorded trips. GPS distance is approximate.',
-            style: TextStyle(
-              fontSize: 11,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+          ReportDetailsView(
+            values: values,
+            trips: records,
+            recentTrips: recentTrips,
+            localOwner: localOwner,
           ),
         ],
       );
@@ -291,7 +482,7 @@ class RecordedReportContent extends StatelessWidget {
                                 color: context.gabay.accentTint,
                                 borderRadius: BorderRadius.circular(7),
                               ),
-                              child: Icon(
+                              child: GabayAccentIcon(
                                 field.key == 'Total Distance'
                                     ? Icons.location_on_outlined
                                     : Icons.route_outlined,
@@ -303,8 +494,8 @@ class RecordedReportContent extends StatelessWidget {
                             Text(
                               field.value,
                               style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
+                                fontSize: GabayTypography.pageTitle,
+                                fontWeight: GabayTypography.medium,
                                 color: context.gabay.textPrimary,
                               ),
                             ),
@@ -312,7 +503,7 @@ class RecordedReportContent extends StatelessWidget {
                             Text(
                               field.key,
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: GabayTypography.chartLabel,
                                 color: context.gabay.textSecondary,
                               ),
                             ),
@@ -324,7 +515,7 @@ class RecordedReportContent extends StatelessWidget {
                     Text(
                       '${field.key}: ${field.value}',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: GabayTypography.caption,
                         color: context.gabay.textSecondary,
                       ),
                     ),

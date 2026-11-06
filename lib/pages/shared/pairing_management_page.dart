@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../widgets/shared/gabay_selection_dialog.dart';
+import '../../theme/gabay_theme.dart';
 import '../../models/pairing.dart';
 import '../../services/app_session_service.dart';
 import '../../services/pairing_service.dart';
@@ -151,7 +153,7 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
           ),
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
@@ -183,7 +185,7 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
           title: Text(title),
           content: Text(explanation),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel'),
             ),
@@ -317,6 +319,9 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
                           child: const Text('Accept access'),
                         ),
                         TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: context.gabay.danger,
+                          ),
                           onPressed: _busy
                               ? null
                               : () => _run(() => _service.decide(c.id, false)),
@@ -327,6 +332,9 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
                   ],
                   if (c.status == 'active' || c.status == 'pending')
                     TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: context.gabay.danger,
+                      ),
                       onPressed: _busy
                           ? null
                           : () async {
@@ -343,7 +351,7 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
               ),
             ),
           if (widget.caregiver && selected != null) ...[
-            DropdownButtonFormField<String>(
+            GabayDropdownFormField<String>(
               key: ValueKey(selected.navigatorUid),
               initialValue: selected.navigatorUid,
               isExpanded: true,
@@ -468,6 +476,9 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
                           child: const Text('Transfer custody'),
                         ),
                         TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: context.gabay.danger,
+                          ),
                           onPressed: _busy
                               ? null
                               : () async {

@@ -129,6 +129,7 @@ class GabayTrackMap extends StatefulWidget {
 
     /// Tap/long-press to pin a destination on the map.
     this.onMapTap,
+    this.mutedTiles = false,
   });
 
   final gmaps.CameraPosition initialCamera;
@@ -142,6 +143,7 @@ class GabayTrackMap extends StatefulWidget {
   final bool followUser;
   final double followZoom;
   final ValueChanged<gmaps.LatLng>? onMapTap;
+  final bool mutedTiles;
 
   @override
   State<GabayTrackMap> createState() => _GabayTrackMapState();
@@ -227,6 +229,33 @@ class _GabayTrackMapState extends State<GabayTrackMap> {
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'AKAY.app_mobile',
           maxNativeZoom: 19,
+          tileBuilder: widget.mutedTiles
+              ? (context, tile, coordinates) => ColorFiltered(
+                  colorFilter: const ColorFilter.matrix([
+                    .2126,
+                    .7152,
+                    .0722,
+                    0,
+                    18,
+                    .2126,
+                    .7152,
+                    .0722,
+                    0,
+                    18,
+                    .2126,
+                    .7152,
+                    .0722,
+                    0,
+                    18,
+                    0,
+                    0,
+                    0,
+                    1,
+                    0,
+                  ]),
+                  child: tile,
+                )
+              : null,
         ),
         if (widget.routePoints.length >= 2)
           PolylineLayer(

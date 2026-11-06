@@ -48,6 +48,65 @@ class AuthService {
   final FirebaseAuth _firebaseAuth;
   String? _workingBaseUrl;
 
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = _firebaseAuth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null) {
+      throw AuthException('Sign in again to change your password.');
+    }
+    try {
+      await user.reauthenticateWithCredential(
+        EmailAuthProvider.credential(email: email, password: currentPassword),
+      );
+      final token = await user.getIdToken(true);
+      if (_firebaseAuth.currentUser?.uid != user.uid) {
+        throw AuthException('Account changed. Sign in again to continue.');
+      }
+      final api = SecureApi(
+        client: _client,
+        idToken: () async => token,
+        bases: _workingBaseUrl != null
+            ? [_workingBaseUrl!]
+            : _baseUrl == ApiConfig.baseUrl
+            ? ApiConfig.candidateBaseUrls
+            : [_baseUrl],
+      );
+      try {
+        await api.request('POST', '/auth/change-password', {
+          'password': newPassword,
+        });
+      } on SecureApiException catch (e) {
+        throw AuthException(e.message, statusCode: e.status, code: e.code);
+      }
+      // Admin password updates revoke the previous Firebase session.
+      try {
+        await _firebaseAuth.signInWithEmailAndPassword(
+          email: email,
+          password: newPassword,
+        );
+      } on FirebaseAuthException {
+        throw AuthException(
+          'Password updated. Sign in again using your new password.',
+          code: 'password_updated_sign_in_required',
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(
+        [
+              'wrong-password',
+              'invalid-credential',
+              'invalid-login-credentials',
+            ].contains(e.code)
+            ? 'Current password is incorrect.'
+            : _mapFirebaseError(e),
+        code: e.code,
+      );
+    }
+  }
+
   /// Step A: Firebase createUser → Step B: Postgres profile sync.
   Future<AuthResult> register({
     required String email,

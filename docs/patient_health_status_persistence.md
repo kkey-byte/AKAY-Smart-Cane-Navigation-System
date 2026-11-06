@@ -11,6 +11,11 @@ health files from `app_mobile_backend/` for this change.
 `dosage`, and `schedule`, adding nullable `height` (cm), `weight` (kg),
 `medical_conditions`, `allergies`, and `emergency_contact_phone`.
 
+If `patientmedication` is absent, the same script creates it with a UUID primary
+key and a foreign key to `public.patientprofiles(profile_id)` before adding the
+health columns. The parent table is not modified. Reopen the updated SQL file in
+pgAdmin before rerunning; an already-open editor may still contain the old script.
+
 Existing medication rows, IDs and patient foreign keys are preserved. Their old
 values are copied into each row's `legacy_medication` JSONB column before removal.
 Those historical rows have `health_status_record=false`. A partial unique index

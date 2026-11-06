@@ -1,6 +1,12 @@
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '60s';
+-- Some deployments have patientprofiles but never created the legacy table.
+-- Create only the missing child table; do not alter the parent profile table.
+CREATE TABLE IF NOT EXISTS public.patientmedication (
+  medication_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id uuid NOT NULL REFERENCES public.patientprofiles(profile_id) ON DELETE CASCADE
+);
 LOCK TABLE public.patientmedication IN ACCESS EXCLUSIVE MODE;
 -- Keep IDs, foreign keys and every existing row. Medication history has no
 -- meaningful conversion to measurements, so archive it without inventing data.

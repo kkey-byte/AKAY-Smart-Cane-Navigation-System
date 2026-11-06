@@ -1,8 +1,11 @@
+import '../../theme/gabay_typography.dart';
+import '../../widgets/shared/gabay_accent_icon.dart';
 import '../../services/pairing_service.dart';
 import '../shared/pairing_management_page.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../widgets/shared/gabay_selection_dialog.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -309,11 +312,11 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
           const OnboardingIllustration(icon: Icons.waving_hand_rounded),
           const SizedBox(height: 28),
           Text(
-            'Welcome to GABAY!',
+            'Welcome to AKAY!',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
+              fontSize: GabayTypography.hero,
+              fontWeight: GabayTypography.bold,
               color: g.heading,
             ),
           ),
@@ -321,7 +324,11 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
           Text(
             "Let's complete a few quick steps to personalize your experience.",
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, height: 1.5, color: g.textSecondary),
+            style: TextStyle(
+              fontSize: GabayTypography.cardTitle,
+              height: 1.5,
+              color: g.textSecondary,
+            ),
           ),
         ],
       ),
@@ -348,14 +355,17 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
             title: 'Register and assign your canes',
             subtitle:
                 'Verify physical custody using each cane’s private claim code, then assign it to your account. Registration does not confirm hardware connectivity.',
-            leading: Icon(Icons.info_outline_rounded, color: Color(0xFF0A84FF)),
+            leading: GabayAccentIcon(
+              Icons.info_outline_rounded,
+              color: Color(0xFF0A84FF),
+            ),
           ),
           const SizedBox(height: 20),
           if (_canePaired)
             GabayCard(
               child: Row(
                 children: [
-                  Icon(
+                  GabayAccentIcon(
                     Icons.check_circle_rounded,
                     color: context.gabay.success,
                   ),
@@ -364,7 +374,7 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
                     child: Text(
                       'Registered cane assignment confirmed for your account.',
                       style: TextStyle(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: GabayTypography.bold,
                         color: context.gabay.textPrimary,
                       ),
                     ),
@@ -407,14 +417,14 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
                   contentPadding: EdgeInsets.zero,
                   leading: CircleAvatar(
                     backgroundColor: context.gabay.accentTint,
-                    child: Icon(
+                    child: GabayAccentIcon(
                       Icons.person_rounded,
                       color: context.gabay.accent,
                     ),
                   ),
                   title: Text(
                     contact.name,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontWeight: GabayTypography.bold),
                   ),
                   subtitle: Text(
                     '${contact.phone}${contact.relationship.isNotEmpty ? ' • ${contact.relationship}' : ''}',
@@ -425,7 +435,7 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
           ),
           OutlinedButton.icon(
             onPressed: _addContact,
-            icon: const Icon(Icons.add_rounded),
+            icon: const GabayAccentIcon(Icons.add_rounded),
             label: const Text('Add Contact'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
@@ -451,7 +461,7 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
           const OnboardingInfoCard(
             title: 'Why we need your location',
             subtitle:
-                'GABAY uses your location for turn-by-turn navigation, live caregiver sharing, and emergency SOS routing.',
+                'AKAY uses your location for turn-by-turn navigation, live caregiver sharing, and emergency SOS routing.',
           ),
           const SizedBox(height: 18),
           OnboardingPrimaryButton(
@@ -475,7 +485,7 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
               'Location access granted',
               style: TextStyle(
                 color: context.gabay.success,
-                fontWeight: FontWeight.w700,
+                fontWeight: GabayTypography.bold,
               ),
             ),
           ],
@@ -507,8 +517,8 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
             child: Text(
               'Live preview: Navigation will feel like this.',
               style: TextStyle(
-                fontSize: 15 * previewScale,
-                fontWeight: FontWeight.w700,
+                fontSize: GabayTypography.cardBody * previewScale,
+                fontWeight: GabayTypography.bold,
                 color: _accessibility.highContrast
                     ? Colors.black
                     : context.gabay.textPrimary,
@@ -554,7 +564,8 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
           ),
           _prefTile(
             'Language',
-            DropdownButtonFormField<String>(
+            GabayDropdownFormField<String>(
+              dialogTitle: 'Language',
               value: _accessibility.language,
               items: const [
                 DropdownMenuItem(value: 'English', child: Text('English')),
@@ -585,7 +596,10 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(
+              label,
+              style: const TextStyle(fontWeight: GabayTypography.bold),
+            ),
             const SizedBox(height: 8),
             child,
           ],
@@ -602,7 +616,7 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
           contentPadding: EdgeInsets.zero,
           title: Text(
             label,
-            style: const TextStyle(fontWeight: FontWeight.w700),
+            style: const TextStyle(fontWeight: GabayTypography.bold),
           ),
           value: value,
           onChanged: onChanged,
@@ -638,7 +652,7 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
               'Notifications enabled',
               style: TextStyle(
                 color: context.gabay.success,
-                fontWeight: FontWeight.w700,
+                fontWeight: GabayTypography.bold,
               ),
             ),
           ],
@@ -674,7 +688,7 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
                       page.$3,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: GabayTypography.cardTitle,
                         height: 1.5,
                         color: context.gabay.textSecondary,
                       ),
@@ -731,8 +745,8 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
             "You're All Set!",
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
+              fontSize: GabayTypography.hero,
+              fontWeight: GabayTypography.bold,
               color: g.heading,
             ),
           ),
@@ -740,7 +754,11 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
           Text(
             'Your account has been successfully configured. Everything is ready for your first journey.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, height: 1.5, color: g.textSecondary),
+            style: TextStyle(
+              fontSize: GabayTypography.cardTitle,
+              height: 1.5,
+              color: g.textSecondary,
+            ),
           ),
         ],
       ),

@@ -1,26 +1,24 @@
 import 'recorded_reports.dart';
-import 'package:flutter/material.dart';
 import '../shared/gabay_page_header.dart';
+import 'package:flutter/material.dart';
+
 import '../shared/floating_bottom_nav_shell.dart';
-import '../track/breadcrumb_feature_card.dart';
 
 class CaregiverReportsBody extends StatelessWidget {
-  const CaregiverReportsBody({super.key});
+  const CaregiverReportsBody({super.key, this.caregiver = true});
+  final bool caregiver;
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
-    padding: EdgeInsets.fromLTRB(20, 16, 20, GabayNavMetrics.contentClearance),
+    padding: EdgeInsets.only(bottom: GabayNavMetrics.contentClearance),
     child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const GabayPageHeader(
-          title: 'Reports',
-          subtitle: 'Recorded walking history',
+        const GabayPageHeader(title: 'Reports', showBack: false),
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: RecordedReports(caregiver: caregiver),
         ),
-        const SizedBox(height: 22),
-        const BreadcrumbFeatureCard(caregiver: true),
-        const SizedBox(height: 22),
-        const RecordedReports(caregiver: true),
       ],
     ),
   );

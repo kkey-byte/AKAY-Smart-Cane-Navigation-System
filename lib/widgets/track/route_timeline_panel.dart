@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'readable_place_text.dart';
 import 'package:flutter/material.dart';
 
@@ -32,8 +33,8 @@ class RouteTimelinePanel extends StatelessWidget {
         Text(
           'Activity Status',
           style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+            fontSize: GabayTypography.cardTitle,
+            fontWeight: GabayTypography.medium,
             color: g.textPrimary,
           ),
         ),
@@ -113,8 +114,8 @@ class _TimelineRow extends StatelessWidget {
                     title,
                     suffix: entry.isArrived ? ' (Arrived)' : '',
                     style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                      fontSize: GabayTypography.cardBody,
+                      fontWeight: GabayTypography.medium,
                       color: entry.isArrived ? g.success : g.textPrimary,
                       height: 1.35,
                     ),
@@ -123,9 +124,9 @@ class _TimelineRow extends StatelessWidget {
                   Text(
                     entry.formattedTime,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: GabayTypography.supporting,
                       color: g.textSecondary,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: GabayTypography.medium,
                     ),
                   ),
                 ],

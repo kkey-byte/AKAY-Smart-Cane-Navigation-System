@@ -1,3 +1,4 @@
+import 'gabay_page_background.dart';
 import 'package:flutter/material.dart';
 
 /// Bottom-nav tab body with fade + scale transition (no horizontal swipe).
@@ -15,18 +16,20 @@ class GabayTabBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IndexedStack(
-      index: index,
-      sizing: StackFit.expand,
-      children: [
-        for (var i = 0; i < children.length; i++)
-          _AnimatedTabChild(
-            key: ValueKey('gabay_tab_$i'),
-            active: i == index,
-            duration: duration,
-            child: children[i],
-          ),
-      ],
+    return GabayPageBackground(
+      child: IndexedStack(
+        index: index,
+        sizing: StackFit.expand,
+        children: [
+          for (var i = 0; i < children.length; i++)
+            _AnimatedTabChild(
+              key: ValueKey('gabay_tab_$i'),
+              active: i == index,
+              duration: duration,
+              child: children[i],
+            ),
+        ],
+      ),
     );
   }
 }
@@ -59,15 +62,14 @@ class _AnimatedTabChildState extends State<_AnimatedTabChild>
     super.initState();
     _controller = AnimationController(vsync: this, duration: widget.duration);
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
-    _scale = Tween<double>(begin: 0.97, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _scale = Tween<double>(
+      begin: 0.97,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
     _slide = Tween<Offset>(
       begin: const Offset(0, 0.02),
       end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
     if (widget.active) {
       _controller.value = 1;
@@ -96,10 +98,7 @@ class _AnimatedTabChildState extends State<_AnimatedTabChild>
       opacity: _fade,
       child: SlideTransition(
         position: _slide,
-        child: ScaleTransition(
-          scale: _scale,
-          child: widget.child,
-        ),
+        child: ScaleTransition(scale: _scale, child: widget.child),
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'gabay_accent_icon.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../services/app_session_service.dart';
@@ -95,7 +96,7 @@ class _SharedUsersState extends State<_SharedUsers> {
           ),
           for (final name in users.values)
             ListTile(
-              leading: const Icon(Icons.person_outline),
+              leading: const GabayAccentIcon(Icons.person_outline),
               title: Text(name.trim().isEmpty ? 'Name unavailable' : name),
               subtitle: const Text('Track access • Device status unavailable'),
             ),

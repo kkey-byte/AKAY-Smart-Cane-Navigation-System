@@ -206,7 +206,7 @@ void main() {
       await tester.tap(find.text('Pair Navigator'));
       await tester.pumpAndSettle();
       expect(service.redeemed, 'ABC234');
-      expect(find.text('✓ Paired · Access active'), findsOneWidget);
+      expect(find.text('Paired'), findsOneWidget);
       expect(service.method, 'alphanumeric');
       service.updates.add([
         connection('one', status: 'active'),
@@ -215,7 +215,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Navigator one'), findsOneWidget);
       expect(find.text('Navigator two'), findsOneWidget);
-      expect(find.text('✓ Paired · Access active'), findsNWidgets(2));
+      expect(find.text('Paired'), findsNWidgets(2));
       expect(
         find.textContaining('Successfully paired with Navigator two'),
         findsWidgets,
@@ -238,7 +238,7 @@ void main() {
       await tester.tap(find.text('Scan Navigator QR'));
       await tester.pumpAndSettle();
       expect(service.redeemed, 'ABC234');
-      expect(find.text('✓ Paired · Access active'), findsOneWidget);
+      expect(find.text('Paired'), findsOneWidget);
       expect(service.method, 'qr_code');
       await cleanup(tester, service);
     },

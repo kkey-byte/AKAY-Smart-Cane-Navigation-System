@@ -14,7 +14,7 @@ import '../../services/route_timeline_tracker.dart';
 import '../../services/vi_navigation_session.dart';
 import '../shared/gabay_card.dart';
 import 'dashboard_navigation_view.dart';
-import 'recorded_reports.dart';
+import 'caregiver_navigation_overview.dart';
 
 class DashboardLiveSection extends StatefulWidget {
   const DashboardLiveSection({
@@ -34,10 +34,10 @@ class DashboardLiveSection extends StatefulWidget {
   routeLoader;
   final DashboardMapBuilder? mapBuilder;
   @override
-  State<DashboardLiveSection> createState() => _DashboardLiveSectionState();
+  State<DashboardLiveSection> createState() => DashboardLiveSectionState();
 }
 
-class _DashboardLiveSectionState extends State<DashboardLiveSection> {
+class DashboardLiveSectionState extends State<DashboardLiveSection> {
   late final DashboardService _service;
   late final PairingService _pairing;
   late final int _revision;
@@ -101,6 +101,39 @@ class _DashboardLiveSectionState extends State<DashboardLiveSection> {
     }
   }
 
+  Completer<void>? _refresh;
+  Future<void> refresh() async {
+    if (_refresh != null) return _refresh!.future;
+    if (!_valid) return;
+    final pending = _refresh = Completer<void>();
+    try {
+      if (widget.caregiver) {
+        await _links?.cancel();
+        _links = null;
+      }
+      await Future.wait(_subscriptions.values.map((sub) => sub.cancel()));
+      _subscriptions.clear();
+      if (!mounted || !_valid) return;
+      if (widget.caregiver) {
+        _listenConnections();
+      } else if (_selected != null) {
+        _watch(_selected!);
+      } else {
+        pending.complete();
+      }
+      await pending.future.timeout(
+        const Duration(seconds: 25),
+        onTimeout: () {},
+      );
+    } finally {
+      if (identical(_refresh, pending)) _refresh = null;
+    }
+  }
+
+  void _finishRefresh() {
+    if (_refresh?.isCompleted == false) _refresh!.complete();
+  }
+
   void _listenConnections() {
     unawaited(_links?.cancel());
     _links = _pairing.watchConnections().listen(
@@ -123,11 +156,13 @@ class _DashboardLiveSectionState extends State<DashboardLiveSection> {
           _connections = active;
           _linkError = null;
         });
+        if (uids.isEmpty) _finishRefresh();
         for (final uid in uids) {
           if (!_subscriptions.containsKey(uid)) _watch(uid);
         }
       },
       onError: (Object _) {
+        _finishRefresh();
         if (mounted && _valid) {
           for (final sub in _subscriptions.values) {
             unawaited(sub.cancel());
@@ -151,6 +186,7 @@ class _DashboardLiveSectionState extends State<DashboardLiveSection> {
         .watch(uid)
         .listen(
           (data) {
+            _finishRefresh();
             if (!mounted || !_valid) return;
             if (widget.caregiver &&
                 !(_connections?.any((row) => row.navigatorUid == uid) ??
@@ -171,6 +207,7 @@ class _DashboardLiveSectionState extends State<DashboardLiveSection> {
             _updateRoute();
           },
           onError: (Object _) {
+            _finishRefresh();
             if (!mounted || !_valid) return;
             setState(() {
               _data.remove(uid);
@@ -342,81 +379,64 @@ class _DashboardLiveSectionState extends State<DashboardLiveSection> {
     if (widget.caregiver && _connections!.isEmpty) {
       return const GabayCard(
         child: Text(
-          'No paired Navigators yet. Use Add / Pair New Navigator below to start monitoring.',
+          'No paired Navigators yet. Open Profile → Linked Navigator to add a navigator.',
         ),
       );
     }
     final selected = _current;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (widget.caregiver) ...[
-          DropdownButtonFormField<String>(
-            key: ValueKey(_selected),
-            initialValue: _selected,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Navigator to monitor',
-            ),
-            items: [
-              for (final row in _connections!)
-                DropdownMenuItem(
-                  value: row.navigatorUid,
-                  child: Text(row.navigatorName),
-                ),
-            ],
-            onChanged: (uid) {
-              setState(() {
-                _selected = uid;
-                _resetRoute();
-              });
-              _updateRoute();
-            },
+    if (widget.caregiver) {
+      if (selected == null) {
+        return GabayCard(
+          child: Text(
+            _errors[_selected] ?? 'Loading navigation and shared location…',
           ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final row in _connections!)
-                ChoiceChip(
-                  label: Text(
-                    '${row.navigatorName} · ${_data[row.navigatorUid]?.status(DateTime.now()) ?? 'Loading'}',
-                  ),
-                  selected: _selected == row.navigatorUid,
-                  onSelected: (_) {
-                    setState(() {
-                      _selected = row.navigatorUid;
-                      _resetRoute();
-                    });
-                    _updateRoute();
-                  },
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
+        );
+      }
+      return CaregiverNavigationOverview(
+        data: selected,
+        now: DateTime.now(),
+        picture: _connections!
+            .where((row) => row.navigatorUid == selected.uid)
+            .firstOrNull
+            ?.navigatorPicture,
+        peers: _data.values.toList(),
+        route: _route?.points ?? const [],
+        mapBuilder: widget.mapBuilder,
+        onViewMap: widget.onViewMap,
+        navigatorOptions: [
+          for (final row in _connections!)
+            (uid: row.navigatorUid, name: row.navigatorName),
         ],
-        if (_errors[_selected] != null && widget.caregiver)
-          GabayCard(child: Text(_errors[_selected]!)),
-        if (selected != null)
-          DashboardNavigationView(
-            data: selected,
-            peers: _data.values.toList(),
-            route: _route?.points ?? const [],
-            eta: _route?.durationLabel,
-            now: DateTime.now(),
-            mapBuilder: widget.mapBuilder,
-            onViewMap: widget.onViewMap,
-            summary: widget.caregiver
-                ? null
-                : const RecordedReports(caregiver: false, compact: true),
-          )
-        else
-          GabayCard(
-            child: Text(
-              _errors[_selected] ?? 'Loading navigation and shared location…',
-            ),
-          ),
-      ],
+        onNavigatorSelected: (uid) {
+          if (!_valid || !_connections!.any((row) => row.navigatorUid == uid)) {
+            return;
+          }
+          setState(() {
+            _selected = uid;
+            _resetRoute();
+          });
+          _updateRoute();
+        },
+      );
+    }
+    if (selected != null) {
+      return CaregiverNavigationOverview(
+        data: selected,
+        peers: _data.values.toList(),
+        route: _route?.points ?? const [],
+        now: DateTime.now(),
+        mapBuilder: widget.mapBuilder,
+        onViewMap: widget.onViewMap,
+        picture: AppSessionService.instance.profilePicture,
+        showNavigatorSelector: false,
+        showProfileSummary: false,
+        statusHeading: 'Your current status',
+      );
+    }
+    return GabayCard(
+      child: Text(
+        _errors[_selected] ?? 'Loading navigation and shared location…',
+      ),
     );
   }
 }

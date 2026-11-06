@@ -1,9 +1,9 @@
+import '../../widgets/shared/gabay_dashboard_backdrop.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/app_session_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/vi_navigation_session.dart';
-import '../../theme/gabay_theme.dart';
 
 import '../../widgets/dashboard_widgets/activity_card.dart';
 import '../../widgets/dashboard_widgets/bottom_nav.dart';
@@ -27,6 +27,14 @@ class VisuallyImpairedDashboard extends StatefulWidget {
 
 class _VisuallyImpairedDashboardState extends State<VisuallyImpairedDashboard> {
   int _selectedIndex = 0;
+  final _liveKey = GlobalKey<DashboardLiveSectionState>();
+  Future<void> _refreshHome() async {
+    await Future.wait([
+      _loadDisplayName(),
+      _liveKey.currentState?.refresh() ?? Future.value(),
+    ]);
+  }
+
   bool _profileLoading = true;
   bool _profileError = false;
   final _trackKey = GlobalKey<TrackPageState>();
@@ -40,7 +48,10 @@ class _VisuallyImpairedDashboardState extends State<VisuallyImpairedDashboard> {
     _loadDisplayName();
   }
 
-  Future<void> _loadDisplayName() async {
+  Future<void>? _profileRequest;
+  Future<void> _loadDisplayName() => _profileRequest ??= _fetchDisplayName()
+      .whenComplete(() => _profileRequest = null);
+  Future<void> _fetchDisplayName() async {
     if (mounted) {
       setState(() {
         _profileLoading = true;
@@ -79,20 +90,19 @@ class _VisuallyImpairedDashboardState extends State<VisuallyImpairedDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? context.gabay.scaffoldBackground
-          : const Color(0xFFF3F3F3),
-      body: GabayTabBody(
-        index: _selectedIndex,
-        children: [
-          _buildHomePage(context),
-          TrackPage(key: _trackKey, role: TrackPageRole.navigator),
-          const VisuallyImpairedReportsPage(),
-          const VisuallyImpairedProfilePage(),
-        ],
-      ),
-      bottomNavigationBar: FloatingBottomNavShell(
-        child: BottomNav(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: FloatingBottomNavLayout(
+        body: GabayTabBody(
+          index: _selectedIndex,
+          children: [
+            _buildHomePage(context),
+            TrackPage(key: _trackKey, role: TrackPageRole.navigator),
+            const VisuallyImpairedReportsPage(),
+            const VisuallyImpairedProfilePage(),
+          ],
+        ),
+        navigation: BottomNav(
+          dashboard: _selectedIndex == 0,
           currentIndex: _selectedIndex,
           onIndexChanged: _onNavTapped,
         ),
@@ -108,64 +118,80 @@ class _VisuallyImpairedDashboardState extends State<VisuallyImpairedDashboard> {
   }
 
   Widget _buildHomePage(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          16,
-          16,
-          GabayNavMetrics.contentClearance,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListenableBuilder(
-              listenable: AppSessionService.instance,
-              builder: (context, _) {
-                final name = _displayName;
-                return Semantics(
-                  label: 'Navigator: $name',
-                  child: DashboardHeader(
-                    greeting: 'Hello, Welcome back!',
-                    name: name,
-                    avatarAsset: null,
-                    unreadCount: 0,
-                    onNotificationTap: () =>
-                        _pushPage(const ViNotificationsPage()),
-                  ),
-                );
-              },
+    return GabayDashboardBackground(
+      child: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _refreshHome,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              16,
+              20,
+              GabayNavMetrics.contentClearance,
             ),
-            const SizedBox(height: 16),
-            DashboardLiveSection(caregiver: false, onViewMap: _openTrackTab),
-            if (_profileLoading)
-              const LinearProgressIndicator(semanticsLabel: 'Loading profile'),
-            if (_profileError)
-              Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  const Text(
-                    'Profile refresh failed. Cached details may be out of date.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ListenableBuilder(
+                  listenable: AppSessionService.instance,
+                  builder: (context, _) {
+                    final name = _displayName;
+                    return Semantics(
+                      label: 'Navigator: $name',
+                      child: DashboardHeader(
+                        glass: true,
+                        greeting: 'Hello, Welcome back!',
+                        name: name,
+                        nameFontSize: 18,
+                        nameFontWeight: FontWeight.w400,
+                        avatarUrl: AppSessionService.instance.profilePicture,
+                        unreadCount: 0,
+                        onNotificationTap: () =>
+                            _pushPage(const ViNotificationsPage()),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                DashboardLiveSection(
+                  key: _liveKey,
+                  caregiver: false,
+                  onViewMap: _openTrackTab,
+                ),
+                const SizedBox(height: 16),
+                if (_profileLoading)
+                  const LinearProgressIndicator(
+                    semanticsLabel: 'Loading profile',
                   ),
-                  TextButton(
-                    onPressed: _loadDisplayName,
-                    child: const Text('Retry'),
+                if (_profileError)
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Text(
+                        'Profile refresh failed. Cached details may be out of date.',
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor:
+                              GabayDashboardBackdrop.secondaryColor(context),
+                        ),
+                        onPressed: _loadDisplayName,
+                        child: const Text('Retry'),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            const SizedBox(height: 20),
-            Text(
-              'Recent Activity',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: context.gabay.textPrimary,
-              ),
+                const SizedBox(height: 16),
+                Text(
+                  'Recent Activity',
+                  style: GabayDashboardBackdrop.headingStyle(context),
+                ),
+                const SizedBox(height: 14),
+                const RecentActivityList(),
+                const SizedBox(height: 16),
+              ],
             ),
-            const SizedBox(height: 8),
-            const RecentActivityList(),
-            const SizedBox(height: 16),
-          ],
+          ),
         ),
       ),
     );

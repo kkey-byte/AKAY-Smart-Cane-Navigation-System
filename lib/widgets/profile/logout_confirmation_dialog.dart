@@ -1,3 +1,5 @@
+import '../../theme/gabay_typography.dart';
+import '../shared/gabay_accent_icon.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/gabay_theme.dart';
@@ -19,17 +21,13 @@ Future<void> showLogoutConfirmationDialog(
 }
 
 class LogoutConfirmationDialog extends StatelessWidget {
-  const LogoutConfirmationDialog({
-    super.key,
-    required this.onConfirm,
-  });
+  const LogoutConfirmationDialog({super.key, required this.onConfirm});
 
   final VoidCallback onConfirm;
 
   @override
   Widget build(BuildContext context) {
     final g = context.gabay;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -40,35 +38,18 @@ class LogoutConfirmationDialog extends StatelessWidget {
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-          decoration: BoxDecoration(
-            color: isDark ? g.surfaceElevated : const Color(0xFFF3F4F6),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-              color: g.border.withValues(alpha: isDark ? 0.55 : 0.35),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: g.shadow,
-                blurRadius: 30,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
+          decoration: GabayTheme.cardDecoration(context),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.logout_rounded,
-                size: 44,
-                color: g.danger,
-              ),
+              GabayAccentIcon(Icons.logout_rounded, size: 44, color: g.danger),
               const SizedBox(height: 16),
               Text(
                 'Logout Account?',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
+                  fontSize: GabayTypography.subheading,
+                  fontWeight: GabayTypography.medium,
                   color: g.textPrimary,
                   letterSpacing: -0.2,
                 ),
@@ -80,20 +61,8 @@ class LogoutConfirmationDialog extends StatelessWidget {
                     child: _DialogPillButton(
                       label: 'Cancel',
                       onTap: () => Navigator.pop(context),
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: isDark
-                            ? [
-                                g.chipBackground,
-                                g.surface,
-                              ]
-                            : [
-                                const Color(0xFFE5E7EB),
-                                const Color(0xFFF3F4F6),
-                              ],
-                      ),
-                      textColor: g.textPrimary,
+                      gradient: LinearGradient(colors: [g.surface, g.surface]),
+                      textColor: g.heading,
                       semanticLabel: 'Cancel logout',
                     ),
                   ),
@@ -102,14 +71,7 @@ class LogoutConfirmationDialog extends StatelessWidget {
                     child: _DialogPillButton(
                       label: 'Logout',
                       onTap: onConfirm,
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          g.accent.withValues(alpha: 0.92),
-                          isDark ? const Color(0xFF2563EB) : const Color(0xFF0A84FF),
-                        ],
-                      ),
+                      gradient: GabayTheme.actionGradient,
                       textColor: Colors.white,
                       semanticLabel: 'Confirm logout',
                     ),
@@ -148,12 +110,12 @@ class _DialogPillButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(GabayMetrics.controlRadius),
           child: Ink(
-            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             decoration: BoxDecoration(
               gradient: gradient,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(GabayMetrics.controlRadius),
               boxShadow: [
                 BoxShadow(
                   color: context.gabay.shadow,
@@ -166,8 +128,8 @@ class _DialogPillButton extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  fontSize: GabayTypography.cardTitle,
+                  fontWeight: GabayTypography.medium,
                   color: textColor,
                 ),
               ),

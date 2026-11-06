@@ -198,6 +198,7 @@ void main() {
           'navigator-b': snapshot('navigator-b'),
         });
       final pairing = FakePairing()..rows = [link('a'), link('b')];
+      final liveKey = GlobalKey<DashboardLiveSectionState>();
       String? shown;
       int peers = 0;
       await tester.pumpWidget(
@@ -206,6 +207,7 @@ void main() {
           home: Scaffold(
             body: SingleChildScrollView(
               child: DashboardLiveSection(
+                key: liveKey,
                 caregiver: true,
                 onViewMap: () {},
                 service: service,
@@ -223,7 +225,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(shown, 'navigator-a');
       expect(peers, 2);
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Navigator b · Idle'));
+      await tester.tap(find.byTooltip('Select navigator'));
+      await tester.pumpAndSettle();
+      expect(find.text('Linked navigators'), findsOneWidget);
+      expect(find.text('Choose who to monitor'), findsOneWidget);
+      expect(find.text('Currently monitoring'), findsOneWidget);
+      await tester.tap(find.text('Navigator b').last);
       await tester.pumpAndSettle();
       expect(shown, 'navigator-b');
       pairing.updates.add([]);
@@ -270,7 +277,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Navigator b · Active'));
+      await tester.tap(find.byTooltip('Select navigator'));
+      await tester.pumpAndSettle();
+      expect(find.text('Linked navigators'), findsOneWidget);
+      expect(find.text('Choose who to monitor'), findsOneWidget);
+      expect(find.text('Currently monitoring'), findsOneWidget);
+      await tester.tap(find.text('Navigator b').last);
       await tester.pumpAndSettle();
       const newPoints = [LatLng(7.3, 125.68), LatLng(7.31, 125.69)];
       second.complete(

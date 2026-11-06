@@ -1,21 +1,22 @@
+import '../../theme/gabay_typography.dart';
+import '../../widgets/shared/gabay_page_header.dart';
+import '../../widgets/shared/gabay_accent_icon.dart';
+import '../../widgets/shared/gabay_page_background.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/gabay_notification.dart';
 import '../../services/notification_service.dart';
 import '../../theme/gabay_theme.dart';
+import '../../widgets/shared/gabay_selection_dialog.dart';
 import '../../widgets/notifications/notification_card.dart';
 import '../../widgets/notifications/notification_empty_state.dart';
 import '../../widgets/notifications/notification_section_label.dart';
 
-typedef NotificationNavigateCallback = void Function(
-  NotificationDestination destination,
-);
+typedef NotificationNavigateCallback =
+    void Function(NotificationDestination destination);
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({
-    super.key,
-    this.onNavigate,
-  });
+  const NotificationsPage({super.key, this.onNavigate});
 
   final NotificationNavigateCallback? onNavigate;
 
@@ -91,23 +92,20 @@ class _NotificationsPageState extends State<NotificationsPage>
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(context),
-            Expanded(
-              child: notifications.isEmpty
-                  ? FadeTransition(
-                      opacity: CurvedAnimation(
-                        parent: _entryController,
-                        curve: Curves.easeOut,
-                      ),
-                      child: const NotificationEmptyState(),
-                    )
-                  : _buildNotificationList(notifications),
-            ),
-          ],
+      body: GabayPageBackground(
+        child: SafeArea(
+          child: GabayScrollingPage(
+            header: _buildHeader(context),
+            body: notifications.isEmpty
+                ? FadeTransition(
+                    opacity: CurvedAnimation(
+                      parent: _entryController,
+                      curve: Curves.easeOut,
+                    ),
+                    child: const NotificationEmptyState(),
+                  )
+                : _buildNotificationList(notifications),
+          ),
         ),
       ),
     );
@@ -123,61 +121,76 @@ class _NotificationsPageState extends State<NotificationsPage>
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: Icon(Icons.arrow_back_ios_new_rounded, color: g.heading),
+            icon: GabayAccentIcon(
+              Icons.arrow_back_ios_new_rounded,
+              color: g.heading,
+            ),
           ),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
                     'Notifications',
                     style: GabayTheme.sectionTitle(context).copyWith(
-                      fontSize: 24,
+                      fontSize: GabayTypography.pageTitle,
+                      fontWeight: GabayTypography.semibold,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Stay updated with important activities.',
-                    style: GabayTheme.bodyMedium(context).copyWith(fontSize: 14),
                   ),
                 ],
               ),
             ),
           ),
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert_rounded, color: g.textPrimary),
-            color: g.surface,
-            onSelected: (value) {
+          IconButton(
+            tooltip: 'Notification actions',
+            icon: GabayAccentIcon(
+              Icons.more_vert_rounded,
+              color: g.textPrimary,
+            ),
+            onPressed: () async {
+              final value = await showGabaySelectionDialog<String>(
+                context,
+                title: 'Notification actions',
+                options: [
+                  GabaySelectionOption(
+                    value: 'read',
+                    child: Row(
+                      children: [
+                        GabayAccentIcon(
+                          Icons.done_all_rounded,
+                          size: 20,
+                          color: g.accent,
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(child: Text('Mark all as read')),
+                      ],
+                    ),
+                  ),
+                  GabaySelectionOption(
+                    value: 'clear',
+                    child: Row(
+                      children: [
+                        GabayAccentIcon(
+                          Icons.delete_sweep_outlined,
+                          size: 20,
+                          color: g.danger,
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(child: Text('Clear all')),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+              if (!mounted) return;
               if (value == 'read') {
                 _service.markAllAsRead();
               } else if (value == 'clear') {
                 _confirmClearAll();
               }
             },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'read',
-                child: Row(
-                  children: [
-                    Icon(Icons.done_all_rounded, size: 20, color: g.accent),
-                    const SizedBox(width: 12),
-                    Text('Mark all as read', style: TextStyle(color: g.textPrimary)),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'clear',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_sweep_outlined, size: 20, color: g.danger),
-                    const SizedBox(width: 12),
-                    Text('Clear all', style: TextStyle(color: g.textPrimary)),
-                  ],
-                ),
-              ),
-            ],
           ),
         ],
       ),

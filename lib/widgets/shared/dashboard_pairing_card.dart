@@ -1,3 +1,5 @@
+import '../../theme/gabay_typography.dart';
+import 'gabay_accent_icon.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +14,7 @@ import '../../services/gabay_tts_service.dart';
 import '../../services/pairing_service.dart';
 import '../../theme/gabay_theme.dart';
 import 'gabay_card.dart';
+import 'pairing_qr_image.dart';
 
 class DashboardPairingCard extends StatefulWidget {
   const DashboardPairingCard({
@@ -20,16 +23,23 @@ class DashboardPairingCard extends StatefulWidget {
     this.profilePresentation = false,
     this.service,
     this.scanCode,
+    this.uploadCode,
+    this.pairingOnly = false,
+    this.showManageConnections = true,
+    this.allowDisconnect = false,
   });
   final bool caregiver;
   final bool profilePresentation;
+  final bool pairingOnly;
+  final bool showManageConnections, allowDisconnect;
   final PairingService? service;
   final Future<String?> Function(BuildContext)? scanCode;
+  final Future<String?> Function()? uploadCode;
   @override
-  State<DashboardPairingCard> createState() => _DashboardPairingCardState();
+  State<DashboardPairingCard> createState() => DashboardPairingCardState();
 }
 
-class _DashboardPairingCardState extends State<DashboardPairingCard> {
+class DashboardPairingCardState extends State<DashboardPairingCard> {
   late final PairingService _service;
   late final int _revision;
   StreamSubscription<List<PairingConnection>>? _subscription;
@@ -72,14 +82,28 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
     }
   }
 
-  void _listen() {
-    unawaited(_subscription?.cancel());
+  Completer<void>? _refresh;
+  Future<void> refresh() {
+    if (_refresh != null) return _refresh!.future;
+    if (!_valid || _busy) return Future.value();
+    final pending = _refresh = Completer<void>();
+    _listen();
+    return pending.future
+        .timeout(const Duration(seconds: 25), onTimeout: () {})
+        .whenComplete(() {
+          if (identical(_refresh, pending)) _refresh = null;
+        });
+  }
+
+  Future<void> _listen() async {
+    await _subscription?.cancel();
+    if (!mounted || !_valid) return;
     _subscription = _service.watchConnections().listen(
       _received,
       onError: (Object error) {
+        if (_refresh?.isCompleted == false) _refresh!.complete();
         if (mounted && _valid) {
           setState(() {
-            _rows = null;
             _error = error.toString();
           });
         }
@@ -88,6 +112,7 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
   }
 
   void _received(List<PairingConnection> rows) {
+    if (_refresh?.isCompleted == false) _refresh!.complete();
     if (!mounted || !_valid) return;
     String? paired;
     if (_rows != null) {
@@ -153,10 +178,43 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
       _notice = null;
     });
   });
+  Future<void> _disconnect(PairingConnection row) async {
+    if (_busy || !_valid) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Disconnect caregiver?'),
+        content: Text(
+          'Remove monitoring access for ${row.caregiverName}? Your account, saved tracks and cane ownership will remain.',
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: GabayTheme.destructiveButtonStyle(context),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Disconnect'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || !_valid) return;
+    await _run(() async {
+      await _service.revoke(row.id);
+      if (!mounted || !_valid) return;
+      setState(() => _rows?.removeWhere((item) => item.id == row.id));
+    });
+  }
+
   Future<void> _pair() async {
     final submission = await showDialog<_PairSubmission>(
       context: context,
-      builder: (_) => _PairCodeDialog(scanCode: widget.scanCode),
+      builder: (_) => _PairCodeDialog(
+        scanCode: widget.scanCode,
+        uploadCode: widget.uploadCode,
+      ),
     );
     if (submission == null || !mounted || !_valid) return;
     await _run(() async {
@@ -217,6 +275,13 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
           children: [
             ChoiceChip(
               label: const Text('Alphanumeric code'),
+              labelStyle: TextStyle(
+                fontSize: GabayTypography.caption,
+                fontWeight: GabayTypography.regular,
+                color: context.gabay.textPrimary,
+              ),
+              selectedColor: context.gabay.accentTint,
+              checkmarkColor: context.gabay.accent,
               selected: _method == 'alphanumeric',
               onSelected: _busy
                   ? null
@@ -224,6 +289,13 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
             ),
             ChoiceChip(
               label: const Text('QR code'),
+              labelStyle: TextStyle(
+                fontSize: GabayTypography.caption,
+                fontWeight: GabayTypography.regular,
+                color: context.gabay.textPrimary,
+              ),
+              selectedColor: context.gabay.accentTint,
+              checkmarkColor: context.gabay.accent,
               selected: _method == 'qr_code',
               onSelected: _busy
                   ? null
@@ -242,18 +314,33 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
                 : (value) => setState(() => _authorized = value ?? false),
             title: const Text(
               'I authorize the caregiver who uses this code to view my profile, location history, cane readings and alerts until I remove access.',
+              style: TextStyle(
+                fontSize: GabayTypography.supporting,
+                fontWeight: GabayTypography.regular,
+                height: 1.4,
+              ),
             ),
           ),
         ),
       ],
       const SizedBox(height: 12),
       FilledButton.icon(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 44),
+          iconSize: 18,
+          textStyle: const TextStyle(
+            fontSize: GabayTypography.supporting,
+            fontWeight: GabayTypography.regular,
+          ),
+        ),
         onPressed: _busy || !_valid || (!widget.caregiver && !_authorized)
             ? null
             : widget.caregiver
             ? _pair
             : _generate,
-        icon: Icon(widget.caregiver ? Icons.person_add_alt_1 : Icons.qr_code),
+        icon: GabayAccentIcon(
+          widget.caregiver ? Icons.person_add_alt_1 : Icons.qr_code,
+        ),
         label: Text(
           widget.caregiver
               ? 'Add / Pair New Navigator'
@@ -272,14 +359,17 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
             excludeSemantics: true,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-              color: Colors.black,
+              decoration: BoxDecoration(
+                color: context.gabay.accentTint,
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Text(
                 _code!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w800,
+                style: TextStyle(
+                  color: context.gabay.heading,
+                  fontSize: GabayTypography.hero,
+                  fontWeight: GabayTypography.medium,
                   letterSpacing: 4,
                 ),
               ),
@@ -314,7 +404,7 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
                   setState(() => _notice = 'Pairing code copied.');
                 }
               }),
-              icon: const Icon(Icons.copy),
+              icon: const GabayAccentIcon(Icons.copy),
               label: const Text('Copy code'),
             ),
             OutlinedButton.icon(
@@ -323,7 +413,7 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
                   'Your pairing code is ${_code!.split('').join(', ')}',
                 ),
               ),
-              icon: const Icon(Icons.volume_up),
+              icon: const GabayAccentIcon(Icons.volume_up),
               label: const Text('Read code aloud'),
             ),
           ],
@@ -333,21 +423,43 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
         const Text('Code expired. Create a new code to pair.'),
     ];
     return GabayCard(
+      padding: const EdgeInsets.all(20),
+      decoration: widget.profilePresentation
+          ? GabayTheme.cardDecoration(context).copyWith(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  context.gabay.surface,
+                  Color.alphaBlend(
+                    context.gabay.accent.withValues(alpha: .06),
+                    context.gabay.surface,
+                  ),
+                ],
+              ),
+            )
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             widget.caregiver ? 'Your Navigators' : profileTitle,
-            style: Theme.of(context).textTheme.titleLarge,
+            style: TextStyle(
+              color: context.gabay.textPrimary,
+              fontSize: GabayTypography.sectionTitle,
+              fontWeight: GabayTypography.semibold,
+            ),
           ),
           if (widget.profilePresentation)
             Material(
               color: Colors.transparent,
               child: ExpansionTile(
-                tilePadding: const EdgeInsets.symmetric(vertical: 12),
+                tilePadding: const EdgeInsets.symmetric(vertical: 8),
+                shape: const Border(),
+                collapsedShape: const Border(),
                 leading: CircleAvatar(
                   backgroundColor: context.gabay.accentTint,
-                  child: Icon(
+                  child: GabayAccentIcon(
                     Icons.person_add_alt_outlined,
                     color: context.gabay.accent,
                   ),
@@ -356,11 +468,16 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
                   'Invite a Caregiver',
                   style: TextStyle(
                     color: context.gabay.accent,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: GabayTypography.regular,
+                    fontSize: GabayTypography.body,
                   ),
                 ),
                 subtitle: const Text(
-                  'Share a pairing code or QR to add a new caregiver',
+                  'Share your pairing code or QR.',
+                  style: TextStyle(
+                    fontSize: GabayTypography.caption,
+                    fontWeight: GabayTypography.regular,
+                  ),
                 ),
                 children: pairingControls,
               ),
@@ -374,7 +491,7 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
                 liveRegion: true,
                 child: Text(
                   _notice!,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontWeight: GabayTypography.regular),
                 ),
               ),
             ),
@@ -393,9 +510,10 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
           ],
           if (_rows == null && _error == null)
             const Text('Loading connections…'),
-          if (_rows != null && visible.isEmpty)
+          if (!widget.pairingOnly && _rows != null && visible.isEmpty)
             const Text('No paired accounts yet.'),
-          for (final row in visible)
+          for (final row
+              in widget.pairingOnly ? <PairingConnection>[] : visible)
             Padding(
               padding: const EdgeInsets.only(top: 12),
               child: DecoratedBox(
@@ -412,16 +530,16 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
                           CircleAvatar(
-                            radius: 28,
+                            radius: 23,
                             backgroundColor: context.gabay.accentTint,
-                            child: Icon(
+                            child: GabayAccentIcon(
                               Icons.person_outline,
                               color: context.gabay.accent,
                               size: 30,
@@ -429,22 +547,48 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: Text(
-                              widget.caregiver
-                                  ? row.navigatorName
-                                  : row.caregiverName,
-                              style: Theme.of(context).textTheme.titleMedium,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.caregiver
+                                      ? row.navigatorName
+                                      : row.caregiverName,
+                                  style: TextStyle(
+                                    color: context.gabay.textPrimary,
+                                    fontSize: GabayTypography.cardBody,
+                                    fontWeight: GabayTypography.medium,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  row.status == 'active'
+                                      ? 'Paired'
+                                      : widget.caregiver
+                                      ? 'Awaiting Navigator approval'
+                                      : 'Approval needed',
+                                  style: TextStyle(
+                                    color: row.status == 'active'
+                                        ? context.gabay.success
+                                        : context.gabay.textSecondary,
+                                    fontSize: GabayTypography.caption,
+                                    fontWeight: GabayTypography.regular,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                          if (widget.allowDisconnect && !widget.caregiver)
+                            IconButton(
+                              tooltip: 'Disconnect ${row.caregiverName}',
+                              onPressed: _busy ? null : () => _disconnect(row),
+                              icon: GabayAccentIcon(
+                                Icons.link_off_rounded,
+                                color: context.gabay.danger,
+                                size: 22,
+                              ),
+                            ),
                         ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        row.status == 'active'
-                            ? '✓ Paired · Access active'
-                            : widget.caregiver
-                            ? 'Awaiting Navigator approval'
-                            : 'Pairing request · Your approval needed',
                       ),
                       if (row.status == 'pending' && !widget.caregiver)
                         Wrap(
@@ -472,14 +616,14 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
           if (widget.profilePresentation) ...[
             const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: context.gabay.accentTint,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
                 children: [
-                  Icon(
+                  GabayAccentIcon(
                     Icons.verified_user_outlined,
                     color: context.gabay.accent,
                     size: 30,
@@ -493,7 +637,7 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
                           'Why add caregivers?',
                           style: TextStyle(
                             color: context.gabay.accent,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: GabayTypography.regular,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -507,19 +651,20 @@ class _DashboardPairingCardState extends State<DashboardPairingCard> {
               ),
             ),
           ],
-          TextButton(
-            onPressed: !_valid
-                ? null
-                : () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => PairingManagementPage(
-                        caregiver: widget.caregiver,
-                        service: _service,
+          if (widget.showManageConnections)
+            TextButton(
+              onPressed: !_valid
+                  ? null
+                  : () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => PairingManagementPage(
+                          caregiver: widget.caregiver,
+                          service: _service,
+                        ),
                       ),
                     ),
-                  ),
-            child: const Text('Manage connections and access'),
-          ),
+              child: const Text('Manage connections and access'),
+            ),
         ],
       ),
     );
@@ -532,8 +677,9 @@ class _PairSubmission {
 }
 
 class _PairCodeDialog extends StatefulWidget {
-  const _PairCodeDialog({this.scanCode});
+  const _PairCodeDialog({this.scanCode, this.uploadCode});
   final Future<String?> Function(BuildContext)? scanCode;
+  final Future<String?> Function()? uploadCode;
   @override
   State<_PairCodeDialog> createState() => _PairCodeDialogState();
 }
@@ -541,6 +687,8 @@ class _PairCodeDialog extends StatefulWidget {
 class _PairCodeDialogState extends State<_PairCodeDialog> {
   final _input = TextEditingController();
   String? _error;
+  bool _readingImage = false;
+  String? _imageError;
   @override
   void dispose() {
     _input.dispose();
@@ -558,6 +706,30 @@ class _PairCodeDialogState extends State<_PairCodeDialog> {
     Navigator.pop(context, _PairSubmission(code, method));
   }
 
+  Future<void> _upload() async {
+    if (_readingImage) return;
+    setState(() {
+      _readingImage = true;
+      _imageError = null;
+    });
+    try {
+      final code = await (widget.uploadCode ?? pickPairingQrImage)();
+      if (mounted && code != null) _submit(code, method: 'qr_code');
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _imageError = error is FormatException
+              ? error.message
+              : error is UnsupportedError
+              ? error.message
+              : 'Could not read the QR image. Try a clear image, check your connection, or enter the pairing code.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _readingImage = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: const Text('Pair a Navigator'),
@@ -567,11 +739,12 @@ class _PairCodeDialogState extends State<_PairCodeDialog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'Ask the Navigator to show their pairing code or QR in Profile → Caregiver Connections.',
+            'Ask the Navigator to show their pairing code or QR in Profile → Caregivers.',
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _input,
+            enabled: !_readingImage,
             autofocus: true,
             textCapitalization: TextCapitalization.characters,
             autocorrect: false,
@@ -586,10 +759,11 @@ class _PairCodeDialogState extends State<_PairCodeDialog> {
           ),
           OutlinedButton.icon(
             onPressed:
-                !kIsWeb &&
-                    (defaultTargetPlatform == TargetPlatform.windows ||
-                        defaultTargetPlatform == TargetPlatform.linux) &&
-                    widget.scanCode == null
+                _readingImage ||
+                    (!kIsWeb &&
+                        (defaultTargetPlatform == TargetPlatform.windows ||
+                            defaultTargetPlatform == TargetPlatform.linux) &&
+                        widget.scanCode == null)
                 ? null
                 : () async {
                     final code =
@@ -603,19 +777,47 @@ class _PairCodeDialogState extends State<_PairCodeDialog> {
                       _submit(code, method: 'qr_code');
                     }
                   },
-            icon: const Icon(Icons.qr_code_scanner),
+            icon: const GabayAccentIcon(Icons.qr_code_scanner),
             label: const Text('Scan Navigator QR'),
           ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _readingImage ? null : _upload,
+            icon: _readingImage
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.image_outlined, size: 20),
+            label: Text(
+              _readingImage ? 'Reading QR image…' : 'Upload QR image',
+            ),
+          ),
+          if (_imageError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Semantics(
+                liveRegion: true,
+                child: Text(
+                  _imageError!,
+                  style: TextStyle(
+                    color: context.gabay.danger,
+                    fontSize: GabayTypography.supporting,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     ),
     actions: [
-      TextButton(
+      OutlinedButton(
         onPressed: () => Navigator.pop(context),
         child: const Text('Cancel'),
       ),
       FilledButton(
-        onPressed: () => _submit(_input.text),
+        onPressed: _readingImage ? null : () => _submit(_input.text),
         child: const Text('Pair Navigator'),
       ),
     ],

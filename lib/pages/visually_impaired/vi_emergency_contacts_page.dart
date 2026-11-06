@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_accent_icon.dart';
 import 'package:flutter/material.dart';
 import '../../services/app_session_service.dart';
 import '../../widgets/shared/gabay_detail_page_scaffold.dart';
@@ -21,7 +22,7 @@ class ViEmergencyContactsPage extends StatelessWidget {
             if (contacts.isEmpty) const Text('No emergency contacts saved.'),
             for (final contact in contacts)
               ListTile(
-                leading: const Icon(Icons.person_outline),
+                leading: const GabayAccentIcon(Icons.person_outline),
                 title: Text(contact.name),
                 subtitle: Text('${contact.relationship}\n${contact.phone}'),
                 isThreeLine: true,

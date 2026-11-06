@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/route_plan.dart';
@@ -30,11 +31,7 @@ class TurnStep {
 }
 
 class TurnByTurnPanel extends StatelessWidget {
-  const TurnByTurnPanel({
-    super.key,
-    required this.steps,
-    this.onClose,
-  });
+  const TurnByTurnPanel({super.key, required this.steps, this.onClose});
 
   final List<TurnStep> steps;
   final VoidCallback? onClose;
@@ -49,29 +46,34 @@ class TurnByTurnPanel extends StatelessWidget {
       shadowColor: g.shadow,
       borderRadius: BorderRadius.circular(18),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
-                Text(
-                  'Turn-by-Turn',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: g.textPrimary,
+                Expanded(
+                  child: Text(
+                    'Turn-by-Turn',
+                    style: TextStyle(
+                      fontSize: GabayTypography.body,
+                      fontWeight: GabayTypography.semibold,
+                      color: g.textPrimary,
+                    ),
                   ),
                 ),
-                const Spacer(),
                 if (onClose != null)
                   Material(
                     color: g.chipBackground,
                     shape: const CircleBorder(),
                     child: IconButton(
                       onPressed: onClose,
-                      icon: Icon(Icons.close_rounded, color: g.textSecondary),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: g.textSecondary,
+                        size: 20,
+                      ),
                       tooltip: 'Hide directions',
                     ),
                   ),
@@ -109,8 +111,7 @@ class TurnByTurnList extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < steps.length; i++) ...[
-          if (i > 0)
-            Divider(height: 1, color: g.border.withValues(alpha: 0.5)),
+          if (i > 0) Divider(height: 1, color: g.border.withValues(alpha: 0.5)),
           _StepRow(step: steps[i]),
         ],
       ],
@@ -136,17 +137,13 @@ class OpenTurnByTurnButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: onPressed,
         child: Container(
-          width: 52,
-          height: 52,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: g.accent.withValues(alpha: 0.35)),
           ),
-          child: Icon(
-            Icons.alt_route_rounded,
-            color: g.accent,
-            size: 26,
-          ),
+          child: Icon(Icons.alt_route_rounded, color: g.accent, size: 22),
         ),
       ),
     );
@@ -167,8 +164,8 @@ class _StepRow extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 34,
-            height: 34,
+            width: 30,
+            height: 30,
             decoration: BoxDecoration(
               color: step.isNext ? g.accentTint : g.chipBackground,
               borderRadius: BorderRadius.circular(10),
@@ -187,7 +184,7 @@ class _StepRow extends StatelessWidget {
                 Text(
                   step.instruction,
                   style: GabayTheme.bodyLarge(context).copyWith(
-                    fontSize: 14,
+                    fontSize: GabayTypography.body,
                     color: step.isNext ? g.textPrimary : g.textSecondary,
                   ),
                 ),

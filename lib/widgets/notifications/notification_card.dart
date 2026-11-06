@@ -1,3 +1,5 @@
+import '../../theme/gabay_typography.dart';
+import '../shared/gabay_accent_icon.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/gabay_notification.dart';
@@ -49,19 +51,19 @@ class NotificationCard extends StatelessWidget {
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
           color: g.danger.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(22),
         ),
-        child: Icon(Icons.delete_outline_rounded, color: g.danger),
+        child: GabayAccentIcon(Icons.delete_outline_rounded, color: g.danger),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(22),
           child: Ink(
             decoration: BoxDecoration(
               color: g.surface,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(22),
               border: Border.all(
                 color: notification.isRead
                     ? g.border.withValues(alpha: 0.45)
@@ -76,7 +78,7 @@ class NotificationCard extends StatelessWidget {
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.all(16),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -87,11 +89,7 @@ class NotificationCard extends StatelessWidget {
                       color: _iconBackground(g),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(
-                      notification.icon,
-                      size: 20,
-                      color: iconColor,
-                    ),
+                    child: Icon(notification.icon, size: 20, color: iconColor),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -100,21 +98,21 @@ class NotificationCard extends StatelessWidget {
                       children: [
                         Text(
                           notification.title,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
+                            fontSize: GabayTypography.cardBody,
+                            fontWeight: GabayTypography.semibold,
                             color: g.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 3),
                         Text(
                           notification.description,
-                          maxLines: 1,
+                          maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: GabayTypography.supporting,
                             color: g.textSecondary,
                             height: 1.3,
                           ),
@@ -123,9 +121,9 @@ class NotificationCard extends StatelessWidget {
                         Text(
                           notification.timeAgo,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: GabayTypography.caption,
                             color: g.textSecondary.withValues(alpha: 0.85),
-                            fontWeight: FontWeight.w500,
+                            fontWeight: GabayTypography.medium,
                           ),
                         ),
                       ],

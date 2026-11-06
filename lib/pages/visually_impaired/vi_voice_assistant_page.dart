@@ -1,3 +1,5 @@
+import '../../theme/gabay_typography.dart';
+import '../../widgets/shared/gabay_accent_icon.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/gabay_theme.dart';
@@ -53,7 +55,10 @@ class _ViVoiceAssistantPageState extends State<ViVoiceAssistantPage>
           Center(
             child: ScaleTransition(
               scale: Tween<double>(begin: 1, end: 1.08).animate(
-                CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+                CurvedAnimation(
+                  parent: _pulseController,
+                  curve: Curves.easeInOut,
+                ),
               ),
               child: Material(
                 color: _isListening ? g.accent : g.surface,
@@ -74,7 +79,7 @@ class _ViVoiceAssistantPageState extends State<ViVoiceAssistantPage>
                         width: 2,
                       ),
                     ),
-                    child: Icon(
+                    child: GabayAccentIcon(
                       _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
                       size: 52,
                       color: _isListening ? Colors.white : g.accent,
@@ -89,8 +94,8 @@ class _ViVoiceAssistantPageState extends State<ViVoiceAssistantPage>
             child: Text(
               _isListening ? 'Listening...' : 'Tap to speak',
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+                fontSize: GabayTypography.cardTitle,
+                fontWeight: GabayTypography.medium,
                 color: g.textPrimary,
               ),
             ),
@@ -125,13 +130,17 @@ class _CommandRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(Icons.format_quote_rounded, color: context.gabay.accent, size: 20),
+        GabayAccentIcon(
+          Icons.format_quote_rounded,
+          color: context.gabay.accent,
+          size: 20,
+        ),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             text,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: GabayTypography.body,
               color: context.gabay.textSecondary,
               fontStyle: FontStyle.italic,
             ),

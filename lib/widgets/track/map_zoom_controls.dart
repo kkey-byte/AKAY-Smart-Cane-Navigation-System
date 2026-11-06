@@ -7,8 +7,8 @@ class MapZoomControls extends StatelessWidget {
     super.key,
     required this.onZoomIn,
     required this.onZoomOut,
-    this.buttonSize = 52,
-    this.gap = 12,
+    this.buttonSize = 48,
+    this.gap = 0,
   });
 
   final VoidCallback onZoomIn;
@@ -16,8 +16,8 @@ class MapZoomControls extends StatelessWidget {
   final double buttonSize;
   final double gap;
 
-  static const defaultButtonSize = 52.0;
-  static const defaultGap = 12.0;
+  static const defaultButtonSize = 48.0;
+  static const defaultGap = 0.0;
 
   static double totalHeight({
     double buttonSize = defaultButtonSize,
@@ -32,15 +32,14 @@ class MapZoomControls extends StatelessWidget {
 
     return Material(
       color: g.surface,
-      elevation: 6,
+      elevation: 3,
       shadowColor: g.shadow,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: g.border.withValues(alpha: 0.45)),
+      ),
+      child: SizedBox(
         width: buttonSize,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: g.border.withValues(alpha: 0.45)),
-        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -92,7 +91,7 @@ class _ZoomButton extends StatelessWidget {
           child: SizedBox(
             width: size,
             height: size,
-            child: Icon(icon, color: g.accent, size: 26),
+            child: Icon(icon, color: g.accent, size: 22),
           ),
         ),
       ),

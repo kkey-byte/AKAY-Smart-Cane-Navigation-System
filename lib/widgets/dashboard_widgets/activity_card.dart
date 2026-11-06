@@ -1,3 +1,7 @@
+import '../../theme/gabay_typography.dart';
+import '../shared/gabay_accent_icon.dart';
+import '../shared/gabay_card.dart';
+import '../shared/gabay_dashboard_backdrop.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/gabay_theme.dart';
@@ -49,7 +53,7 @@ class ActivityCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(11),
                 ),
 
-                child: Icon(icon, color: color, size: 21),
+                child: GabayAccentIcon(icon, color: color, size: 21),
               ),
 
               const SizedBox(width: 14),
@@ -63,9 +67,9 @@ class ActivityCard extends StatelessWidget {
                       title,
 
                       style: TextStyle(
-                        fontWeight: FontWeight.w500,
+                        fontWeight: GabayTypography.medium,
 
-                        fontSize: 13,
+                        fontSize: GabayTypography.supporting,
 
                         color: g.textPrimary,
                       ),
@@ -79,9 +83,9 @@ class ActivityCard extends StatelessWidget {
                       style: TextStyle(
                         color: g.textSecondary,
 
-                        fontSize: 13,
+                        fontSize: GabayTypography.supporting,
 
-                        fontWeight: FontWeight.w500,
+                        fontWeight: GabayTypography.medium,
                       ),
                     ),
                   ],
@@ -100,11 +104,8 @@ class ActivityCard extends StatelessWidget {
 class RecentActivityList extends StatelessWidget {
   const RecentActivityList({super.key});
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => GabayCard(
     padding: const EdgeInsets.all(16),
-    decoration: GabayTheme.cardDecoration(
-      context,
-    ).copyWith(borderRadius: BorderRadius.circular(18)),
     child: Row(
       children: [
         Container(
@@ -113,7 +114,7 @@ class RecentActivityList extends StatelessWidget {
             color: context.gabay.accentTint,
             borderRadius: BorderRadius.circular(11),
           ),
-          child: Icon(
+          child: GabayAccentIcon(
             Icons.info_outline,
             color: context.gabay.accent,
             size: 21,
@@ -123,7 +124,12 @@ class RecentActivityList extends StatelessWidget {
         Expanded(
           child: Text(
             'Activity feed unavailable. View recorded trips in Reports.',
-            style: TextStyle(fontSize: 13, color: context.gabay.textSecondary),
+            style: TextStyle(
+              fontSize: GabayTypography.supporting,
+              color: GabayDashboardBackdrop.active(context)
+                  ? GabayDashboardBackdrop.secondaryColor(context)
+                  : context.gabay.textSecondary,
+            ),
           ),
         ),
       ],

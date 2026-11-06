@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -161,8 +162,8 @@ class _EtaCardState extends State<EtaCard> {
                         child: const Text(
                           'Cancel Destination',
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                            fontSize: GabayTypography.cardTitle,
+                            fontWeight: GabayTypography.medium,
                           ),
                         ),
                       ),
@@ -250,8 +251,8 @@ class _NavigationDetailsTab extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
+                      fontSize: GabayTypography.cardTitle,
+                      fontWeight: GabayTypography.medium,
                       color: g.textPrimary,
                     ),
                   ),
@@ -259,8 +260,8 @@ class _NavigationDetailsTab extends StatelessWidget {
                   Text(
                     'Navigator',
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                      fontSize: GabayTypography.supporting,
+                      fontWeight: GabayTypography.medium,
                       color: g.textSecondary,
                     ),
                   ),
@@ -305,14 +306,17 @@ class _LocationDestinationRow extends StatelessWidget {
             children: [
               Text(
                 'Current Location',
-                style: GabayTheme.labelSmall(context).copyWith(fontSize: 11),
+                style: GabayTheme.labelSmall(
+                  context,
+                ).copyWith(fontSize: GabayTypography.caption),
               ),
               const SizedBox(height: 6),
               ReadablePlaceText(
                 currentLocation,
+                showCoordinateFallback: false,
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
+                  fontSize: GabayTypography.body,
+                  fontWeight: GabayTypography.medium,
                   color: g.textPrimary,
                   height: 1.35,
                 ),
@@ -327,15 +331,17 @@ class _LocationDestinationRow extends StatelessWidget {
             children: [
               Text(
                 'Destination',
-                style: GabayTheme.labelSmall(context).copyWith(fontSize: 11),
+                style: GabayTheme.labelSmall(
+                  context,
+                ).copyWith(fontSize: GabayTypography.caption),
               ),
               const SizedBox(height: 6),
               Text(
                 destinationLabel,
                 textAlign: TextAlign.right,
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
+                  fontSize: GabayTypography.body,
+                  fontWeight: GabayTypography.medium,
                   color: g.textPrimary,
                   height: 1.35,
                 ),
@@ -396,15 +402,17 @@ class _MetricsRow extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             label,
-            style: GabayTheme.labelSmall(context).copyWith(fontSize: 11),
+            style: GabayTheme.labelSmall(
+              context,
+            ).copyWith(fontSize: GabayTypography.caption),
           ),
           const SizedBox(height: 4),
           Text(
             value,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
+              fontSize: GabayTypography.cardBody,
+              fontWeight: GabayTypography.medium,
               color: g.textPrimary,
             ),
           ),
@@ -488,8 +496,8 @@ class _TabChip extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+              fontSize: GabayTypography.caption,
+              fontWeight: GabayTypography.medium,
               color: selected ? Colors.white : g.textSecondary,
             ),
           ),

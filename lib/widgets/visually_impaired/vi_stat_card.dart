@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 import '../../theme/gabay_theme.dart';
 
@@ -38,8 +39,8 @@ class ViStatCard extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
+              fontSize: GabayTypography.hero,
+              fontWeight: GabayTypography.bold,
               color: context.gabay.textPrimary,
             ),
           ),
@@ -49,9 +50,9 @@ class ViStatCard extends StatelessWidget {
           Text(
             subtitle,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: GabayTypography.supporting,
               color: accentColor,
-              fontWeight: FontWeight.w600,
+              fontWeight: GabayTypography.semibold,
             ),
           ),
         ],

@@ -22,13 +22,31 @@ class FloatingBottomNavShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      type: MaterialType.transparency,
-      elevation: 0,
-      child: SafeArea(
-        top: false,
-        child: child,
-      ),
-    );
+    return SafeArea(top: false, child: child);
   }
+}
+
+/// Overlays only the floating pill; no full-width bottom-bar surface is built.
+class FloatingBottomNavLayout extends StatelessWidget {
+  const FloatingBottomNavLayout({
+    super.key,
+    required this.body,
+    required this.navigation,
+  });
+  final Widget body;
+  final Widget navigation;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      body,
+      Positioned(
+        left: 0,
+        right: 0,
+        bottom: 0,
+        child: FloatingBottomNavShell(child: navigation),
+      ),
+    ],
+  );
 }

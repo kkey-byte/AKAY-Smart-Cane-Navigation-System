@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -64,8 +65,6 @@ class NavigatorDestinationPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final g = context.gabay;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -89,31 +88,6 @@ class NavigatorDestinationPanel extends StatelessWidget {
             selectedQuery: selectedCategoryQuery,
             onSelected: onCategorySelected,
           ),
-          if (showPinHint &&
-              suggestions.isEmpty &&
-              !isSearching &&
-              !showEmptyState) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Search nearby places, or tap the map to pin a destination.',
-              style: TextStyle(
-                color: g.textSecondary,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w500,
-                height: 1.3,
-              ),
-            ),
-          ],
-          if (!isSearching &&
-              recentQueries.isNotEmpty &&
-              suggestions.isEmpty &&
-              controller.text.trim().isEmpty) ...[
-            const SizedBox(height: 8),
-            _RecentSearches(
-              queries: recentQueries,
-              onSelected: onRecentSelected,
-            ),
-          ],
           if (showEmptyState && !isSearching) ...[
             const SizedBox(height: 8),
             _EmptySearchState(onSearchWider: onSearchWider),
@@ -127,29 +101,6 @@ class NavigatorDestinationPanel extends StatelessWidget {
               onNavigate: onNavigatePlace,
             ),
           ],
-        ],
-        if (isNavigating && onCancelNavigation != null) ...[
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: onCancelNavigation,
-              style: TextButton.styleFrom(
-                foregroundColor: g.danger,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                minimumSize: const Size(48, 44),
-              ),
-              icon: Icon(Icons.stop_circle_outlined, color: g.danger, size: 20),
-              label: Text(
-                'End navigation',
-                style: TextStyle(
-                  color: g.danger,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ),
         ],
       ],
     );
@@ -186,41 +137,44 @@ class _SearchBarCard extends StatelessWidget {
     final g = context.gabay;
 
     return Material(
-      color: g.surface,
-      elevation: 3,
+      color: isNavigating ? g.surface : Colors.transparent,
+      elevation: isNavigating ? 3 : 0,
       shadowColor: g.shadow,
       borderRadius: BorderRadius.circular(28),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
+        padding: isNavigating
+            ? const EdgeInsets.fromLTRB(10, 8, 8, 8)
+            : EdgeInsets.zero,
         child: Row(
           children: [
-            if (isNavigating) Semantics(
-              label: isNavigating
-                  ? 'Currently navigating'
-                  : 'Your current location',
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: g.accent,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: g.accent.withValues(alpha: 0.28),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  isNavigating
-                      ? Icons.directions_walk_rounded
-                      : Icons.my_location_rounded,
-                  color: Colors.white,
-                  size: 22,
+            if (isNavigating)
+              Semantics(
+                label: isNavigating
+                    ? 'Currently navigating'
+                    : 'Your current location',
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: g.accent,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: g.accent.withValues(alpha: 0.28),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    isNavigating
+                        ? Icons.directions_walk_rounded
+                        : Icons.my_location_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                 ),
               ),
-            ),
             if (isNavigating) const SizedBox(width: 10),
             Expanded(
               child: isNavigating
@@ -232,8 +186,8 @@ class _SearchBarCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                            fontSize: GabayTypography.cardTitle,
+                            fontWeight: GabayTypography.medium,
                             color: g.textPrimary,
                             letterSpacing: -0.2,
                           ),
@@ -242,8 +196,8 @@ class _SearchBarCard extends StatelessWidget {
                         Text(
                           'Navigating',
                           style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
+                            fontSize: GabayTypography.supporting,
+                            fontWeight: GabayTypography.medium,
                             color: g.success,
                           ),
                         ),
@@ -259,8 +213,8 @@ class _SearchBarCard extends StatelessWidget {
                         onSubmitted: onSubmitted,
                         textInputAction: TextInputAction.search,
                         style: TextStyle(
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w600,
+                          fontSize: GabayTypography.body,
+                          fontWeight: GabayTypography.medium,
                           color: g.textPrimary,
                           letterSpacing: -0.1,
                         ),
@@ -271,8 +225,8 @@ class _SearchBarCard extends StatelessWidget {
                               'Search hospitals, schools, restaurants, landmarks...',
                           hintStyle: TextStyle(
                             color: g.textSecondary.withValues(alpha: 0.9),
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13.5,
+                            fontWeight: GabayTypography.medium,
+                            fontSize: GabayTypography.supporting,
                             height: 1.25,
                           ),
                         ),
@@ -291,8 +245,10 @@ class _SearchBarCard extends StatelessWidget {
             else if (isNavigating)
               Container(
                 margin: const EdgeInsets.only(right: 6),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: g.success.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(20),
@@ -301,8 +257,8 @@ class _SearchBarCard extends StatelessWidget {
                   'LIVE',
                   style: TextStyle(
                     color: g.success,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 11,
+                    fontWeight: GabayTypography.medium,
+                    fontSize: GabayTypography.caption,
                     letterSpacing: 0.4,
                   ),
                 ),
@@ -313,7 +269,10 @@ class _SearchBarCard extends StatelessWidget {
                   tooltip: 'Clear search',
                   onPressed: onClear,
                   icon: Icon(Icons.close_rounded, color: g.textSecondary),
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
                 ),
               if (onVoiceSearch != null)
                 IconButton(
@@ -321,15 +280,19 @@ class _SearchBarCard extends StatelessWidget {
                   onPressed: onVoiceSearch,
                   icon: Icon(
                     Icons.mic_none_rounded,
+                    size: 20,
                     color: g.textSecondary.withValues(alpha: 0.85),
                   ),
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
                 ),
               IconButton(
                 tooltip: 'Search destination',
                 onPressed: onSearchTap,
-                icon: Icon(Icons.search_rounded, color: g.accent, size: 26),
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                icon: Icon(Icons.search_rounded, color: g.accent, size: 22),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               ),
             ],
           ],
@@ -401,106 +364,54 @@ class _CategoryChips extends StatelessWidget {
         height: 40,
         child: ScrollConfiguration(
           behavior: ScrollConfiguration.of(context).copyWith(
-            dragDevices: {PointerDeviceKind.touch, PointerDeviceKind.mouse,
-              PointerDeviceKind.stylus, PointerDeviceKind.trackpad},
+            dragDevices: {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.mouse,
+              PointerDeviceKind.stylus,
+              PointerDeviceKind.trackpad,
+            },
           ),
           child: ListView.separated(
-          primary: false,
-          scrollDirection: Axis.horizontal,
-          itemCount: categories.length,
-          separatorBuilder: (_, _) => const SizedBox(width: 8),
-          itemBuilder: (context, index) {
-            final cat = categories[index];
-            final selected = selectedQuery == cat.query;
-            return FilterChip(
-              selected: selected,
-              showCheckmark: false,
-              avatar: Icon(
-                _iconFor(cat.icon),
-                size: 18,
-                color: selected ? Colors.white : g.accent,
-              ),
-              label: Text(
-                cat.label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: selected ? Colors.white : g.textPrimary,
+            primary: false,
+            scrollDirection: Axis.horizontal,
+            itemCount: categories.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final cat = categories[index];
+              final selected = selectedQuery == cat.query;
+              return FilterChip(
+                selected: selected,
+                showCheckmark: false,
+                avatar: Icon(
+                  _iconFor(cat.icon),
+                  size: 18,
+                  color: selected ? Colors.white : g.accent,
                 ),
-              ),
-              selectedColor: g.accent,
-              backgroundColor: g.chipBackground,
-              side: BorderSide(
-                color: selected ? g.accent : g.border.withValues(alpha: 0.8),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onSelected: (_) {
-                HapticFeedback.selectionClick();
-                onSelected(cat);
-              },
-            );
-          },
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RecentSearches extends StatelessWidget {
-  const _RecentSearches({
-    required this.queries,
-    required this.onSelected,
-  });
-
-  final List<String> queries;
-  final ValueChanged<String> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final g = context.gabay;
-
-    return Material(
-      color: g.surface,
-      elevation: 1,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Recent searches',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: g.textSecondary,
-                letterSpacing: 0.2,
-              ),
-            ),
-            const SizedBox(height: 4),
-            ...queries.take(5).map(
-              (q) => ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                minVerticalPadding: 0,
-                leading: Icon(Icons.history_rounded, color: g.textSecondary, size: 20),
-                title: Text(
-                  q,
+                label: Text(
+                  cat.label,
                   style: TextStyle(
-                    color: g.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontWeight: GabayTypography.medium,
+                    fontSize: GabayTypography.supporting,
+                    color: selected ? Colors.white : g.textPrimary,
                   ),
                 ),
-                onTap: () => onSelected(q),
-              ),
-            ),
-          ],
+                selectedColor: g.accent,
+                backgroundColor: g.chipBackground,
+                side: BorderSide(
+                  color: selected ? g.accent : g.border.withValues(alpha: 0.8),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onSelected: (_) {
+                  HapticFeedback.selectionClick();
+                  onSelected(cat);
+                },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -531,8 +442,8 @@ class _EmptySearchState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: g.textPrimary,
-                fontWeight: FontWeight.w700,
-                fontSize: 14.5,
+                fontWeight: GabayTypography.medium,
+                fontSize: GabayTypography.body,
               ),
             ),
             const SizedBox(height: 4),
@@ -541,7 +452,7 @@ class _EmptySearchState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: g.textSecondary,
-                fontSize: 12.5,
+                fontSize: GabayTypography.supporting,
                 height: 1.35,
               ),
             ),
@@ -669,8 +580,8 @@ class _DestinationResultCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: g.textPrimary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
+                        fontWeight: GabayTypography.medium,
+                        fontSize: GabayTypography.cardBody,
                         letterSpacing: -0.15,
                       ),
                     ),
@@ -705,7 +616,7 @@ class _DestinationResultCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: g.textSecondary,
-                        fontSize: 12.5,
+                        fontSize: GabayTypography.supporting,
                         height: 1.3,
                       ),
                     ),
@@ -718,8 +629,8 @@ class _DestinationResultCard extends StatelessWidget {
                         ].join(' · '),
                         style: TextStyle(
                           color: g.heading,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12.5,
+                          fontWeight: GabayTypography.medium,
+                          fontSize: GabayTypography.supporting,
                         ),
                       ),
                     ],
@@ -732,15 +643,19 @@ class _DestinationResultCard extends StatelessWidget {
                     tooltip: 'Speak destination details',
                     onPressed: onSpeak,
                     icon: Icon(Icons.volume_up_rounded, color: g.accent),
-                    constraints:
-                        const BoxConstraints(minWidth: 44, minHeight: 44),
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
                   ),
                   IconButton(
                     tooltip: 'Navigate to destination',
                     onPressed: onNavigate,
                     icon: Icon(Icons.directions_rounded, color: g.accent),
-                    constraints:
-                        const BoxConstraints(minWidth: 44, minHeight: 44),
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
                   ),
                 ],
               ),
@@ -753,11 +668,7 @@ class _DestinationResultCard extends StatelessWidget {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge({
-    required this.label,
-    required this.color,
-    required this.bg,
-  });
+  const _Badge({required this.label, required this.color, required this.bg});
 
   final String label;
   final Color color;
@@ -775,8 +686,8 @@ class _Badge extends StatelessWidget {
         label,
         style: TextStyle(
           color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
+          fontSize: GabayTypography.caption,
+          fontWeight: GabayTypography.medium,
         ),
       ),
     );

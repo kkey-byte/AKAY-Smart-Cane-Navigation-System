@@ -29,13 +29,113 @@ class MapPlaceService {
     http.Client? client,
     String? walkingRouteBase,
     this.apiBaseUrl,
+    String? reverseGeocodeBase,
+    this.reverseRequestInterval = const Duration(milliseconds: 1100),
   }) : _client = client ?? http.Client(),
+       _reverseGeocodeBase =
+           reverseGeocodeBase ??
+           const String.fromEnvironment(
+             'NOMINATIM_BASE_URL',
+             defaultValue: kIsWeb ? 'https://nominatim.openstreetmap.org' : '',
+           ),
        _walkingRouteBase =
            walkingRouteBase ??
            const String.fromEnvironment('OSRM_FOOT_BASE_URL');
   final String? apiBaseUrl;
   final http.Client _client;
   final String _walkingRouteBase;
+  final String _reverseGeocodeBase;
+  final Duration reverseRequestInterval;
+  final _reverseCache =
+      <String, ({DateTime expires, Map<String, dynamic>? data})>{};
+  final _reversePending = <String, Future<Map<String, dynamic>?>>{};
+  Future<void> _reverseQueue = Future.value();
+  DateTime? _lastReverseRequest;
+
+  Future<Map<String, dynamic>?> _reverseLookup(
+    LatLng point, {
+    bool forceRefresh = false,
+  }) {
+    final key =
+        '${point.latitude.toStringAsFixed(3)},${point.longitude.toStringAsFixed(3)}';
+    final pending = _reversePending[key];
+    if (pending != null) return pending;
+    final cached = _reverseCache[key];
+    if (!forceRefresh &&
+        cached != null &&
+        cached.expires.isAfter(DateTime.now())) {
+      return Future.value(cached.data);
+    }
+    final request = _reverseQueue.then((_) async {
+      Map<String, dynamic>? data;
+      try {
+        final base = Uri.tryParse(_reverseGeocodeBase);
+        if (base == null ||
+            base.scheme != 'https' ||
+            base.host.isEmpty ||
+            !point.latitude.isFinite ||
+            !point.longitude.isFinite ||
+            point.latitude.abs() > 90 ||
+            point.longitude.abs() > 180) {
+          return null;
+        }
+        final elapsed = _lastReverseRequest == null
+            ? reverseRequestInterval
+            : DateTime.now().difference(_lastReverseRequest!);
+        if (elapsed < reverseRequestInterval) {
+          await Future<void>.delayed(reverseRequestInterval - elapsed);
+        }
+        _lastReverseRequest = DateTime.now();
+        final uri =
+            Uri.parse(
+              '${_reverseGeocodeBase.replaceFirst(RegExp(r'/+$'), '')}/reverse',
+            ).replace(
+              queryParameters: {
+                'lat': point.latitude.toString(),
+                'lon': point.longitude.toString(),
+                'format': 'jsonv2',
+                'addressdetails': '1',
+                'zoom': '18',
+              },
+            );
+        final response = await _client
+            .get(
+              uri,
+              headers: {
+                'Accept': 'application/json',
+                if (!kIsWeb) 'User-Agent': _userAgent,
+              },
+            )
+            .timeout(const Duration(seconds: 12));
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          final decoded = jsonDecode(response.body);
+          if (decoded is Map<String, dynamic> &&
+              decoded['display_name'] is String &&
+              (decoded['display_name'] as String).trim().isNotEmpty) {
+            data = decoded;
+          }
+        }
+      } catch (_) {
+        // An address lookup must never interrupt route planning or GPS.
+      }
+      if (_reverseCache.length >= 128 && !_reverseCache.containsKey(key)) {
+        _reverseCache.remove(_reverseCache.keys.first);
+      }
+      _reverseCache[key] = (
+        expires: DateTime.now().add(
+          data == null ? const Duration(seconds: 30) : const Duration(hours: 1),
+        ),
+        data: data,
+      );
+      return data;
+    });
+    _reversePending[key] = request;
+    _reverseQueue = request.then<void>((_) {});
+    request.whenComplete(() {
+      _reversePending.remove(key);
+    });
+    return request;
+  }
 
   static final MapPlaceService instance = MapPlaceService();
 
@@ -77,50 +177,24 @@ class MapPlaceService {
   }
 
   /// Reverse-geocode a map pin into a [MapPlace].
-  Future<MapPlace> placeFromCoordinates(LatLng point) async {
+  Future<MapPlace> placeFromCoordinates(
+    LatLng point, {
+    bool forceRefresh = false,
+  }) async {
     final origin = NavigatorLocationService.instance.livePosition;
-    try {
-      if (!(_nominatimBase.startsWith('https://'))) {
-        throw StateError('Geocoder not configured.');
-      }
-      final uri = Uri.parse('$_nominatimBase/reverse').replace(
-        queryParameters: {
-          'lat': point.latitude.toString(),
-          'lon': point.longitude.toString(),
-          'format': 'json',
-          'addressdetails': '1',
-          'zoom': '18',
-        },
+    final body = await _reverseLookup(point, forceRefresh: forceRefresh);
+    if (body != null) {
+      final display = (body['display_name'] as String).trim();
+      final name =
+          _shortNameFromNominatim(body) ?? display.split(',').first.trim();
+      return MapPlace(
+        id: 'pin_${point.latitude}_${point.longitude}',
+        name: name,
+        address: display,
+        latitude: point.latitude,
+        longitude: point.longitude,
+        distance: origin == null ? null : _formatDistance(origin, point),
       );
-
-      final response = await _client
-          .get(
-            uri,
-            headers: {'Accept': 'application/json', 'User-Agent': _userAgent},
-          )
-          .timeout(const Duration(seconds: 12));
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        final body = jsonDecode(response.body);
-        if (body is Map<String, dynamic>) {
-          final display = (body['display_name'] as String?)?.trim();
-          final name =
-              _shortNameFromNominatim(body) ??
-              (display != null && display.isNotEmpty
-                  ? display.split(',').first.trim()
-                  : 'Pinned location');
-          return MapPlace(
-            id: 'pin_${point.latitude}_${point.longitude}',
-            name: name,
-            address: display ?? _coordLabel(point),
-            latitude: point.latitude,
-            longitude: point.longitude,
-            distance: origin == null ? null : _formatDistance(origin, point),
-          );
-        }
-      }
-    } catch (_) {
-      // Fall through to coordinate label.
     }
 
     return MapPlace(

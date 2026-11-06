@@ -155,6 +155,12 @@ class ProfileService {
     if (session.userId != null && bundle.userId != session.userId) {
       throw ProfileException('Profile identity could not be verified.');
     }
+    if (patient.address != null &&
+        bundle.patientProfile.address != patient.address) {
+      throw ProfileException(
+        'The server did not confirm your complete address. Your entries are still here; please try saving again.',
+      );
+    }
     await session.updateProfileCache(
       expectedIdentityRevision: revision,
       name: bundle.name ?? '',

@@ -1,3 +1,6 @@
+import '../../theme/gabay_typography.dart';
+import '../../widgets/shared/gabay_page_background.dart';
+import '../../widgets/shared/gabay_page_header.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -278,101 +281,109 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: g.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          'Route Planner',
-          style: TextStyle(
-            color: g.textPrimary,
-            fontWeight: FontWeight.w800,
-            fontSize: 20,
+
+      body: GabayPageBackground(
+        child: GabayScrollingPage(
+          header: GabayPageHeader(
+            title: 'Route Planner',
+            showBack: false,
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back_rounded, color: g.textPrimary),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            actions: const [],
           ),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              RouteSearchCard(
-                navigators:
-                    widget.linkedNavigators ??
-                    LinkedNavigatorService.navigators,
-                selectedNavigator: _selected,
-                onNavigatorChanged: (n) {
-                  _searchToken++;
-                  setState(() {
-                    _isSearching = false;
-                    _selected = n;
-                    if (!_useLiveOrigin) {
-                      _originAddress = n.address;
-                    }
-                  });
-                  unawaited(_loadRecentDestinations());
-                },
-                destinationController: _destinationController,
-                destinationFocusNode: _destinationFocus,
-                onSwap: () {},
-                suggestions: _suggestions,
-                onSuggestionSelected: (place) =>
-                    unawaited(_onSuggestionSelected(place)),
-                showNavigatorPicker: !widget.isNavigatorMode,
-                originAddress: _originAddress,
-                originTitle: widget.isNavigatorMode
-                    ? 'Your current location'
-                    : "${_selected.name}'s Location",
-                isSearching: _isSearching,
-                onSearch: () =>
-                    unawaited(_runSearch(_destinationController.text.trim())),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RouteSearchCard(
+                    navigators:
+                        widget.linkedNavigators ??
+                        LinkedNavigatorService.navigators,
+                    selectedNavigator: _selected,
+                    onNavigatorChanged: (n) {
+                      _searchToken++;
+                      setState(() {
+                        _isSearching = false;
+                        _selected = n;
+                        if (!_useLiveOrigin) {
+                          _originAddress = n.address;
+                        }
+                      });
+                      unawaited(_loadRecentDestinations());
+                    },
+                    destinationController: _destinationController,
+                    destinationFocusNode: _destinationFocus,
+                    onSwap: () {},
+                    suggestions: _suggestions,
+                    onSuggestionSelected: (place) =>
+                        unawaited(_onSuggestionSelected(place)),
+                    showNavigatorPicker: !widget.isNavigatorMode,
+                    originAddress: _originAddress,
+                    originTitle: widget.isNavigatorMode
+                        ? 'Your current location'
+                        : "${_selected.name}'s Location",
+                    isSearching: _isSearching,
+                    onSearch: () => unawaited(
+                      _runSearch(_destinationController.text.trim()),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Offstage(
+                    offstage: true,
+                    child: _RecentDestinationsSection(
+                      destinations: _recentDestinations,
+                      onDestinationTap: _useRecentDestination,
+                    ),
+                  ),
+                  if (_isSearching && _suggestions.isEmpty) ...[
+                    const SizedBox(height: 16),
+                    Center(
+                      child: Text(
+                        _routeRequestToken == _searchToken
+                            ? 'Preparing walking route...'
+                            : 'Searching nearest places...',
+                        style: TextStyle(
+                          color: g.textSecondary,
+                          fontSize: GabayTypography.supporting,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (_searchError != null) Text(_searchError!),
+                  if (_hasSearched &&
+                      _searchError == null &&
+                      !_isSearching &&
+                      _destinationController.text.trim().length >= 2 &&
+                      _suggestions.isEmpty) ...[
+                    const SizedBox(height: 16),
+                    Center(
+                      child: Text(
+                        'No nearby places found. Try another keyword.',
+                        style: TextStyle(
+                          color: g.textSecondary,
+                          fontSize: GabayTypography.supporting,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (widget.isNavigatorMode) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      'Tip: On the Track map, tap or long-press to pin a destination.',
+                      style: TextStyle(
+                        color: g.textSecondary,
+                        fontSize: GabayTypography.supporting,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(height: 20),
-              _RecentDestinationsSection(
-                destinations: _recentDestinations,
-                onDestinationTap: _useRecentDestination,
-              ),
-              if (_isSearching && _suggestions.isEmpty) ...[
-                const SizedBox(height: 16),
-                Center(
-                  child: Text(
-                    _routeRequestToken == _searchToken
-                        ? 'Preparing walking route...'
-                        : 'Searching nearest places...',
-                    style: TextStyle(color: g.textSecondary, fontSize: 13),
-                  ),
-                ),
-              ],
-              if (_searchError != null) Text(_searchError!),
-              if (_hasSearched &&
-                  _searchError == null &&
-                  !_isSearching &&
-                  _destinationController.text.trim().length >= 2 &&
-                  _suggestions.isEmpty) ...[
-                const SizedBox(height: 16),
-                Center(
-                  child: Text(
-                    'No nearby places found. Try another keyword.',
-                    style: TextStyle(color: g.textSecondary, fontSize: 13),
-                  ),
-                ),
-              ],
-              if (widget.isNavigatorMode) ...[
-                const SizedBox(height: 20),
-                Text(
-                  'Tip: On the Track map, tap or long-press to pin a destination.',
-                  style: TextStyle(
-                    color: g.textSecondary,
-                    fontSize: 13,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),
@@ -400,8 +411,8 @@ class _RecentDestinationsSection extends StatelessWidget {
           'Recent Destinations',
           style: TextStyle(
             color: g.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+            fontSize: GabayTypography.cardTitle,
+            fontWeight: GabayTypography.bold,
           ),
         ),
         const SizedBox(height: 8),
@@ -410,7 +421,10 @@ class _RecentDestinationsSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
               'No recent destinations yet.',
-              style: TextStyle(color: g.textSecondary, fontSize: 13),
+              style: TextStyle(
+                color: g.textSecondary,
+                fontSize: GabayTypography.supporting,
+              ),
             ),
           )
         else
@@ -442,15 +456,18 @@ class _RecentDestinationsSection extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: g.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                          fontSize: GabayTypography.body,
+                          fontWeight: GabayTypography.bold,
                         ),
                       ),
                       subtitle: Text(
                         destinations[index].shortAddress,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: g.textSecondary, fontSize: 12),
+                        style: TextStyle(
+                          color: g.textSecondary,
+                          fontSize: GabayTypography.caption,
+                        ),
                       ),
                       trailing: Icon(
                         Icons.north_east_rounded,

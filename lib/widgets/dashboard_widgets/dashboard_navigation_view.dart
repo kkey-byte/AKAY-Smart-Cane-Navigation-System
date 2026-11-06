@@ -1,3 +1,4 @@
+import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../models/dashboard_snapshot.dart';
@@ -92,8 +93,8 @@ class _DashboardNavigationViewState extends State<DashboardNavigationView> {
                       '${data.name} · Navigation overview',
                       style: TextStyle(
                         color: context.gabay.accent,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontSize: GabayTypography.supporting,
+                        fontWeight: GabayTypography.medium,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -101,14 +102,14 @@ class _DashboardNavigationViewState extends State<DashboardNavigationView> {
                       'Estimated arrival',
                       style: TextStyle(
                         color: context.gabay.textSecondary,
-                        fontSize: 10,
+                        fontSize: GabayTypography.chartLabel,
                       ),
                     ),
                     Text(
                       metrics[3].value,
                       style: TextStyle(
                         color: context.gabay.accent,
-                        fontSize: 12,
+                        fontSize: GabayTypography.caption,
                       ),
                     ),
                   ],
@@ -156,15 +157,15 @@ class _DashboardNavigationViewState extends State<DashboardNavigationView> {
                           'Unavailable',
                           style: TextStyle(
                             color: context.gabay.accent,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            fontSize: GabayTypography.supporting,
+                            fontWeight: GabayTypography.medium,
                           ),
                         ),
                         Text(
                           'Cane Battery',
                           style: TextStyle(
                             color: context.gabay.textSecondary,
-                            fontSize: 10,
+                            fontSize: GabayTypography.chartLabel,
                           ),
                         ),
                       ],
@@ -184,15 +185,15 @@ class _DashboardNavigationViewState extends State<DashboardNavigationView> {
                           data.status(widget.now),
                           style: TextStyle(
                             color: context.gabay.accent,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            fontSize: GabayTypography.supporting,
+                            fontWeight: GabayTypography.medium,
                           ),
                         ),
                         Text(
                           'Navigation status',
                           style: TextStyle(
                             color: context.gabay.textSecondary,
-                            fontSize: 10,
+                            fontSize: GabayTypography.chartLabel,
                           ),
                         ),
                       ],
@@ -235,7 +236,7 @@ class _DashboardNavigationViewState extends State<DashboardNavigationView> {
               data.trackingLabel(widget.now),
               style: TextStyle(
                 color: context.gabay.textPrimary,
-                fontWeight: FontWeight.w700,
+                fontWeight: GabayTypography.medium,
               ),
             ),
           ),
@@ -274,8 +275,8 @@ class _DashboardNavigationViewState extends State<DashboardNavigationView> {
                             item.value,
                             style: TextStyle(
                               color: context.gabay.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
+                              fontSize: GabayTypography.body,
+                              fontWeight: GabayTypography.medium,
                             ),
                           ),
                         ],

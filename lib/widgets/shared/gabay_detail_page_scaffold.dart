@@ -1,6 +1,9 @@
+import '../../theme/gabay_typography.dart';
+import 'gabay_page_background.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/gabay_theme.dart';
+import 'gabay_page_header.dart';
 
 class GabayDetailPageScaffold extends StatelessWidget {
   const GabayDetailPageScaffold({
@@ -8,68 +11,34 @@ class GabayDetailPageScaffold extends StatelessWidget {
     required this.title,
     required this.body,
     this.subtitle,
+    this.blueHeader = false,
   });
 
   final String title;
   final String? subtitle;
   final Widget body;
+  final bool blueHeader;
 
   @override
-  Widget build(BuildContext context) {
-    final g = context.gabay;
-
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+    body: GabayPageBackground(
+      child: GabayScrollingPage(
+        header: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 8, 20, 4),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: g.heading,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: g.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            GabayPageHeader(title: title),
             if (subtitle != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                child: Text(
-                  subtitle!,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: g.textSecondary,
-                    height: 1.4,
-                  ),
-                ),
+                child: Text(subtitle!, style: GabayTheme.bodyMedium(context)),
               ),
-            Expanded(child: body),
           ],
         ),
+        body: body,
       ),
-    );
-  }
+    ),
+  );
 }
 
 class GabayContentCard extends StatelessWidget {
@@ -102,24 +71,13 @@ class GabaySectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 2, bottom: 10),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: context.gabay.textSecondary,
-        ),
-      ),
+      child: Text(label, style: GabayTheme.sectionTitle(context)),
     );
   }
 }
 
 class GabayLegalSection extends StatelessWidget {
-  const GabayLegalSection({
-    super.key,
-    required this.title,
-    required this.body,
-  });
+  const GabayLegalSection({super.key, required this.title, required this.body});
 
   final String title;
   final String body;
@@ -136,8 +94,8 @@ class GabayLegalSection extends StatelessWidget {
           Text(
             title,
             style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
+              fontSize: GabayTypography.cardBody,
+              fontWeight: GabayTypography.medium,
               color: g.textPrimary,
             ),
           ),
@@ -145,10 +103,10 @@ class GabayLegalSection extends StatelessWidget {
           Text(
             body,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: GabayTypography.body,
               color: g.textSecondary,
               height: 1.55,
-              fontWeight: FontWeight.w400,
+              fontWeight: GabayTypography.regular,
             ),
           ),
         ],

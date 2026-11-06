@@ -1,14 +1,12 @@
+import '../../widgets/shared/gabay_dashboard_backdrop.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/gabay_notification.dart';
 import '../../services/app_session_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/profile_service.dart';
-import '../../theme/gabay_theme.dart';
-import '../../widgets/shared/dashboard_pairing_card.dart';
 import '../../widgets/dashboard_widgets/dashboard_header.dart';
 import '../../widgets/dashboard_widgets/dashboard_live_section.dart';
-import '../../widgets/dashboard_widgets/recorded_reports.dart';
 import '../../widgets/dashboard_widgets/activity_card.dart';
 import '../../widgets/dashboard_widgets/bottom_nav.dart';
 import '../../widgets/shared/floating_bottom_nav_shell.dart';
@@ -28,6 +26,14 @@ class CaregiverDashboard extends StatefulWidget {
 
 class _CaregiverDashboardState extends State<CaregiverDashboard> {
   int _selectedIndex = 0;
+  final _liveKey = GlobalKey<DashboardLiveSectionState>();
+  Future<void> _refreshHome() async {
+    await Future.wait([
+      _loadDisplayName(),
+      _liveKey.currentState?.refresh() ?? Future.value(),
+    ]);
+  }
+
   bool _profileLoading = true;
   bool _profileError = false;
   final _notificationService = NotificationService.instance;
@@ -40,7 +46,10 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
     _loadDisplayName();
   }
 
-  Future<void> _loadDisplayName() async {
+  Future<void>? _profileRequest;
+  Future<void> _loadDisplayName() => _profileRequest ??= _fetchDisplayName()
+      .whenComplete(() => _profileRequest = null);
+  Future<void> _fetchDisplayName() async {
     if (mounted) {
       setState(() {
         _profileLoading = true;
@@ -96,17 +105,18 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
     return Scaffold(
       extendBody: true,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: GabayTabBody(
-        index: _selectedIndex,
-        children: [
-          _buildDashboardPage(context),
-          const TrackPage(),
-          const ReportsPage(),
-          const ProfilePage(),
-        ],
-      ),
-      bottomNavigationBar: FloatingBottomNavShell(
-        child: BottomNav(
+      body: FloatingBottomNavLayout(
+        body: GabayTabBody(
+          index: _selectedIndex,
+          children: [
+            _buildDashboardPage(context),
+            const TrackPage(),
+            const ReportsPage(),
+            const ProfilePage(),
+          ],
+        ),
+        navigation: BottomNav(
+          dashboard: _selectedIndex == 0,
           currentIndex: _selectedIndex,
           onIndexChanged: _onNavTapped,
         ),
@@ -122,62 +132,77 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
   }
 
   Widget _buildDashboardPage(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          16,
-          20,
-          GabayNavMetrics.contentClearance,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListenableBuilder(
-              listenable: AppSessionService.instance,
-              builder: (context, _) {
-                final name = _displayName;
-                return Semantics(
-                  label: 'Caregiver: $name',
-                  child: DashboardHeader(
-                    greeting: 'Hello, Welcome back!',
-                    name: name,
-                    unreadCount: _notificationService.unreadCount,
-                    onNotificationTap: _openNotifications,
-                  ),
-                );
-              },
+    return GabayDashboardBackground(
+      child: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _refreshHome,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              16,
+              20,
+              GabayNavMetrics.contentClearance,
             ),
-            const SizedBox(height: 16),
-            DashboardLiveSection(
-              caregiver: true,
-              onViewMap: () => _onNavTapped(1),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ListenableBuilder(
+                  listenable: AppSessionService.instance,
+                  builder: (context, _) {
+                    final name = _displayName;
+                    return Semantics(
+                      label: 'Caregiver: $name',
+                      child: DashboardHeader(
+                        avatarUrl: AppSessionService.instance.profilePicture,
+                        greeting: 'Hello, Welcome back!',
+                        name: name,
+                        nameFontSize: 18,
+                        nameFontWeight: FontWeight.w400,
+                        unreadCount: _notificationService.unreadCount,
+                        onNotificationTap: _openNotifications,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                DashboardLiveSection(
+                  key: _liveKey,
+                  caregiver: true,
+                  onViewMap: () => _onNavTapped(1),
+                ),
+                const SizedBox(height: 16),
+                if (_profileLoading)
+                  const LinearProgressIndicator(
+                    semanticsLabel: 'Loading profile',
+                  ),
+                if (_profileError)
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Text(
+                        'Profile refresh failed. Cached details may be out of date.',
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor:
+                              GabayDashboardBackdrop.secondaryColor(context),
+                        ),
+                        onPressed: _loadDisplayName,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 16),
+                Text(
+                  'Recent Activity',
+                  style: GabayDashboardBackdrop.headingStyle(context),
+                ),
+                const SizedBox(height: 14),
+                const RecentActivityList(),
+              ],
             ),
-            const SizedBox(height: 20),
-            const DashboardPairingCard(caregiver: true),
-            const SizedBox(height: 16),
-            if (_profileLoading)
-              const LinearProgressIndicator(semanticsLabel: 'Loading profile'),
-            if (_profileError)
-              Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  const Text(
-                    'Profile refresh failed. Cached details may be out of date.',
-                  ),
-                  TextButton(
-                    onPressed: _loadDisplayName,
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            const SizedBox(height: 20),
-            const RecordedReports(caregiver: true, compact: true),
-            const SizedBox(height: 16),
-            Text('Recent Activity', style: GabayTheme.sectionTitle(context)),
-            const SizedBox(height: 14),
-            const RecentActivityList(),
-          ],
+          ),
         ),
       ),
     );
