@@ -76,8 +76,12 @@ class BreadcrumbService extends ChangeNotifier with WidgetsBindingObserver {
       },
       backgroundRecording: (enabled) async {
         if (!enabled) LiveLocationService.instance.sharingEnabled = false;
-        if (!enabled && FirebaseAuth.instance.currentUser != null) {
-          await LiveLocationService.instance.clear();
+        final owner = recorder?.ownerId;
+        if (!enabled &&
+            owner != null &&
+            FirebaseAuth.instance.currentUser?.uid == owner) {
+          // Delayed logout cleanup must never remove a newly signed-in user's node.
+          await LiveLocationService.instance.clear(deviceId: 'phone_$owner');
         }
         await location.setBackgroundRecording(enabled);
         LiveLocationService.instance.sharingEnabled = enabled;

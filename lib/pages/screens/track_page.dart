@@ -16,6 +16,7 @@ import '../../models/route_plan.dart';
 import '../../models/search_destination.dart';
 import '../../services/destination_search_service.dart';
 import '../../services/gabay_tts_service.dart';
+import '../../services/navigation_voice_service.dart';
 import '../../services/map_place_service.dart';
 import '../../services/app_session_service.dart';
 import '../../models/dashboard_snapshot.dart';
@@ -55,9 +56,18 @@ import 'route_planner_page.dart';
 enum TrackPageRole { caregiver, navigator }
 
 class TrackPage extends StatefulWidget {
-  const TrackPage({super.key, this.role = TrackPageRole.caregiver});
+  const TrackPage({
+    super.key,
+    this.role = TrackPageRole.caregiver,
+    this.dashboardService,
+    this.firebaseAuth,
+    this.watchSharedNavigators,
+  });
 
   final TrackPageRole role;
+  final DashboardService? dashboardService;
+  final FirebaseAuth? firebaseAuth;
+  final Stream<Map<String, String>> Function(String uid)? watchSharedNavigators;
 
   @override
   State<TrackPage> createState() => TrackPageState();
@@ -75,14 +85,16 @@ class TrackPageState extends State<TrackPage> {
         child: GabayTrackMap(
           key: ValueKey(route),
           initialCamera: _initialCamera,
-          markers: _buildNavigatorMarkerData(),
+          markers: _buildMarkerData(),
           routePoints: route.polylinePoints,
           padding: EdgeInsets.zero,
           onControllerReady: (controller) {
+            final position = _isNavigatorMode
+                ? _locationService.livePosition
+                : _patientPosition(_selectedNavigatorId);
             final points = [
               ...route.polylinePoints,
-              if (_locationService.livePosition != null)
-                _locationService.livePosition!,
+              ?position,
               route.destination.latLng,
             ];
             unawaited(controller.fitBounds(points, padding: 36));
@@ -138,6 +150,7 @@ class TrackPageState extends State<TrackPage> {
   Map<String, String> _patientNames = {};
   Timer? _freshnessTimer;
   int _patientGeneration = 0;
+  int _caregiverAccountGeneration = 0;
   String? _patientError;
 
   final _timelineTracker = RouteTimelineTracker.instance;
@@ -159,13 +172,20 @@ class TrackPageState extends State<TrackPage> {
   bool get _isNavigating => _activeRoute != null;
 
   CameraPosition get _initialCamera {
-    // Prefer a real GPS fix; never bootstrap on the old Panabo mock pin.
-    final live = _locationService.livePosition;
+    // Caregiver monitoring must never fall back to the local device's fix.
+    final live = _isNavigatorMode
+        ? _locationService.livePosition
+        : _patientPosition(_selectedNavigatorId);
     final target = live ?? GabayMapDefaults.mapCenter;
     return CameraPosition(
       target: target,
       zoom: (live != null) ? 16 : GabayMapDefaults.defaultZoom,
     );
+  }
+
+  LatLng? _patientPosition(String uid) {
+    final data = _patientLive[uid];
+    return data?.position ?? data?.points.lastOrNull;
   }
 
   LinkedNavigator get _selectedNavigator {
@@ -226,9 +246,10 @@ class TrackPageState extends State<TrackPage> {
 
     _timelineTracker.addListener(_onTimelineUpdated);
 
-    _locationService.addListener(_onLocationUpdated);
-    unawaited(_bootstrapLiveLocation());
     if (_isNavigatorMode) {
+      _voiceGuidanceEnabled = NavigationVoiceService.instance.enabled;
+      _locationService.addListener(_onLocationUpdated);
+      unawaited(_bootstrapLiveLocation());
       unawaited(_loadRecentSearches());
     } else {
       _watchCaregiverLocations();
@@ -238,15 +259,29 @@ class TrackPageState extends State<TrackPage> {
   }
 
   void _watchCaregiverLocations() {
-    _caregiverAuth = FirebaseAuth.instance.authStateChanges().listen((user) {
-      unawaited(_caregiverLinks?.cancel());
-      _replacePatients({});
-      if (user == null) return;
-      _caregiverLinks = BreadcrumbService.instance.repository
-          .watchLinks(user.uid)
-          .listen(
-            _replacePatients,
+    _caregiverAuth = (widget.firebaseAuth ?? FirebaseAuth.instance)
+        .authStateChanges()
+        .listen((user) {
+          final accountGeneration = ++_caregiverAccountGeneration;
+          unawaited(_caregiverLinks?.cancel());
+          _replacePatients({});
+          if (user == null) return;
+          final watchLinks =
+              widget.watchSharedNavigators ??
+              BreadcrumbService.instance.repository.watchLinks;
+          _caregiverLinks = watchLinks(user.uid).listen(
+            (patients) {
+              if (!mounted ||
+                  accountGeneration != _caregiverAccountGeneration) {
+                return;
+              }
+              _replacePatients(patients);
+            },
             onError: (Object error) {
+              if (!mounted ||
+                  accountGeneration != _caregiverAccountGeneration) {
+                return;
+              }
               _replacePatients({});
               if (mounted) {
                 setState(
@@ -256,7 +291,7 @@ class TrackPageState extends State<TrackPage> {
               }
             },
           );
-    });
+        });
     _freshnessTimer = Timer.periodic(
       const Duration(seconds: 15),
       (_) => _refreshPatientLocations(),
@@ -302,12 +337,12 @@ class TrackPageState extends State<TrackPage> {
     setState(() {});
     for (final owner in patients.keys) {
       _liveLocationSubscriptions.add(
-        DashboardService.instance
+        (widget.dashboardService ?? DashboardService.instance)
             .watch(owner)
             .listen(
               (data) {
                 if (!mounted || generation != _patientGeneration) return;
-                final hadLocation = _patientLive[owner]?.position != null;
+                final hadLocation = _patientPosition(owner) != null;
                 if (data.uid != owner) {
                   _patientLive.remove(owner);
                 } else {
@@ -316,7 +351,7 @@ class TrackPageState extends State<TrackPage> {
                 _refreshPatientLocations();
                 if (!hadLocation &&
                     owner == _selectedNavigatorId &&
-                    _selectedNavigator.lastLocationUpdated != null) {
+                    _patientPosition(owner) != null) {
                   unawaited(_focusOnNavigator(_selectedNavigator));
                 }
               },
@@ -361,6 +396,7 @@ class TrackPageState extends State<TrackPage> {
   }
 
   Future<void> _bootstrapLiveLocation() async {
+    if (!_isNavigatorMode) return;
     await _locationService.startTracking();
     if (!mounted) return;
 
@@ -379,7 +415,7 @@ class TrackPageState extends State<TrackPage> {
   }
 
   void _onLocationUpdated() {
-    if (!mounted) return;
+    if (!mounted || !_isNavigatorMode) return;
     setState(() {});
     _centerOnDeviceOnce();
     // Camera follow is handled by GabayTrackMap via [followTarget].
@@ -401,6 +437,7 @@ class TrackPageState extends State<TrackPage> {
   }
 
   void _centerOnDeviceOnce() {
+    if (!_isNavigatorMode) return;
     final live = _locationService.livePosition;
     if (_centeredOnDevice || live == null || _mapController == null) return;
     _centeredOnDevice = true;
@@ -443,6 +480,7 @@ class TrackPageState extends State<TrackPage> {
 
   @override
   void dispose() {
+    _caregiverAccountGeneration++;
     _patientGeneration++;
     unawaited(_caregiverAuth?.cancel());
     unawaited(_caregiverLinks?.cancel());
@@ -451,7 +489,9 @@ class TrackPageState extends State<TrackPage> {
 
     _timelineTracker.removeListener(_onTimelineUpdated);
 
-    _locationService.removeListener(_onLocationUpdated);
+    if (_isNavigatorMode) {
+      _locationService.removeListener(_onLocationUpdated);
+    }
     if (_isNavigatorMode && !BreadcrumbService.instance.trackingRequested) {
       _locationService.stopTracking();
     }
@@ -459,7 +499,7 @@ class TrackPageState extends State<TrackPage> {
       unawaited(subscription.cancel());
     }
 
-    unawaited(_tts.stop());
+    if (!NavigationVoiceService.instance.ownsSpeech) unawaited(_tts.stop());
     _destinationController.dispose();
     _destinationFocusNode.dispose();
 
@@ -636,6 +676,10 @@ class TrackPageState extends State<TrackPage> {
         estimatedDistance: _activeRoute?.estimatedDistance,
       );
       _timelineTracker.startTracking(result.destination);
+      NavigationVoiceService.instance.start(
+        result,
+        enabled: _voiceGuidanceEnabled,
+      );
       await _persistNavigationStart(result);
       await _fitRouteOnMap(result);
       if (mounted && token == _destinationSearchToken) {
@@ -773,11 +817,10 @@ class TrackPageState extends State<TrackPage> {
   }
 
   Future<void> _focusOnNavigator(LinkedNavigator navigator) async {
-    if (!_isNavigatorMode && navigator.lastLocationUpdated == null) return;
-
     final target = _isNavigatorMode
         ? _liveNavigatorPosition
-        : navigator.location;
+        : _patientPosition(navigator.id);
+    if (target == null) return;
 
     await _mapController?.animateToLatLng(target, zoom: 15);
   }
@@ -786,11 +829,9 @@ class TrackPageState extends State<TrackPage> {
     if (_mapController == null) return;
 
     final points = _navigators
-        .where((navigator) => navigator.lastLocationUpdated != null)
-        .map((navigator) => navigator.location)
+        .map((navigator) => _patientPosition(navigator.id))
+        .whereType<LatLng>()
         .toList();
-    final deviceLocation = _locationService.livePosition;
-    if (deviceLocation != null) points.add(deviceLocation);
 
     await _mapController!.fitBounds(points, padding: 80);
   }
@@ -854,6 +895,11 @@ class TrackPageState extends State<TrackPage> {
         destination: _activeRoute?.destination.name,
         estimatedTime: _activeRoute?.estimatedTime,
         estimatedDistance: _activeRoute?.estimatedDistance,
+      );
+
+      NavigationVoiceService.instance.start(
+        stamped,
+        enabled: _voiceGuidanceEnabled,
       );
 
       await _persistNavigationStart(result);
@@ -952,20 +998,7 @@ class TrackPageState extends State<TrackPage> {
       return _buildNavigatorMarkerData();
     }
 
-    final markers = <GabayMapMarkerData>[
-      if (_locationService.livePosition != null)
-        GabayMapMarkerData(
-          id: 'caregiver',
-
-          position: _locationService.livePosition!,
-
-          kind: GabayMapMarkerKind.caregiver,
-
-          title: 'Your current location',
-
-          snippet: _locationService.address,
-        ),
-    ];
+    final markers = <GabayMapMarkerData>[];
 
     for (var i = 0; i < _navigators.length; i++) {
       final navigator = _navigators[i];
@@ -1202,6 +1235,10 @@ class TrackPageState extends State<TrackPage> {
                   if (live != null) {
                     unawaited(controller.animateToLatLng(live, zoom: 16));
                   }
+                } else if (_showAllNavigatorsOnMap) {
+                  unawaited(_fitAllNavigatorsOnMap());
+                } else {
+                  unawaited(_focusOnNavigator(_selectedNavigator));
                 }
                 _centerOnDeviceOnce();
               },
@@ -1358,6 +1395,8 @@ class TrackPageState extends State<TrackPage> {
                   setState(
                     () => _voiceGuidanceEnabled = !_voiceGuidanceEnabled,
                   );
+                  NavigationVoiceService.instance.enabled =
+                      _voiceGuidanceEnabled;
                   _showSnack(
                     _voiceGuidanceEnabled
                         ? 'Voice guidance enabled'

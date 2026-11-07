@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,7 @@ import 'navigator_location_service.dart';
 import 'auth_service.dart';
 import 'notification_service.dart';
 import 'vi_navigation_session.dart';
+import 'live_location_service.dart';
 
 /// Persists auth session and onboarding state locally.
 /// Ready to sync with the PostgreSQL-backed auth API.
@@ -31,6 +33,10 @@ class AppSessionService extends ChangeNotifier {
   static const _keyProfileComplete = 'profileComplete';
 
   int identityRevision = 0;
+  Future<void>? _logoutFuture;
+
+  /// New authentication must not race the previous Firebase sign-out or storage clear.
+  Future<void> get pendingLogout => _logoutFuture ?? Future<void>.value();
   bool _initialized = false;
   bool isLoggedIn = false;
   bool onboardingComplete = false;
@@ -86,6 +92,7 @@ class AppSessionService extends ChangeNotifier {
     String? id,
     String? token,
   }) async {
+    await pendingLogout;
     final prefs = await SharedPreferences.getInstance();
     identityRevision++;
     if (userId != id || email != userEmail || !isLoggedIn) {
@@ -133,6 +140,7 @@ class AppSessionService extends ChangeNotifier {
     String? id,
     String? token,
   }) async {
+    await pendingLogout;
     final prefs = await SharedPreferences.getInstance();
     identityRevision++;
     if (userId != id || email != userEmail || !isLoggedIn) {
@@ -248,9 +256,18 @@ class AppSessionService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> logout({Future<void> Function()? signOut}) async {
+  Future<void> logout({
+    Future<void> Function()? signOut,
+    Future<void> Function()? cleanupTracking,
+  }) {
+    if (_logoutFuture != null) return _logoutFuture!;
+    final completion = Completer<void>();
+    _logoutFuture = completion.future;
     identityRevision++;
+    final revision = identityRevision;
     isLoggedIn = false;
+    onboardingComplete = false;
+    profileComplete = false;
     displayName = null;
     phone = null;
     profilePicture = null;
@@ -259,42 +276,58 @@ class AppSessionService extends ChangeNotifier {
     authToken = null;
     role = null;
     setupData = const OnboardingSetupData();
+    LiveLocationService.instance.sharingEnabled = false;
+    NavigatorLocationService.instance.stopTracking(clearLocation: true);
     NotificationService.instance.clearAll();
     ViNavigationSession.instance.setNavigating(false);
     notifyListeners();
+
+    // Firebase and local storage are critical; neither waits for GPS/cloud cleanup.
+    final signingOut = Future<void>.sync(
+      () => (signOut ?? AuthService.instance.signOut)(),
+    );
+    final clearingStorage = _clearStoredSession();
+    unawaited(
+      Future<void>.sync(() async {
+        await (cleanupTracking ?? BreadcrumbService.instance.stop)();
+        if (identityRevision == revision && !isLoggedIn) {
+          await BreadcrumbService.instance.recorder?.openAccount(null);
+        }
+      }).catchError((Object _) {
+        debugPrint('Track cleanup unavailable after logout.');
+      }),
+    );
+    Future.wait([signingOut, clearingStorage]).then(
+      (_) {
+        _logoutFuture = null;
+        completion.complete();
+      },
+      onError: (Object error, StackTrace stack) {
+        _logoutFuture = null;
+        completion.completeError(error, stack);
+      },
+    );
+    return completion.future;
+  }
+
+  Future<void> _clearStoredSession() async {
     final prefs = await SharedPreferences.getInstance();
-    isLoggedIn = false;
-    onboardingComplete = false;
-    role = null;
-    email = null;
-    userId = null;
-    authToken = null;
-    displayName = null;
-    phone = null;
-    profilePicture = null;
-    profileComplete = false;
-    setupData = const OnboardingSetupData();
-
-    await prefs.remove(_keyLoggedIn);
-    await prefs.remove(_keyOnboardingComplete);
-    await prefs.remove(_keyRole);
-    await prefs.remove(_keyEmail);
-    await prefs.remove(_keyUserId);
-    await prefs.remove(_keyAuthToken);
-    await prefs.remove(_keyOnboardingData);
-    await prefs.remove(_keyDisplayName);
-    await prefs.remove(_keyPhone);
-    await prefs.remove(_keyProfilePicture);
-    await prefs.remove(_keyProfileComplete);
-
-    notifyListeners();
-    try {
-      await BreadcrumbService.instance.stop();
-      await BreadcrumbService.instance.recorder?.openAccount(null);
-    } finally {
-      NavigatorLocationService.instance.stopTracking(clearLocation: true);
-      await (signOut ?? AuthService.instance.signOut)();
-    }
+    await Future.wait([
+      for (final key in [
+        _keyLoggedIn,
+        _keyOnboardingComplete,
+        _keyRole,
+        _keyEmail,
+        _keyUserId,
+        _keyAuthToken,
+        _keyOnboardingData,
+        _keyDisplayName,
+        _keyPhone,
+        _keyProfilePicture,
+        _keyProfileComplete,
+      ])
+        prefs.remove(key),
+    ]);
   }
 
   Future<void> _saveSetupData(SharedPreferences prefs) async {

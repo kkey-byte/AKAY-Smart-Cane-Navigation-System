@@ -56,7 +56,7 @@ void main() {
         ],
       );
       await repository.save(updated);
-      expect(root.writes.last.containsKey('points/00000000'), isFalse);
+      expect(root.writes.last.containsKey('points/00000000'), isTrue);
       expect(root.writes.last['points/00000001'], updated.points.last.toJson());
       await repository.save(
         updated.copyWith(
@@ -67,7 +67,7 @@ void main() {
       expect(root.writes.last['status'], 'completed');
       expect(
         root.writes.last.keys.where((key) => key.startsWith('points/')),
-        isEmpty,
+        hasLength(1),
       );
       // After restart, deterministic point keys safely overwrite rather than duplicate.
       await FirebaseBreadcrumbRepository(root: root).save(updated);

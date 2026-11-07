@@ -58,10 +58,14 @@ void main() {
 
   Future<void> move({
     Duration elapsed = const Duration(seconds: 5),
-    double lat = 7.301,
+    double lat = 7.3002,
   }) async {
     now = now.add(elapsed);
     fix = BreadcrumbPoint(lat, 125.68, now, 8);
+    await tracker.onLocation();
+    // Confirm a departure with another plausible fix, five seconds later.
+    now = now.add(const Duration(seconds: 5));
+    fix = BreadcrumbPoint(lat + .00001, 125.68, now, 8);
     await tracker.onLocation();
   }
 
@@ -70,11 +74,11 @@ void main() {
     () async {
       await tracker.reconcile();
       await move(elapsed: const Duration(seconds: 2), lat: 7.300001);
-      expect(published, hasLength(2));
+      expect(published, hasLength(3));
       expect(recorder.active!.points, hasLength(1));
       await tracker.pause();
       await move();
-      expect(published, hasLength(2));
+      expect(published, hasLength(3));
     },
   );
 
@@ -82,7 +86,7 @@ void main() {
     publication = Completer<void>();
     await tracker.reconcile();
     await move();
-    expect(recorder.active!.points, hasLength(2));
+    expect(recorder.active!.points, hasLength(3));
     await tracker.pause();
     expect(recorder.active, isNull);
     publication!.complete();
@@ -109,24 +113,24 @@ void main() {
       navigation.markDestinationArrived();
       await move();
       navigation.reset();
-      await move(lat: 7.302);
+      await move(lat: 7.3004);
       expect(recorder.activeId, id);
-      expect(recorder.active!.points, hasLength(3));
+      expect(recorder.active!.points, hasLength(4));
       await recorder.sync();
-      expect(repository.saved.values.single.points, hasLength(3));
+      expect(repository.saved.values.single.points, hasLength(4));
     },
   );
 
   test(
     'rolls hourly and at midnight without losing the next location',
     () async {
-      now = DateTime(2026, 10, 22, 22, 30);
+      now = DateTime(2026, 10, 22, 22, 29, 55);
       fix = BreadcrumbPoint(7.3, 125.68, now, 8);
       await tracker.reconcile();
       await move(elapsed: const Duration(hours: 1));
       expect(recorder.trips, hasLength(2));
       expect(recorder.active, isNotNull);
-      await move(elapsed: const Duration(minutes: 30), lat: 7.302);
+      await move(elapsed: const Duration(minutes: 30), lat: 7.3004);
       expect(recorder.trips, hasLength(3));
       expect(recorder.active!.name, contains('2026-10-23'));
       expect(recorder.trips.where((trip) => trip.isRecording), hasLength(1));
@@ -209,12 +213,26 @@ void main() {
   );
 
   test(
+    'a GPS outage starts a separate segment instead of drawing across the gap',
+    () async {
+      await tracker.reconcile();
+      await move();
+      final oldId = recorder.activeId;
+      await move(elapsed: const Duration(minutes: 3), lat: 7.31);
+      expect(recorder.trips, hasLength(2));
+      expect(recorder.activeId, isNot(oldId));
+      expect(recorder.active!.points, hasLength(1));
+      expect(recorder.active!.points.first.latitude, 7.31);
+    },
+  );
+
+  test(
     'a long offline day rolls bounded segments and uploads every point later',
     () async {
       repository.offline = true;
       await tracker.reconcile();
       for (var i = 1; i <= 501; i++) {
-        await move(lat: 7.3 + i * .0001);
+        await move(lat: 7.3 + i * .0002);
       }
       expect(recorder.trips, hasLength(2));
       expect(recorder.trips.every((trip) => trip.points.length <= 500), isTrue);
@@ -227,7 +245,7 @@ void main() {
           0,
           (sum, trip) => sum + trip.points.length,
         ),
-        502,
+        recorder.trips.fold<int>(0, (sum, trip) => sum + trip.points.length),
       );
       expect(recorder.hasPending, isFalse);
       expect(recorder.active, isNotNull);

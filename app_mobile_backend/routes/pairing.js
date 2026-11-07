@@ -8,6 +8,8 @@ const {createPairingService,ApiError}=require('../services/pairingService');
 const service=createPairingService(pool,usersTable);
 const accountPairings=require('../services/accountPairingService').createAccountPairingService(pool,usersTable);
 const dashboard=require('../services/dashboardService').createDashboardService(pool,service.authorize,firebase);
+const health=require('../services/navigatorHealthService').createNavigatorHealthService(
+  pool,service.authorize,usersTable,require('../database/ensurePatientProfilesTable').patientProfilesTable);
 const router=express.Router();
 router.use((_req,res,next)=>{res.set('Cache-Control','no-store');next();});
 const route=fn=>async(req,res,next)=>{try {res.json(await fn(req));} catch(error){next(error);}};
@@ -22,6 +24,7 @@ router.get('/device-assignment',route(req=>{const [id,key]=machine(req); return 
 router.use(verifyFirebase,requireProfile);
 router.post('/dashboard/presence',route(req=>dashboard.presence(req.actor,req.body?.active)));
 router.get('/navigators/:uid/dashboard',route(req=>dashboard.snapshot(req.actor,req.params.uid)));
+router.get('/navigators/:uid/health',route(req=>health.snapshot(req.actor,req.params.uid)));
 router.post('/pairings/codes',route(req=>accountPairings.generate(req.actor,req.body||{})));
 router.post('/pairings/redeem',route(req=>accountPairings.redeem(req.actor,req.body||{},req.ip)));
 router.get('/pairings',route(async req=>({pairings:await accountPairings.list(req.actor)})));

@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/app_session_service.dart';
 import '../../services/profile_service.dart';
 import '../../widgets/profile/profile_menu_widgets.dart';
-import '../../widgets/shared/gabay_page_route.dart';
-import '../login_page.dart';
+import '../../navigation/logout_router.dart';
 import '../shared/change_password_page.dart';
 import '../shared/edit_profile_page.dart';
 import 'navigator_health_details_page.dart';
@@ -13,7 +12,8 @@ import 'linked_navigator_cane_page.dart';
 export '../shared/change_password_page.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  const ProfilePage({super.key, this.logout});
+  final Future<void> Function()? logout;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -138,15 +138,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           ],
-          onLogout: () async {
-            await AppSessionService.instance.logout();
-            if (!context.mounted) return;
-            Navigator.pushAndRemoveUntil(
-              context,
-              GabayPageRoute(page: const LoginPage()),
-              (_) => false,
-            );
-          },
+          onLogout: () => LogoutRouter.logout(context, logout: widget.logout),
         );
       },
     );

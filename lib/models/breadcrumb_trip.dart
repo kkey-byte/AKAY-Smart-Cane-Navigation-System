@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -143,8 +144,9 @@ class BreadcrumbTrip {
   }
 }
 
-/// Ignore duplicate notifications, inaccurate fixes and small GPS jitter.
-/// A stationary fix every 30 seconds keeps freshness truthful.
+/// With no previous point, validate the raw fix for live publication. Otherwise
+/// require displacement outside the combined accuracy margins; time alone is
+/// never evidence of movement.
 bool shouldRecordBreadcrumb(
   BreadcrumbPoint? previous,
   BreadcrumbPoint next,
@@ -165,6 +167,8 @@ bool shouldRecordBreadcrumb(
     next.latitude,
     next.longitude,
   );
-  return elapsed >= const Duration(seconds: 30) ||
-      (elapsed >= const Duration(seconds: 5) && distance >= 5);
+  final uncertainty = math.max(8.0, previous.accuracy + next.accuracy);
+  return elapsed >= const Duration(seconds: 5) &&
+      distance > uncertainty &&
+      distance <= 12 * elapsed.inMilliseconds / 1000 + uncertainty;
 }

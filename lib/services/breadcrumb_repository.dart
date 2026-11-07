@@ -31,7 +31,9 @@ class FirebaseBreadcrumbRepository implements BreadcrumbRepository {
       'endedAt': trip.endedAt?.millisecondsSinceEpoch,
       'status': trip.status,
     };
-    for (var i = _uploadedPoints[path] ?? 0; i < trip.points.length; i++) {
+    // The last vertex can receive a stationary freshness aggregation.
+    final uploaded = _uploadedPoints[path] ?? 0;
+    for (var i = uploaded > 0 ? uploaded - 1 : 0; i < trip.points.length; i++) {
       payload['points/${i.toString().padLeft(8, '0')}'] = trip.points[i]
           .toJson();
     }

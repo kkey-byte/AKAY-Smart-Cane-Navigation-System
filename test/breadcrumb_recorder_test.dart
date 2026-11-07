@@ -41,7 +41,7 @@ void main() {
       expect(shouldRecordBreadcrumb(null, first, now), isTrue);
       expect(shouldRecordBreadcrumb(first, first, now), isFalse);
       expect(shouldRecordBreadcrumb(first, point(7.300001, 3), now), isFalse);
-      expect(shouldRecordBreadcrumb(first, point(7.301, 5), now), isTrue);
+      expect(shouldRecordBreadcrumb(first, point(7.3002, 5), now), isTrue);
       expect(
         shouldRecordBreadcrumb(first, point(7.301, 3, accuracy: 100), now),
         isFalse,
@@ -54,7 +54,7 @@ void main() {
           point(7.3, 30),
           now.add(const Duration(seconds: 30)),
         ),
-        isTrue,
+        isFalse,
       );
     },
   );
@@ -71,8 +71,12 @@ void main() {
       await recorder.start('Repeated tap', point(7.3, 0));
       expect(recorder.trips, hasLength(1));
       await recorder.record(
-        point(7.301, 5),
+        point(7.3002, 5),
         now.add(const Duration(seconds: 5)),
+      );
+      await recorder.record(
+        point(7.3003, 10),
+        now.add(const Duration(seconds: 10)),
       );
       await recorder.sync();
       expect(recorder.hasPending, isTrue);
@@ -81,11 +85,11 @@ void main() {
       await restored.openAccount('navigator-a');
       expect(restored.active, isNull);
       expect(restored.trips.single.status, 'interrupted');
-      expect(restored.trips.single.points, hasLength(2));
+      expect(restored.trips.single.points, hasLength(3));
       repository.offline = false;
       await restored.sync();
       expect(restored.hasPending, isFalse);
-      expect(repository.saved.values.single.points, hasLength(2));
+      expect(repository.saved.values.single.points, hasLength(3));
       await restored.openAccount('navigator-b');
       expect(restored.trips, isEmpty);
       await restored.openAccount('navigator-a');
@@ -105,11 +109,15 @@ void main() {
       await recorder.openAccount('owner');
       await recorder.start('Trip', point(7.3, 0));
       await recorder.record(
-        point(7.301, 5),
+        point(7.3002, 5),
         now.add(const Duration(seconds: 5)),
       );
+      await recorder.record(
+        point(7.3003, 10),
+        now.add(const Duration(seconds: 10)),
+      );
       expect(
-        recorder.active!.isFresh(now.add(const Duration(seconds: 6))),
+        recorder.active!.isFresh(now.add(const Duration(seconds: 11))),
         isTrue,
       );
       expect(
@@ -122,7 +130,7 @@ void main() {
       expect(saved.isFresh(now), isFalse);
       final parsed = BreadcrumbTrip.parse(saved.id, saved.toJson())!;
       expect(parsed.status, 'completed');
-      expect(parsed.points.last.latitude, 7.301);
+      expect(parsed.points.last.latitude, 7.3003);
       expect(parsed.ownerId, 'owner');
       expect(BreadcrumbPoint.parse({'latitude': double.nan}), isNull);
     },
@@ -141,8 +149,12 @@ void main() {
       await recorder.start('Trip', point(7.3, 0));
       final upload = recorder.sync();
       await recorder.record(
-        point(7.301, 5),
+        point(7.3002, 5),
         now.add(const Duration(seconds: 5)),
+      );
+      await recorder.record(
+        point(7.3003, 10),
+        now.add(const Duration(seconds: 10)),
       );
       repository.gate!.complete();
       await upload;
@@ -151,7 +163,7 @@ void main() {
       repository.gate = null;
       await recorder.sync();
       expect(recorder.hasPending, isFalse);
-      expect(repository.saved.values.single.points, hasLength(2));
+      expect(repository.saved.values.single.points, hasLength(3));
     },
   );
 }

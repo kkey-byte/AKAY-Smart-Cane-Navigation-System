@@ -8,11 +8,14 @@ Future<void> showLogoutConfirmationDialog(
   BuildContext context, {
   required VoidCallback onConfirm,
 }) {
+  var confirmed = false;
   return showDialog<void>(
     context: context,
     barrierDismissible: true,
     builder: (dialogContext) => LogoutConfirmationDialog(
       onConfirm: () {
+        if (confirmed) return;
+        confirmed = true;
         Navigator.pop(dialogContext);
         onConfirm();
       },

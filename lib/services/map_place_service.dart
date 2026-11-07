@@ -11,6 +11,7 @@ import 'secure_api.dart';
 import '../models/linked_navigator.dart';
 import '../models/route_plan.dart';
 import 'navigator_location_service.dart';
+import 'navigation_voice_guidance.dart';
 
 /// A routing failure safe to display without exposing request coordinates.
 class NavigationRouteException implements Exception {
@@ -633,21 +634,44 @@ class MapPlaceService {
         );
         if (instruction.isEmpty) continue;
 
-        instructions.add(
-          RouteTurnInstruction(
-            instruction: instruction,
-            detail: distance > 0 ? _formatStepDistance(distance) : '',
-            maneuverType: type,
-            modifier: modifier,
-          ),
+        final parsed = RouteTurnInstruction(
+          instruction: instruction,
+          detail: distance > 0 ? _formatStepDistance(distance) : '',
+          maneuverType: type,
+          modifier: modifier,
         );
+        // Preserve exact maneuver coordinates for speech without changing the
+        // route model or the instructions rendered by the existing panel.
+        final location = maneuver['location'];
+        if (location is List &&
+            location.length >= 2 &&
+            location[0] is num &&
+            location[1] is num) {
+          final latitude = (location[1] as num).toDouble();
+          final longitude = (location[0] as num).toDouble();
+          if (latitude.isFinite &&
+              longitude.isFinite &&
+              latitude.abs() <= 90 &&
+              longitude.abs() <= 180) {
+            NavigationVoiceGuidance.attachLocation(
+              parsed,
+              LatLng(latitude, longitude),
+            );
+          }
+        }
+        instructions.add(parsed);
       }
     }
 
     if (instructions.isEmpty) return const [];
 
     // Mark the first actionable step as "next".
-    return [instructions.first.copyWith(isNext: true), ...instructions.skip(1)];
+    final first = instructions.first.copyWith(isNext: true);
+    NavigationVoiceGuidance.attachLocation(
+      first,
+      NavigationVoiceGuidance.locationOf(instructions.first),
+    );
+    return [first, ...instructions.skip(1)];
   }
 
   String _humanizeManeuver({

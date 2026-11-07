@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/app_user.dart';
 import '../models/user_role.dart';
+import 'app_session_service.dart';
 
 /// Result returned by [AuthService] after a successful auth call.
 class AuthResult {
@@ -116,6 +117,7 @@ class AuthService {
     String? phone,
     String? profilePicture,
   }) async {
+    await AppSessionService.instance.pendingLogout;
     final normalizedEmail = email.trim().toLowerCase();
 
     late final UserCredential credential;
@@ -187,6 +189,7 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    await AppSessionService.instance.pendingLogout;
     late final UserCredential credential;
     try {
       credential = await _firebaseAuth.signInWithEmailAndPassword(

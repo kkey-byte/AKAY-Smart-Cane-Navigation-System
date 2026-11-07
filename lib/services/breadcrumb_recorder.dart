@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/breadcrumb_trip.dart';
 import 'breadcrumb_repository.dart';
+import 'breadcrumb_motion_filter.dart';
 
 /// Account-scoped durable outbox. Cloud failures never discard recorded points.
 class BreadcrumbRecorder extends ChangeNotifier {
@@ -12,6 +13,7 @@ class BreadcrumbRecorder extends ChangeNotifier {
   final SharedPreferences preferences;
   final Map<String, BreadcrumbTrip> _trips = {};
   final Set<String> _pending = {};
+  final _motion = BreadcrumbMotionFilter();
   Future<void> _diskQueue = Future.value();
   Future<void>? _upload;
   String? ownerId;
@@ -80,6 +82,7 @@ class BreadcrumbRecorder extends ChangeNotifier {
       points: [first],
     );
     activeId = id;
+    _motion.reset(first);
     _pending.add(id);
     await _persist();
     notifyListeners();
@@ -88,10 +91,48 @@ class BreadcrumbRecorder extends ChangeNotifier {
   Future<void> record(BreadcrumbPoint point, DateTime now) async {
     final trip = active;
     if (trip == null ||
-        !shouldRecordBreadcrumb(trip.points.lastOrNull, point, now)) {
+        !shouldRecordBreadcrumb(null, point, now) ||
+        !point.time.isAfter(trip.points.last.time)) {
       return;
     }
-    _trips[trip.id] = trip.copyWith(points: [...trip.points, point]);
+    final anchor = _motion.anchor;
+    final movement = _motion.add(point, now);
+    if (movement.isEmpty) {
+      if (point.time.difference(trip.points.last.time) <
+          const Duration(seconds: 30)) {
+        return;
+      }
+      // Aggregate freshness at a fixed endpoint, never append stationary drift.
+      // Keep the anchor's accuracy: the new fix describes another coordinate.
+      final last = trip.points.last;
+      _trips[trip.id] = trip.copyWith(
+        points: [
+          ...trip.points.take(trip.points.length - 1),
+          BreadcrumbPoint(
+            last.latitude,
+            last.longitude,
+            point.time,
+            last.accuracy,
+          ),
+        ],
+      );
+    } else {
+      // Pending confirmation may precede a freshness-only endpoint update.
+      final points = trip.points.toList();
+      if (!movement.first.time.isAfter(points.last.time)) {
+        points[points.length - 1] = anchor!;
+      }
+      // Preserve the existing 500-vertex bound if confirmation lands at 499.
+      final remaining = 500 - points.length;
+      _trips[trip.id] = trip.copyWith(
+        points: [
+          ...points,
+          ...movement.skip(
+            movement.length > remaining ? movement.length - remaining : 0,
+          ),
+        ],
+      );
+    }
     _pending.add(trip.id);
     await _persist();
     notifyListeners();

@@ -97,7 +97,9 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
       return;
     }
     if (active != null &&
-        (active.points.length >= 500 ||
+        (point.time.difference(active.points.last.time) >
+                const Duration(seconds: 90) ||
+            active.points.length >= 500 ||
             point.time.difference(active.startedAt) >=
                 const Duration(hours: 1) ||
             !_sameDay(point.time, active.startedAt))) {
