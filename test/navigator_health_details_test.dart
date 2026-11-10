@@ -85,6 +85,40 @@ class _Health extends NavigatorHealthService {
 
 void main() {
   testWidgets(
+    'Health sections remain readable on a narrow dark phone with large text',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final links = _Links(), health = _Health();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GabayTheme.darkTheme,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: NavigatorHealthDetailsPage(
+            service: links,
+            healthService: health,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Address'));
+      await tester.pumpAndSettle();
+      expect(find.text('Personal Details'), findsOneWidget);
+      expect(find.text('Synthetic condition First'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await links.close();
+      await health.close();
+    },
+  );
+  testWidgets(
     'Caregiver selects real linked identities without showing own health record',
     (tester) async {
       final links = _Links(), health = _Health();
@@ -99,12 +133,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('First Navigator'), findsOneWidget);
-      expect(find.text('Health Information'), findsOneWidget);
-      expect(
-        find.textContaining('Medical Conditions: Synthetic condition First'),
-        findsOneWidget,
-      );
-      expect(find.textContaining('Height: 170 cm'), findsOneWidget);
+      expect(find.text('Health Overview'), findsOneWidget);
+      expect(find.text('Synthetic condition First'), findsOneWidget);
+      expect(find.text('170 cm'), findsOneWidget);
       expect(find.byTooltip('Edit health details'), findsNothing);
       await tester.tap(find.byTooltip('Select navigator'));
       await tester.pumpAndSettle();
@@ -116,10 +147,7 @@ void main() {
       expect(find.text('First Navigator'), findsNothing);
       expect(find.byType(Dialog), findsNothing);
       expect(health.requested, ['First', 'Second']);
-      expect(
-        find.textContaining('Medical Conditions: Synthetic condition Second'),
-        findsOneWidget,
-      );
+      expect(find.text('Synthetic condition Second'), findsOneWidget);
       health.updates['First']!.add(const NavigatorHealthDetails(uid: 'First'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Synthetic condition First'), findsNothing);
@@ -153,10 +181,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(
-        find.textContaining('Medical Conditions: Not provided'),
-        findsOneWidget,
-      );
+      expect(find.text('Not provided'), findsWidgets);
       expect(find.textContaining('Old synthetic'), findsNothing);
       expect(find.byTooltip('Edit health details'), findsNothing);
       await tester.pumpWidget(const SizedBox());

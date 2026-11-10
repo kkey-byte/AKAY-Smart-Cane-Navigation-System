@@ -18,8 +18,10 @@ class BreadcrumbRecordingControls extends StatelessWidget {
     this.storageError,
     this.syncError,
     this.busy = false,
+    this.compact = false,
   });
   final bool requested, recording, syncing, hasTrips, busy;
+  final bool compact;
   final int pendingCount;
   final String? waitingReason, storageError, syncError;
   final VoidCallback onStart, onPause, onSync;
@@ -42,6 +44,74 @@ class BreadcrumbRecordingControls extends StatelessWidget {
         : hasTrips
         ? 'All recorded updates uploaded'
         : 'Your recorded path will appear below.';
+    final action = requested
+        ? onPause
+        : busy
+        ? null
+        : onStart;
+    if (compact) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Track recording',
+                  style: TextStyle(
+                    color: context.gabay.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    status,
+                    style: TextStyle(
+                      color: context.gabay.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                if (storageError != null) Text(storageError!),
+                if (syncError != null)
+                  Text(
+                    syncError!,
+                    style: TextStyle(color: context.gabay.warning),
+                  ),
+                if (pendingCount > 0)
+                  TextButton(
+                    onPressed: busy || syncing ? null : onSync,
+                    child: Text(syncing ? 'Syncing…' : 'Sync saved tracks'),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          IconButton.filled(
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB),
+              foregroundColor: Colors.white,
+              disabledForegroundColor: Colors.white70,
+              shape: const CircleBorder(),
+              minimumSize: const Size(48, 48),
+            ),
+            tooltip: requested
+                ? 'Pause sharing and save track'
+                : 'Resume sharing and recording',
+            onPressed: action,
+            icon: Icon(
+              requested ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              color: Colors.white,
+            ),
+            iconSize: 28,
+          ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

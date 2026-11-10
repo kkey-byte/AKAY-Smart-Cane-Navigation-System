@@ -487,30 +487,67 @@ class _BreadcrumbTripPageState extends State<BreadcrumbTripPage> {
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      breadcrumbStatus(
-                        trip,
-                        DateTime.now(),
-                        connected: service.connected,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: context.gabay.accentTint,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        breadcrumbStatus(
+                          trip,
+                          DateTime.now(),
+                          connected: service.connected,
+                        ),
+                        style: TextStyle(
+                          color: context.gabay.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          height: 1.4,
+                        ),
                       ),
                     ),
+                    const SizedBox(height: 14),
                     if (points.isNotEmpty)
-                      Text('Last GPS fix: ${_date(points.last.time)}'),
-                    Text('Started: ${_date(trip.startedAt)}'),
-                    if (trip.endedAt != null)
-                      Text('Ended: ${_date(trip.endedAt!)}'),
-                    Text(
-                      'Recorded distance: ${trip.distanceMeters.toStringAsFixed(0)} m (approximate)',
+                      _tripInfoLine(
+                        context,
+                        'Last GPS fix: ${_date(points.last.time)}',
+                        Icons.gps_fixed_rounded,
+                      ),
+                    _tripInfoLine(
+                      context,
+                      'Started: ${_date(trip.startedAt)}',
+                      Icons.play_circle_outline_rounded,
                     ),
-                    Text(
+                    if (trip.endedAt != null)
+                      _tripInfoLine(
+                        context,
+                        'Ended: ${_date(trip.endedAt!)}',
+                        Icons.flag_outlined,
+                      ),
+                    const SizedBox(height: 4),
+                    _tripInfoLine(
+                      context,
+                      'Recorded distance: ${trip.distanceMeters.toStringAsFixed(0)} m (approximate)',
+                      Icons.route_outlined,
+                    ),
+                    _tripInfoLine(
+                      context,
                       '${trip.pointCount} GPS points · ${trip.sourceType == 'cane_gps' ? 'Cane GPS' : 'Phone GPS'}',
+                      Icons.location_on_outlined,
                     ),
                     if (trip.endedAt != null &&
                         !trip.endedAt!.isBefore(trip.startedAt))
-                      Text(
+                      _tripInfoLine(
+                        context,
                         'Duration: ${trip.endedAt!.difference(trip.startedAt).inMinutes} min '
                         '${trip.endedAt!.difference(trip.startedAt).inSeconds % 60} sec',
+                        Icons.timer_outlined,
                       ),
                     if (widget.localOwner &&
                         service.recorder?.ownerId == trip.ownerId)
@@ -525,8 +562,10 @@ class _BreadcrumbTripPageState extends State<BreadcrumbTripPage> {
                       ),
                     if (widget.localOwner && service.error != null)
                       Text(service.error!),
+                    const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
+                      runSpacing: 4,
                       children: [
                         TextButton(
                           onPressed: () {
@@ -554,7 +593,16 @@ class _BreadcrumbTripPageState extends State<BreadcrumbTripPage> {
                 ),
               ),
               if (widget.embedded)
-                SizedBox(height: 300, child: _routeMap(trip, points))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: SizedBox(
+                      height: 300,
+                      child: _routeMap(trip, points),
+                    ),
+                  ),
+                )
               else
                 Expanded(child: _routeMap(trip, points)),
             ],
@@ -565,6 +613,31 @@ class _BreadcrumbTripPageState extends State<BreadcrumbTripPage> {
       body: content,
     );
   }
+
+  Widget _tripInfoLine(BuildContext context, String text, IconData icon) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(icon, color: context.gabay.accent, size: 17),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: context.gabay.textSecondary,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 
   Widget _routeMap(BreadcrumbTrip trip, List<BreadcrumbPoint> points) =>
       points.isEmpty

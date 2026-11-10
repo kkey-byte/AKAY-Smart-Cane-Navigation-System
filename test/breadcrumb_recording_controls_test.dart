@@ -4,6 +4,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('compact play and pause invoke existing actions directly', (
+    tester,
+  ) async {
+    var starts = 0;
+    var pauses = 0;
+    for (final requested in [false, true]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GabayTheme.lightTheme,
+          home: Scaffold(
+            body: SizedBox(
+              width: 280,
+              child: BreadcrumbRecordingControls(
+                compact: true,
+                requested: requested,
+                recording: false,
+                pendingCount: 0,
+                syncing: false,
+                hasTrips: false,
+                onStart: () => starts++,
+                onPause: () => pauses++,
+                onSync: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.byType(ExpansionTile), findsNothing);
+      await tester.tap(
+        find.byIcon(requested ? Icons.pause_rounded : Icons.play_arrow_rounded),
+      );
+      expect(tester.takeException(), isNull);
+    }
+    expect(starts, 1);
+    expect(pauses, 1);
+  });
   testWidgets('waiting can be paused without a route or first GPS point', (
     tester,
   ) async {

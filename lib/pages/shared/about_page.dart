@@ -1,239 +1,204 @@
-import '../../theme/gabay_typography.dart';
-import '../../widgets/shared/gabay_accent_icon.dart';
 import 'package:flutter/material.dart';
-
 import '../../theme/gabay_theme.dart';
+import '../../theme/gabay_typography.dart';
 import '../../widgets/gabay_logo.dart';
 import '../../widgets/shared/gabay_detail_page_scaffold.dart';
 
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
-
   @override
   Widget build(BuildContext context) {
     final g = context.gabay;
-
     return GabayDetailPageScaffold(
       title: 'About',
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
-          Center(
+          GabayContentCard(
             child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: g.surface,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: g.border.withValues(alpha: 0.5)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: g.shadow,
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: GabayLogo(size: 56, color: g.accent),
-                ),
-                const SizedBox(height: 16),
+                const GabayLogo(size: 120),
                 Text(
                   'AKAY',
                   style: TextStyle(
-                    fontSize: GabayTypography.metric,
-                    fontWeight: GabayTypography.bold,
                     color: g.heading,
-                    letterSpacing: 1.2,
+                    fontSize: GabayTypography.hero,
+                    fontWeight: GabayTypography.bold,
+                    letterSpacing: 1.5,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 Text(
-                  'Version 1.0.0',
+                  'Independence Starts Here',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: GabayTypography.body,
-                    color: g.textSecondary,
-                    fontWeight: GabayTypography.medium,
+                    color: g.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: g.accentTint,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Version 1.0.0',
+                    style: TextStyle(color: g.accent, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text('Our Mission', style: GabayTheme.sectionTitle(context)),
+          const SizedBox(height: 8),
+          Text(
+            'AKAY brings navigation and caregiver connection together to support visually impaired people in their everyday journeys. The project combines a smart-cane navigation concept with a mobile companion for navigators and their caregivers.',
+            style: GabayTheme.bodyMedium(context).copyWith(height: 1.6),
+          ),
+          const SizedBox(height: 20),
+          _section(context, 'Made for supported journeys', [
+            (
+              icon: Icons.route_outlined,
+              title: 'Plan and review journeys',
+              body:
+                  'Find destinations, plan walking routes, and revisit recorded trips in one place.',
+            ),
+            (
+              icon: Icons.location_on_outlined,
+              title: 'Stay connected',
+              body:
+                  'Caregivers can follow a navigator’s latest shared location when location updates and sharing access are available.',
+            ),
+            (
+              icon: Icons.favorite_border_rounded,
+              title: 'Keep useful details together',
+              body:
+                  'Organize profile, health, and emergency contact information for easier reference.',
+            ),
+          ]),
+          const SizedBox(height: 14),
+          _section(context, 'Two roles. One connection.', [
+            (
+              icon: Icons.directions_walk_rounded,
+              title: 'For Navigators',
+              body:
+                  'Manage your profile, choose a destination, review your trips, and decide which caregivers to connect with.',
+            ),
+            (
+              icon: Icons.people_outline_rounded,
+              title: 'For Caregivers',
+              body:
+                  'Switch between linked navigators and review the location, trips, and information they are authorized to share.',
+            ),
+          ]),
+          const SizedBox(height: 14),
+          GabayContentCard(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.verified_user_outlined, color: g.accent, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Sharing stays in your control',
+                        style: GabayTheme.sectionTitle(context),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Connect through an AKAY pairing code or QR. Navigators authorize caregiver access and can disconnect a caregiver when needed.',
+                        style: GabayTheme.bodyMedium(context),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
-          GabayContentCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Our Mission',
-                  style: TextStyle(
-                    fontSize: GabayTypography.cardTitle,
-                    fontWeight: GabayTypography.bold,
-                    color: g.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'AKAY empowers visually impaired navigators and their caregivers with accessible navigation, live safety monitoring, and meaningful connection — so every journey feels supported.',
-                  style: TextStyle(
-                    fontSize: GabayTypography.body,
-                    color: g.textSecondary,
-                    height: 1.55,
-                  ),
-                ),
-              ],
-            ),
+          Text(
+            'AKAY • Smart Cane Navigation & Caregiver Monitoring',
+            textAlign: TextAlign.center,
+            style: GabayTheme.labelSmall(context),
           ),
-          const SizedBox(height: 14),
-          GabayContentCard(
-            child: Column(
-              children: [
-                _AboutRow(
-                  icon: Icons.navigation_rounded,
-                  title: 'Smart Navigation',
-                  subtitle: 'Voice-guided routes for navigators',
-                ),
-                Divider(height: 24, color: g.border.withValues(alpha: 0.5)),
-                _AboutRow(
-                  icon: Icons.location_searching_rounded,
-                  title: 'Live Tracking',
-                  subtitle: 'Real-time caregiver monitoring',
-                ),
-                Divider(height: 24, color: g.border.withValues(alpha: 0.5)),
-                _AboutRow(
-                  icon: Icons.sos_rounded,
-                  title: 'Safety Alerts',
-                  subtitle: 'SOS and emergency notifications',
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          GabayContentCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Contact & Support',
-                  style: TextStyle(
-                    fontSize: GabayTypography.cardBody,
-                    fontWeight: GabayTypography.bold,
-                    color: g.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _ContactLine(
-                  icon: Icons.email_outlined,
-                  text: 'support@gabay.app',
-                ),
-                const SizedBox(height: 8),
-                _ContactLine(
-                  icon: Icons.language_rounded,
-                  text: 'www.gabay.app',
-                ),
-                const SizedBox(height: 8),
-                _ContactLine(
-                  icon: Icons.place_outlined,
-                  text: 'Panabo City, Davao del Norte, Philippines',
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Center(
-            child: Text(
-              '© 2026 AKAY. All rights reserved.',
-              style: TextStyle(
-                fontSize: GabayTypography.caption,
-                color: g.textSecondary,
-              ),
-            ),
+          const SizedBox(height: 8),
+          Text(
+            '© 2026 AKAY. All rights reserved.',
+            textAlign: TextAlign.center,
+            style: GabayTheme.labelSmall(context),
           ),
         ],
       ),
     );
   }
-}
 
-class _AboutRow extends StatelessWidget {
-  const _AboutRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _section(
+    BuildContext context,
+    String title,
+    List<({IconData icon, String title, String body})> items,
+  ) {
     final g = context.gabay;
-
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: g.accentTint,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: GabayAccentIcon(icon, color: g.accent, size: 22),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: GabayTypography.cardBody,
-                  fontWeight: GabayTypography.bold,
-                  color: g.textPrimary,
+    return GabayContentCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: GabayTheme.sectionTitle(context)),
+          const SizedBox(height: 16),
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Divider(
+                  height: 1,
+                  color: g.border.withValues(alpha: .6),
                 ),
               ),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: GabayTypography.supporting,
-                  color: g.textSecondary,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: g.accentTint,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(items[i].icon, color: g.accent, size: 22),
                 ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ContactLine extends StatelessWidget {
-  const _ContactLine({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final g = context.gabay;
-
-    return Row(
-      children: [
-        GabayAccentIcon(icon, size: 18, color: g.accent),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: GabayTypography.body,
-              color: g.textSecondary,
-              fontWeight: GabayTypography.medium,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        items[i].title,
+                        style: TextStyle(
+                          color: g.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        items[i].body,
+                        style: GabayTheme.bodyMedium(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-        ),
-      ],
+          ],
+        ],
+      ),
     );
   }
 }

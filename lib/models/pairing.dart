@@ -8,6 +8,7 @@ class PairingConnection {
     required this.status,
     this.navigatorUserId,
     this.navigatorPicture,
+    this.caregiverPicture,
   });
   final String id,
       navigatorUid,
@@ -15,7 +16,7 @@ class PairingConnection {
       navigatorName,
       caregiverName,
       status;
-  final String? navigatorUserId, navigatorPicture;
+  final String? navigatorUserId, navigatorPicture, caregiverPicture;
   factory PairingConnection.fromJson(Map<String, dynamic> json) =>
       PairingConnection(
         id: json['id'] as String,
@@ -26,6 +27,7 @@ class PairingConnection {
         status: json['status'] as String,
         navigatorUserId: json['navigator_id'] as String?,
         navigatorPicture: json['navigator_picture'] as String?,
+        caregiverPicture: json['caregiver_picture'] as String?,
       );
   static String _name(Object? value) =>
       value is String && value.trim().isNotEmpty ? value : 'Name not provided';

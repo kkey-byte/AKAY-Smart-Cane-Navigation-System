@@ -1,3 +1,4 @@
+import '../shared/gabay_metric_grid.dart';
 import '../../theme/gabay_typography.dart';
 import '../shared/navigator_selection_modal.dart';
 import 'dart:convert';
@@ -739,6 +740,8 @@ class _Detail extends StatelessWidget {
         const SizedBox(height: 5),
         Text(
           value,
+          maxLines: statistic ? 1 : 2,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: ink ?? g.textPrimary,
             fontSize: statistic ? 24 : 15,
@@ -757,6 +760,7 @@ class _EqualCards extends StatelessWidget {
   final List<Widget> children;
   final bool blueStatistics;
   Widget _card(BuildContext context, int index) => GabayCard(
+    padding: const EdgeInsets.all(16),
     decoration: !GabayDashboardBackdrop.active(context) && blueStatistics
         ? GabayTheme.cardDecoration(context).copyWith(
             gradient: LinearGradient(
@@ -774,32 +778,8 @@ class _EqualCards extends StatelessWidget {
     child: children[index],
   );
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      if (constraints.maxWidth < 280 ||
-          MediaQuery.textScalerOf(context).scale(16) > 24) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (var i = 0; i < children.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _card(context, i),
-              ),
-          ],
-        );
-      }
-      return IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(child: _card(context, 0)),
-            const SizedBox(width: 12),
-            Expanded(child: _card(context, 1)),
-          ],
-        ),
-      );
-    },
+  Widget build(BuildContext context) => GabayMetricGrid(
+    children: [for (var i = 0; i < children.length; i++) _card(context, i)],
   );
 }
 

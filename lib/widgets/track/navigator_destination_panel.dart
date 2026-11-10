@@ -36,6 +36,7 @@ class NavigatorDestinationPanel extends StatelessWidget {
     this.onSearchWider,
     this.onVoiceSearch,
     this.selectedCategoryQuery,
+    this.constrainResults = false,
   });
 
   final TextEditingController controller;
@@ -62,9 +63,17 @@ class NavigatorDestinationPanel extends StatelessWidget {
   final VoidCallback? onSearchWider;
   final VoidCallback? onVoiceSearch;
   final String? selectedCategoryQuery;
+  final bool constrainResults;
 
   @override
   Widget build(BuildContext context) {
+    final results = _SuggestionList(
+      suggestions: suggestions,
+      onTap: onSuggestionTap,
+      onSpeak: onSpeakPlace,
+      onNavigate: onNavigatePlace,
+      scrollable: constrainResults,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -94,12 +103,10 @@ class NavigatorDestinationPanel extends StatelessWidget {
           ],
           if (suggestions.isNotEmpty) ...[
             const SizedBox(height: 8),
-            _SuggestionList(
-              suggestions: suggestions,
-              onTap: onSuggestionTap,
-              onSpeak: onSpeakPlace,
-              onNavigate: onNavigatePlace,
-            ),
+            if (constrainResults)
+              Flexible(fit: FlexFit.loose, child: results)
+            else
+              results,
           ],
         ],
       ],
@@ -276,7 +283,7 @@ class _SearchBarCard extends StatelessWidget {
                 ),
               if (onVoiceSearch != null)
                 IconButton(
-                  tooltip: 'Voice search (coming soon)',
+                  tooltip: 'Voice search',
                   onPressed: onVoiceSearch,
                   icon: Icon(
                     Icons.mic_none_rounded,
@@ -482,12 +489,14 @@ class _SuggestionList extends StatelessWidget {
     required this.onTap,
     required this.onSpeak,
     required this.onNavigate,
+    this.scrollable = false,
   });
 
   final List<MapPlace> suggestions;
   final ValueChanged<MapPlace> onTap;
   final ValueChanged<MapPlace> onSpeak;
   final ValueChanged<MapPlace> onNavigate;
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
@@ -499,10 +508,13 @@ class _SuggestionList extends StatelessWidget {
       elevation: 3,
       shadowColor: g.shadow,
       borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
       child: ListView.separated(
         shrinkWrap: true,
         padding: const EdgeInsets.symmetric(vertical: 6),
-        physics: const NeverScrollableScrollPhysics(),
+        physics: scrollable
+            ? const ClampingScrollPhysics()
+            : const NeverScrollableScrollPhysics(),
         itemCount: count,
         separatorBuilder: (_, _) => Divider(height: 1, color: g.border),
         itemBuilder: (context, index) {

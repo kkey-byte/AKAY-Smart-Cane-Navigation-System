@@ -15,12 +15,14 @@ class TrackingOverlayLayout extends StatelessWidget {
     this.details,
     this.leadingControl,
     this.reservedBottomHeight = 0,
+    this.headerScrollable = true,
   });
   final Widget header;
   final TrackingPanel panel;
   final ValueChanged<TrackingPanel> onPanelChanged;
   final Widget? directions, details, leadingControl;
   final double reservedBottomHeight;
+  final bool headerScrollable;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -45,7 +47,9 @@ class TrackingOverlayLayout extends StatelessWidget {
           ConstrainedBox(
             key: const ValueKey('tracking-overlay-header'),
             constraints: BoxConstraints(maxHeight: headerHeight),
-            child: SingleChildScrollView(primary: false, child: header),
+            child: headerScrollable
+                ? SingleChildScrollView(primary: false, child: header)
+                : header,
           ),
           if (hasToolbar)
             Padding(

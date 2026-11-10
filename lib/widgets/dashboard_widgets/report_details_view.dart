@@ -1,3 +1,5 @@
+import 'weekly_distance_chart.dart';
+import '../shared/gabay_metric_grid.dart';
 import '../../theme/gabay_typography.dart';
 import '../shared/gabay_accent_icon.dart';
 import 'package:flutter/material.dart';
@@ -66,186 +68,66 @@ class ReportDetailsView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final two =
-                constraints.maxWidth >= 300 &&
-                MediaQuery.textScalerOf(context).scale(16) <= 22;
-            return Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                for (final field in fields)
-                  SizedBox(
-                    width: two
-                        ? (constraints.maxWidth - 12) / 2
-                        : constraints.maxWidth,
-                    child: GabayCard(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _iconBadge(field.icon),
-                          const SizedBox(height: 8),
-                          Text(
-                            field.value == 'Unavailable' ||
-                                    field.value == 'Not available'
-                                ? '—'
-                                : field.value,
-                            style: TextStyle(
-                              fontSize: GabayTypography.subheading,
-                              fontWeight: GabayTypography.regular,
-                              color: g.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            field.label,
-                            style: TextStyle(
-                              fontSize: GabayTypography.caption,
-                              color: g.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 16),
-        GabayCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'This week',
-                style: TextStyle(
-                  fontSize: GabayTypography.cardTitle,
-                  fontWeight: GabayTypography.regular,
-                  color: g.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 24),
-              // Neutral rails are an empty chart state, never fabricated activity.
-              ExcludeSemantics(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+        GabayMetricGrid(
+          children: [
+            for (final field in fields)
+              GabayCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (final day in [
-                      'MON',
-                      'TUE',
-                      'WED',
-                      'THU',
-                      'FRI',
-                      'SAT',
-                      'SUN',
-                    ])
-                      Flexible(
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 115,
-                              decoration: BoxDecoration(
-                                color: g.border,
-                                borderRadius: BorderRadius.circular(8),
+                    _iconBadge(field.icon),
+                    const Spacer(),
+                    Tooltip(
+                      message: field.value,
+                      child: Text(
+                        field.value == 'Unavailable' ||
+                                field.value == 'Not available'
+                            ? '—'
+                            : field.value.replaceFirst(
+                                RegExp(r'\s+recorded$'),
+                                '',
                               ),
-                            ),
-                            const SizedBox(height: 14),
-                            Text(
-                              day,
-                              style: TextStyle(
-                                fontSize: GabayTypography.chartLabel,
-                                color: g.textSecondary,
-                              ),
-                            ),
-                          ],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: GabayTypography.metric,
+                          fontWeight: GabayTypography.semibold,
+                          color: g.textPrimary,
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      field.label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: GabayTypography.supporting,
+                        color: g.textSecondary,
+                        height: 1.25,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              Text(
-                'No daily activity data to display.',
-                style: TextStyle(
-                  color: g.textSecondary,
-                  fontSize: GabayTypography.caption,
-                ),
-              ),
-            ],
-          ),
+          ],
         ),
+        const SizedBox(height: 16),
+        WeeklyDistanceChart(trips: trips),
         const SizedBox(height: 24),
-        _heading(context, 'Recent Trips'),
-        if (localOwner) ...[
-          const SizedBox(height: 12),
-          const BreadcrumbReportControls(),
-        ],
-        const SizedBox(height: 12),
-        if (recent != null && recent.isEmpty)
-          GabayCard(
-            child: Text(
-              'No recorded tracks yet.',
-              style: TextStyle(
-                color: g.textSecondary,
-                fontSize: GabayTypography.supporting,
-                fontWeight: GabayTypography.regular,
-              ),
-            ),
-          ),
         BreadcrumbTripRecords(
+          heading: 'Recent Trips',
+          controls: localOwner ? const BreadcrumbReportControls() : null,
+          dataAvailable: recent != null,
           trips: recent ?? const [],
           localOwner: localOwner,
-        ),
-        const SizedBox(height: 24),
-        _heading(context, 'Navigation Events'),
-        const SizedBox(height: 12),
-        GabayCard(
-          child: Text(
-            'No navigation event data to display.',
-            style: TextStyle(
-              color: g.textSecondary,
-              fontSize: GabayTypography.supporting,
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        _heading(context, 'Most Visited Places'),
-        const SizedBox(height: 12),
-        GabayCard(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              _iconBadge(Icons.apartment),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'No visit data to display.',
-                  style: TextStyle(
-                    color: g.textSecondary,
-                    fontSize: GabayTypography.supporting,
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
         const SizedBox(height: 24),
       ],
     );
   }
 
-  Widget _heading(BuildContext context, String text) => Text(
-    text,
-    style: TextStyle(
-      color: _reportColors(context).textPrimary,
-      fontSize: GabayTypography.sectionTitle,
-      fontWeight: GabayTypography.semibold,
-    ),
-  );
   Widget _iconBadge(IconData icon) {
     final accent = GabayAccentIcon.accent(icon);
     return Container(

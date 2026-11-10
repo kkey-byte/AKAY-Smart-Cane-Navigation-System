@@ -1,5 +1,6 @@
 import '../../theme/gabay_typography.dart';
 import '../../widgets/track/tracking_overlay_layout.dart';
+import '../../widgets/track/voice_destination_dialog.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -116,6 +117,7 @@ class TrackPageState extends State<TrackPage> {
       _isNavigating && _visibleTrackingPanel != TrackingPanel.none;
 
   bool _voiceGuidanceEnabled = true;
+  bool _voiceSearchOpen = false;
 
   late String _selectedNavigatorId;
 
@@ -597,8 +599,30 @@ class TrackPageState extends State<TrackPage> {
     await _tts.speak(dest.speakText);
   }
 
-  void _onVoiceSearchTap() {
-    _showSnack('Voice search will be available in a future update.');
+  Future<void> _onVoiceSearchTap() async {
+    if (_voiceSearchOpen || !_isNavigatorMode || _isNavigating) return;
+    _voiceSearchOpen = true;
+    try {
+      FocusScope.of(context).unfocus();
+      unawaited(GabayTtsService.instance.stop());
+      final revision = AppSessionService.instance.identityRevision;
+      final query = await showDialog<String>(
+        context: context,
+        builder: (_) => const VoiceDestinationDialog(),
+      );
+      if (!mounted ||
+          revision != AppSessionService.instance.identityRevision ||
+          query == null ||
+          query.trim().isEmpty ||
+          _isNavigating) {
+        return;
+      }
+      _destinationController.text = query.trim();
+      _onDestinationQueryChanged(query.trim());
+      await _submitDestinationSearch();
+    } finally {
+      _voiceSearchOpen = false;
+    }
   }
 
   Future<void> _selectDestinationPlace(MapPlace place) async {
@@ -1198,6 +1222,12 @@ class TrackPageState extends State<TrackPage> {
   @override
   Widget build(BuildContext context) {
     final selected = _selectedNavigator;
+    final fixedSearch =
+        _isNavigatorMode &&
+        !_isNavigating &&
+        _destinationSuggestions.isNotEmpty;
+    Widget constrainSearch(Widget child) =>
+        fixedSearch ? Flexible(fit: FlexFit.loose, child: child) : child;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -1251,59 +1281,66 @@ class TrackPageState extends State<TrackPage> {
             top: MediaQuery.paddingOf(context).top + 12,
             bottom: GabayNavMetrics.overlayBottom(context) + 12,
             child: TrackingOverlayLayout(
+              headerScrollable: !fixedSearch,
               header: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (_isNavigatorMode)
-                    NavigatorDestinationPanel(
-                      controller: _destinationController,
-                      focusNode: _destinationFocusNode,
-                      suggestions: _destinationSuggestions,
-                      isNavigating: _isNavigating,
-                      isSearching: _isSearchingDestination,
-                      activeDestinationName: _activeRoute?.destination.name,
-                      onChanged: _onDestinationQueryChanged,
-                      onSubmitted: (_) => _submitDestinationSearch(),
-                      onSearchTap: _submitDestinationSearch,
-                      onSuggestionTap: _selectDestinationPlace,
-                      onClear: () {
-                        _destinationSearchToken++;
-                        _destinationController.clear();
-                        setState(() {
-                          _destinationSuggestions = [];
-                          _isSearchingDestination = false;
-                          _isResolvingMapPin = false;
-                          _pinnedDestination = null;
-                          _showSearchEmpty = false;
-                          _selectedCategoryQuery = null;
-                          _useWiderSearch = false;
-                        });
-                      },
-                      onCancelNavigation: _isNavigating
-                          ? _cancelDestination
-                          : null,
-                      showPinHint: !_isNavigating && _pinnedDestination == null,
-                      isResolvingPin: _isResolvingMapPin,
-                      categories: SearchCategory.all,
-                      onCategorySelected: _onCategorySelected,
-                      recentQueries: _recentSearchQueries,
-                      onRecentSelected: _onRecentSelected,
-                      onSpeakPlace: (place) => unawaited(_speakPlace(place)),
-                      onNavigatePlace: _selectDestinationPlace,
-                      showEmptyState: _showSearchEmpty,
-                      onSearchWider: () {
-                        final q = _destinationController.text.trim();
-                        if (q.isEmpty) return;
-                        setState(() {
-                          _isSearchingDestination = true;
-                          _showSearchEmpty = false;
-                          _useWiderSearch = true;
-                        });
-                        unawaited(_runNearbyDestinationSearch(q, wider: true));
-                      },
-                      onVoiceSearch: _onVoiceSearchTap,
-                      selectedCategoryQuery: _selectedCategoryQuery,
+                    constrainSearch(
+                      NavigatorDestinationPanel(
+                        constrainResults: fixedSearch,
+                        controller: _destinationController,
+                        focusNode: _destinationFocusNode,
+                        suggestions: _destinationSuggestions,
+                        isNavigating: _isNavigating,
+                        isSearching: _isSearchingDestination,
+                        activeDestinationName: _activeRoute?.destination.name,
+                        onChanged: _onDestinationQueryChanged,
+                        onSubmitted: (_) => _submitDestinationSearch(),
+                        onSearchTap: _submitDestinationSearch,
+                        onSuggestionTap: _selectDestinationPlace,
+                        onClear: () {
+                          _destinationSearchToken++;
+                          _destinationController.clear();
+                          setState(() {
+                            _destinationSuggestions = [];
+                            _isSearchingDestination = false;
+                            _isResolvingMapPin = false;
+                            _pinnedDestination = null;
+                            _showSearchEmpty = false;
+                            _selectedCategoryQuery = null;
+                            _useWiderSearch = false;
+                          });
+                        },
+                        onCancelNavigation: _isNavigating
+                            ? _cancelDestination
+                            : null,
+                        showPinHint:
+                            !_isNavigating && _pinnedDestination == null,
+                        isResolvingPin: _isResolvingMapPin,
+                        categories: SearchCategory.all,
+                        onCategorySelected: _onCategorySelected,
+                        recentQueries: _recentSearchQueries,
+                        onRecentSelected: _onRecentSelected,
+                        onSpeakPlace: (place) => unawaited(_speakPlace(place)),
+                        onNavigatePlace: _selectDestinationPlace,
+                        showEmptyState: _showSearchEmpty,
+                        onSearchWider: () {
+                          final q = _destinationController.text.trim();
+                          if (q.isEmpty) return;
+                          setState(() {
+                            _isSearchingDestination = true;
+                            _showSearchEmpty = false;
+                            _useWiderSearch = true;
+                          });
+                          unawaited(
+                            _runNearbyDestinationSearch(q, wider: true),
+                          );
+                        },
+                        onVoiceSearch: _onVoiceSearchTap,
+                        selectedCategoryQuery: _selectedCategoryQuery,
+                      ),
                     )
                   else
                     _CurrentAddressCard(
@@ -1367,7 +1404,9 @@ class TrackPageState extends State<TrackPage> {
               panel: _isNavigating ? _visibleTrackingPanel : TrackingPanel.none,
               onPanelChanged: _showTrackingPanel,
               reservedBottomHeight:
-                  MapZoomControls.totalHeight() + (_isNavigating ? 12 : 72),
+                  fixedSearch && MediaQuery.viewInsetsOf(context).bottom > 0
+                  ? 0
+                  : MapZoomControls.totalHeight() + (_isNavigating ? 12 : 72),
               directions: _isNavigatorMode && _isNavigating
                   ? TurnByTurnPanel(
                       steps: turnStepsFromRoute(_activeRoute),

@@ -84,7 +84,7 @@ function createPairingService(pool, usersTable) {
       // Listing is read-only; expired pending state is derived without a write
       // on every five-second poll. Decisions still check database wall time.
       return (await pool.query(`SELECT c.*, CASE WHEN c.status='pending' AND c.expires_at<=clock_timestamp() THEN 'expired' ELSE c.status END AS status, n.firebase_uid AS navigator_uid,n.name AS navigator_name,
-        n.profile_picture AS navigator_picture,g.firebase_uid AS caregiver_uid,g.name AS caregiver_name
+        n.profile_picture AS navigator_picture,g.firebase_uid AS caregiver_uid,g.name AS caregiver_name,g.profile_picture AS caregiver_picture
         FROM akay_connections c JOIN ${users()} n ON n.user_id=c.navigator_id JOIN ${users()} g ON g.user_id=c.caregiver_id
         WHERE c.navigator_id=$1 OR c.caregiver_id=$1 ORDER BY c.requested_at DESC`,[actor.id])).rows;
     },

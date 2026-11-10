@@ -160,12 +160,8 @@ void main() {
           expect(find.byIcon(Icons.directions_walk_rounded), findsNWidgets(2));
           final a = tester.getTopLeft(find.text(trip.name)),
               b = tester.getTopLeft(find.text(other.name));
-          if (scale == 1) {
-            expect(a.dy, b.dy);
-            expect(b.dx, greaterThan(a.dx));
-          } else {
-            expect(b.dy, greaterThan(a.dy));
-          }
+          expect(a.dy, isNot(b.dy));
+          expect(a.dx, b.dx);
           expect(tester.takeException(), isNull);
           await tester.tap(find.text('View route').first);
           await tester.pumpAndSettle();

@@ -2,11 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/breadcrumb_trip.dart';
 import '../../pages/shared/breadcrumb_history_page.dart';
-import '../../services/breadcrumb_service.dart';
 import '../../theme/gabay_theme.dart';
-import '../../theme/gabay_typography.dart';
 import '../shared/gabay_card.dart';
-import 'breadcrumb_trip_tile.dart' show breadcrumbStatus;
 
 /// Compact record cards open their recorded route in a scrollable modal.
 class BreadcrumbTripRecords extends StatefulWidget {
@@ -15,9 +12,15 @@ class BreadcrumbTripRecords extends StatefulWidget {
     required this.trips,
     required this.localOwner,
     this.watchTrip,
+    this.heading,
+    this.controls,
+    this.dataAvailable = true,
   });
   final List<BreadcrumbTrip> trips;
   final bool localOwner;
+  final String? heading;
+  final Widget? controls;
+  final bool dataAvailable;
   final Stream<BreadcrumbTrip?> Function(String, String)? watchTrip;
   @override
   State<BreadcrumbTripRecords> createState() => _BreadcrumbTripRecordsState();
@@ -25,29 +28,98 @@ class BreadcrumbTripRecords extends StatefulWidget {
 
 class _BreadcrumbTripRecordsState extends State<BreadcrumbTripRecords> {
   String? _selectedId;
+  List<BreadcrumbTrip> get _ordered =>
+      [...widget.trips]..sort((a, b) => b.startedAt.compareTo(a.startedAt));
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final two =
-            constraints.maxWidth >= 300 &&
-            MediaQuery.textScalerOf(context).scale(14) <= 20;
-        return Wrap(
-          spacing: 12,
-          runSpacing: 12,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            for (final trip in widget.trips)
-              SizedBox(
-                width: two
-                    ? (constraints.maxWidth - 12) / 2
-                    : constraints.maxWidth,
-                child: _record(context, trip, _selectedId == trip.id),
-              ),
+            Expanded(
+              child: widget.heading == null
+                  ? const SizedBox()
+                  : Text(
+                      widget.heading!,
+                      style: GabayTheme.sectionTitle(context),
+                    ),
+            ),
+            if (widget.trips.isNotEmpty)
+              TextButton(onPressed: _viewAll, child: const Text('View All')),
           ],
-        );
-      },
+        ),
+        if (widget.heading != null) const SizedBox(height: 12),
+        if (widget.controls != null) ...[
+          widget.controls!,
+          const SizedBox(height: 12),
+        ],
+        if (widget.heading != null &&
+            widget.dataAvailable &&
+            widget.trips.isEmpty)
+          GabayCard(
+            child: Text(
+              'No recorded tracks yet.',
+              style: GabayTheme.bodyMedium(context),
+            ),
+          ),
+        for (final trip in _ordered.take(2))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _record(context, trip, _selectedId == trip.id),
+          ),
+      ],
     );
   }
+
+  Future<void> _viewAll() => showDialog<void>(
+    context: context,
+    builder: (dialogContext) => Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 560,
+          maxHeight: MediaQuery.sizeOf(dialogContext).height * .8,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Recent Trips',
+                      style: GabayTheme.sectionTitle(dialogContext),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Close recent trips',
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(dialogContext),
+                  ),
+                ],
+              ),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: widget.trips.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: (_, index) => _record(
+                    dialogContext,
+                    _ordered[index],
+                    _selectedId == _ordered[index].id,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 
   Future<void> _openTrip(BreadcrumbTrip trip) async {
     if (_selectedId != null) return;
@@ -56,6 +128,7 @@ class _BreadcrumbTripRecordsState extends State<BreadcrumbTripRecords> {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => Dialog(
+          clipBehavior: Clip.antiAlias,
           backgroundColor: dialogContext.gabay.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
@@ -123,103 +196,82 @@ class _BreadcrumbTripRecordsState extends State<BreadcrumbTripRecords> {
     final distance = trip.pointCount == 0
         ? 'No GPS points yet'
         : trip.distanceMeters < 1000
-        ? '${trip.distanceMeters.toStringAsFixed(0)} m recorded'
-        : '${(trip.distanceMeters / 1000).toStringAsFixed(2)} km recorded';
+        ? '${trip.distanceMeters.toStringAsFixed(0)} m'
+        : '${(trip.distanceMeters / 1000).toStringAsFixed(2)} km';
     final date = trip.startedAt.toLocal().toString().substring(0, 16);
-    return Semantics(
-      selected: selected,
-      child: GabayCard(
-        padding: const EdgeInsets.all(16),
-        semanticLabel: '${trip.name}, $date. View recorded route',
-        onTap: () => unawaited(_openTrip(trip)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: g.accentTint,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    trip.sourceType == 'cane_gps'
-                        ? Icons.accessible_forward_rounded
-                        : Icons.directions_walk_rounded,
-                    size: 20,
-                    color: g.accent,
-                  ),
+    return SizedBox(
+      height:
+          112 +
+          (MediaQuery.textScalerOf(context).scale(12) - 12).clamp(
+                0,
+                double.infinity,
+              ) *
+              6,
+      child: Semantics(
+        selected: selected,
+        child: GabayCard(
+          padding: const EdgeInsets.all(14),
+          semanticLabel: '${trip.name}, $date. View recorded route',
+          onTap: () => unawaited(_openTrip(trip)),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: g.accentTint,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    trip.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: g.textPrimary,
-                      fontSize: GabayTypography.cardBody,
-                      fontWeight: GabayTypography.semibold,
+                child: Icon(
+                  trip.sourceType == 'cane_gps'
+                      ? Icons.accessible_forward_rounded
+                      : Icons.directions_walk_rounded,
+                  size: 22,
+                  color: g.accent,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      trip.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: g.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              distance,
-              style: TextStyle(
-                color: g.textPrimary,
-                fontSize: GabayTypography.cardBody,
-                fontWeight: GabayTypography.semibold,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              date,
-              style: TextStyle(
-                color: g.textSecondary,
-                fontSize: GabayTypography.caption,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${trip.sourceType == 'cane_gps' ? 'Cane GPS' : 'Phone GPS'} · ${trip.pointCount} points',
-              style: TextStyle(
-                color: g.textSecondary,
-                fontSize: GabayTypography.caption,
-              ),
-            ),
-            const Divider(height: 24),
-            Text(
-              breadcrumbStatus(
-                trip,
-                DateTime.now(),
-                connected: BreadcrumbService.instance.connected,
-              ),
-              style: TextStyle(
-                color: g.textSecondary,
-                fontSize: GabayTypography.caption,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'View route',
-                    style: TextStyle(
-                      color: g.accent,
-                      fontSize: GabayTypography.caption,
+                    const SizedBox(height: 5),
+                    Text(
+                      '$date · $distance',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: g.textSecondary,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'View route',
+                      style: TextStyle(
+                        color: g.accent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
-                Icon(Icons.open_in_full_rounded, color: g.accent),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right_rounded, color: g.accent, size: 22),
+            ],
+          ),
         ),
       ),
     );

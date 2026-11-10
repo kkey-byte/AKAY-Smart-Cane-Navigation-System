@@ -66,6 +66,52 @@ Future<void> _mount(
 }
 
 void main() {
+  testWidgets(
+    'Three previews and See All retain confirmed removal in the complete list',
+    (tester) async {
+      final service = _Connections();
+      for (final id in ['three', 'four', 'five']) {
+        service.rows.add(
+          PairingConnection(
+            id: id,
+            navigatorUid: id,
+            caregiverUid: 'caregiver',
+            navigatorName: 'Navigator $id',
+            caregiverName: 'Caregiver',
+            status: 'active',
+          ),
+        );
+      }
+      await _mount(tester, service);
+      expect(find.text('Navigator three'), findsOneWidget);
+      expect(find.text('Navigator four'), findsNothing);
+      expect(find.textContaining('User ID:'), findsNothing);
+      await tester.ensureVisible(find.text('See All'));
+      await tester.tap(find.text('See All'));
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byTooltip('Remove Navigator five'),
+        180,
+        scrollable: find
+            .descendant(
+              of: find.byType(Dialog),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.tap(find.byTooltip('Remove Navigator five'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+      await tester.pumpAndSettle();
+      expect(service.removed, 'five');
+      expect(find.text('Navigator five'), findsNothing);
+      await tester.tap(find.byTooltip('Close linked navigators'));
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
   test(
     'Connection parses navigator user ID and picture from existing response',
     () {
@@ -90,7 +136,8 @@ void main() {
       final service = _Connections();
       await _mount(tester, service);
       expect(find.text('Linked Navigator'), findsOneWidget);
-      expect(find.text('User ID: user-one'), findsOneWidget);
+      expect(find.textContaining('User ID:'), findsNothing);
+      expect(find.text('Manage connections and access'), findsNothing);
       expect(find.text('Old Navigator'), findsNothing);
       expect(find.textContaining('Connected'), findsOneWidget);
       expect(find.textContaining('Pending approval'), findsOneWidget);

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/breadcrumb_service.dart';
-import '../../theme/gabay_theme.dart';
 import '../shared/gabay_card.dart';
 import 'breadcrumb_recording_controls.dart';
 
@@ -19,35 +18,20 @@ class BreadcrumbReportControls extends StatelessWidget {
           return const SizedBox.shrink();
         }
         return GabayCard(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: ExpansionTile(
-            shape: const Border(),
-            collapsedShape: const Border(),
-            leading: Icon(Icons.gps_fixed_rounded, color: context.gabay.accent),
-            title: const Text('Recording options'),
-            subtitle: Text(
-              service.trackingRequested
-                  ? service.isRecording
-                        ? 'Recording without a destination'
-                        : 'Waiting for a location'
-                  : 'Recording paused',
-            ),
-            childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-            children: [
-              BreadcrumbRecordingControls(
-                requested: service.trackingRequested,
-                recording: service.isRecording,
-                waitingReason: service.recordingError,
-                storageError: recorder.storageError,
-                syncError: recorder.syncError,
-                pendingCount: recorder.pendingCount,
-                syncing: recorder.isSyncing,
-                hasTrips: service.trips.isNotEmpty,
-                onStart: () => unawaited(_run(context, () => service.start())),
-                onPause: () => unawaited(_run(context, service.stop)),
-                onSync: () => unawaited(recorder.sync()),
-              ),
-            ],
+          padding: const EdgeInsets.all(16),
+          child: BreadcrumbRecordingControls(
+            compact: true,
+            requested: service.trackingRequested,
+            recording: service.isRecording,
+            waitingReason: service.recordingError,
+            storageError: recorder.storageError,
+            syncError: recorder.syncError,
+            pendingCount: recorder.pendingCount,
+            syncing: recorder.isSyncing,
+            hasTrips: service.trips.isNotEmpty,
+            onStart: () => unawaited(_run(context, () => service.start())),
+            onPause: () => unawaited(_run(context, service.stop)),
+            onSync: () => unawaited(recorder.sync()),
           ),
         );
       },

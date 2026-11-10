@@ -63,18 +63,11 @@ void main() {
           expect(find.text('Reports'), findsOneWidget);
           expect(find.text('Trips Today'), findsOneWidget);
           expect(find.text('Walking Duration'), findsOneWidget);
-          expect(find.text('Most Visited Places'), findsOneWidget);
+          expect(find.text('Most Visited Places'), findsNothing);
+          expect(find.text('Navigation Events'), findsNothing);
           expect(find.text('Recent Trips'), findsOneWidget);
           expect(find.byType(BreadcrumbFeatureCard), findsNothing);
           expect(find.text('Current and previous tracks'), findsNothing);
-          expect(
-            tester.getTopLeft(find.text('Navigation Events')).dy,
-            lessThan(tester.getTopLeft(find.text('Most Visited Places')).dy),
-          );
-          expect(
-            tester.getTopLeft(find.text('Recent Trips')).dy,
-            lessThan(tester.getTopLeft(find.text('Navigation Events')).dy),
-          );
           expect(
             find.textContaining('Movement duration unavailable'),
             findsNothing,

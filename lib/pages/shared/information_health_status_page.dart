@@ -1,3 +1,4 @@
+import '../../widgets/profile/health_display_widgets.dart';
 import '../../theme/gabay_typography.dart';
 import '../../widgets/shared/gabay_accent_icon.dart';
 import 'package:flutter/material.dart';
@@ -444,7 +445,7 @@ class _InformationHealthContentState extends State<InformationHealthContent> {
               final cards = <Widget>[
                 SizedBox(
                   width: width,
-                  child: _OverviewCard(
+                  child: GabayHealthOverviewCard(
                     label: 'Blood Type',
                     value: _value(patient.bloodType),
                     icon: Icons.water_drop_outlined,
@@ -452,7 +453,7 @@ class _InformationHealthContentState extends State<InformationHealthContent> {
                 ),
                 SizedBox(
                   width: width,
-                  child: _OverviewCard(
+                  child: GabayHealthOverviewCard(
                     label: 'Height',
                     value: _value(_height),
                     unit: _height?.isNotEmpty == true ? 'cm' : '',
@@ -461,7 +462,7 @@ class _InformationHealthContentState extends State<InformationHealthContent> {
                 ),
                 SizedBox(
                   width: width,
-                  child: _OverviewCard(
+                  child: GabayHealthOverviewCard(
                     label: 'Weight',
                     value: _value(_weight),
                     unit: _weight?.isNotEmpty == true ? 'kg' : '',
@@ -495,7 +496,7 @@ class _InformationHealthContentState extends State<InformationHealthContent> {
             },
           ),
           const SizedBox(height: 14),
-          _HealthSection(
+          GabayHealthSection(
             title: 'Medical Conditions',
             icon: Icons.warning_amber_rounded,
             child: Builder(
@@ -540,7 +541,7 @@ class _InformationHealthContentState extends State<InformationHealthContent> {
             ),
           ),
           const SizedBox(height: 14),
-          _HealthSection(
+          GabayHealthSection(
             title: 'Allergies',
             icon: Icons.block_outlined,
             child: Text(
@@ -565,7 +566,7 @@ class _InformationHealthContentState extends State<InformationHealthContent> {
               children: [
                 Row(
                   children: [
-                    const _HealthIcon(icon: Icons.person_outline),
+                    const GabayHealthIcon(icon: Icons.person_outline),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -593,7 +594,7 @@ class _InformationHealthContentState extends State<InformationHealthContent> {
                   ],
                 ),
                 Divider(color: g.border.withValues(alpha: 0.5)),
-                _HealthDetail(label: 'Phone Number', value: _value(_phone)),
+                GabayHealthDetail(label: 'Phone Number', value: _value(_phone)),
               ],
             ),
           ),
@@ -601,148 +602,6 @@ class _InformationHealthContentState extends State<InformationHealthContent> {
       ),
     );
   }
-}
-
-class _HealthIcon extends StatelessWidget {
-  const _HealthIcon({required this.icon});
-  final IconData icon;
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(8),
-    decoration: BoxDecoration(
-      color: context.gabay.accentTint,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: GabayAccentIcon(icon, color: context.gabay.accent, size: 24),
-  );
-}
-
-class _OverviewCard extends StatelessWidget {
-  const _OverviewCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    this.unit = '',
-  });
-  final String label, value, unit;
-  final IconData icon;
-  @override
-  Widget build(BuildContext context) => GabayCard(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-    child: Column(
-      children: [
-        _HealthIcon(icon: icon),
-        const SizedBox(height: 10),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: context.gabay.textSecondary,
-            fontSize: GabayTypography.caption,
-          ),
-        ),
-        const SizedBox(height: 5),
-        Text.rich(
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          TextSpan(
-            text: value,
-            children: [
-              if (unit.isNotEmpty)
-                TextSpan(
-                  text: ' $unit',
-                  style: const TextStyle(fontSize: GabayTypography.chartLabel),
-                ),
-            ],
-          ),
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: context.gabay.accent,
-            fontSize: value == 'Not provided' ? 13 : 17,
-            fontWeight: GabayTypography.regular,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _HealthSection extends StatelessWidget {
-  const _HealthSection({
-    required this.title,
-    required this.icon,
-    required this.child,
-  });
-  final String title;
-  final IconData icon;
-  final Widget child;
-  @override
-  Widget build(BuildContext context) => GabayCard(
-    padding: const EdgeInsets.all(14),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            _HealthIcon(icon: icon),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  color: context.gabay.textPrimary,
-                  fontWeight: GabayTypography.regular,
-                  fontSize: GabayTypography.body,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        child,
-      ],
-    ),
-  );
-}
-
-class _HealthDetail extends StatelessWidget {
-  const _HealthDetail({required this.label, required this.value});
-  final String label, value;
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final caption = Text(
-        label,
-        style: TextStyle(
-          color: context.gabay.textSecondary,
-          fontSize: GabayTypography.supporting,
-        ),
-      );
-      final content = Text(
-        value,
-        style: TextStyle(
-          color: context.gabay.accent,
-          fontSize: GabayTypography.supporting,
-        ),
-      );
-      if (MediaQuery.textScalerOf(context).scale(13) > 20) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [caption, const SizedBox(height: 6), content],
-        );
-      }
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: caption),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Align(alignment: Alignment.centerRight, child: content),
-          ),
-        ],
-      );
-    },
-  );
 }
 
 class _HealthEditor extends StatefulWidget {
@@ -818,7 +677,7 @@ class _HealthEditorState extends State<_HealthEditor> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _HealthIcon(icon: Icons.health_and_safety_outlined),
+                const GabayHealthIcon(icon: Icons.health_and_safety_outlined),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

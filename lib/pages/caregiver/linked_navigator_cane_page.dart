@@ -25,6 +25,7 @@ class _LinkedNavigatorCanePageState extends State<LinkedNavigatorCanePage> {
   StreamSubscription<List<PairingConnection>>? _subscription;
   List<PairingConnection>? _rows;
   String? _error, _removing;
+  final _listPresentation = ValueNotifier<int>(0);
   bool get _valid => _revision == AppSessionService.instance.identityRevision;
 
   @override
@@ -44,6 +45,7 @@ class _LinkedNavigatorCanePageState extends State<LinkedNavigatorCanePage> {
         _rows = null;
         _error = 'Account changed. Reopen this page.';
       });
+      _listPresentation.value++;
     }
   }
 
@@ -78,6 +80,7 @@ class _LinkedNavigatorCanePageState extends State<LinkedNavigatorCanePage> {
               .toList();
           _error = null;
         });
+        _listPresentation.value++;
       },
       onError: (Object error) {
         if (_refreshing?.isCompleted == false) _refreshing!.complete();
@@ -86,6 +89,7 @@ class _LinkedNavigatorCanePageState extends State<LinkedNavigatorCanePage> {
           if (_refreshing == null) _rows = null;
           _error = 'Could not load linked navigators. Please try again.';
         });
+        _listPresentation.value++;
       },
     );
   }
@@ -114,6 +118,7 @@ class _LinkedNavigatorCanePageState extends State<LinkedNavigatorCanePage> {
     );
     if (confirmed != true || !mounted || !_valid || _removing != null) return;
     setState(() => _removing = row.id);
+    _listPresentation.value++;
     try {
       await _service.revoke(row.id);
       if (!mounted || !_valid) return;
@@ -132,12 +137,16 @@ class _LinkedNavigatorCanePageState extends State<LinkedNavigatorCanePage> {
         );
       }
     } finally {
-      if (mounted) setState(() => _removing = null);
+      if (mounted) {
+        setState(() => _removing = null);
+        _listPresentation.value++;
+      }
     }
   }
 
   @override
   void dispose() {
+    _listPresentation.dispose();
     AppSessionService.instance.removeListener(_accountChanged);
     unawaited(_subscription?.cancel());
     super.dispose();
@@ -282,11 +291,19 @@ class _LinkedNavigatorCanePageState extends State<LinkedNavigatorCanePage> {
                 ),
               )
             else
-              for (final row in rows)
+              for (final row in rows.take(3))
                 Padding(
                   padding: const EdgeInsets.only(bottom: 14),
                   child: _navigatorCard(row),
                 ),
+            if (rows != null && rows.length > 3)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _seeAll,
+                  child: const Text('See All'),
+                ),
+              ),
             const SizedBox(height: 20),
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -302,6 +319,7 @@ class _LinkedNavigatorCanePageState extends State<LinkedNavigatorCanePage> {
             DashboardPairingCard(
               caregiver: true,
               pairingOnly: true,
+              showManageConnections: false,
               service: _service,
             ),
           ],
@@ -309,6 +327,57 @@ class _LinkedNavigatorCanePageState extends State<LinkedNavigatorCanePage> {
       ),
     );
   }
+
+  Future<void> _seeAll() => showDialog<void>(
+    context: context,
+    builder: (dialogContext) => Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 520,
+          maxHeight: MediaQuery.sizeOf(dialogContext).height * .8,
+        ),
+        child: ValueListenableBuilder<int>(
+          valueListenable: _listPresentation,
+          builder: (context, _, _) => Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Linked Navigators',
+                        style: GabayTheme.sectionTitle(context),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close linked navigators',
+                      onPressed: () => Navigator.pop(dialogContext),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _valid ? (_rows?.length ?? 0) : 0,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemBuilder: (_, index) {
+                      final row = _rows![index];
+                      return _navigatorCard(row);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 
   Widget _navigatorCard(PairingConnection row) {
     final g = context.gabay;
@@ -348,15 +417,6 @@ class _LinkedNavigatorCanePageState extends State<LinkedNavigatorCanePage> {
                         style: TextStyle(
                           color: g.textSecondary,
                           fontSize: GabayTypography.caption,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      SelectableText(
-                        'User ID: ${row.navigatorUserId ?? row.navigatorUid}',
-                        style: TextStyle(
-                          color: g.textSecondary,
-                          fontSize: GabayTypography.caption,
-                          height: 1.5,
                         ),
                       ),
                     ],

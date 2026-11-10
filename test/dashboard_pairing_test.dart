@@ -95,23 +95,41 @@ void main() {
     await service.close();
   }
 
-  testWidgets('profile invitation keeps pairing behind navigator consent', (
-    tester,
-  ) async {
-    final service = DashboardFake();
-    await mount(tester, service, caregiver: false, profilePresentation: true);
-    expect(find.text('Caregiver Connections'), findsOneWidget);
-    await tester.tap(find.text('Invite a Caregiver'));
-    await tester.pumpAndSettle();
-    final button = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Show my pairing code'),
-    );
-    expect(button.onPressed, isNull);
-    expect(find.byType(CheckboxListTile), findsOneWidget);
-    expect(find.text('Manage connections and access'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-    await cleanup(tester, service);
-  });
+  testWidgets(
+    'profile invitation opens a centered code dialog without checkbox',
+    (tester) async {
+      final service = DashboardFake();
+      await mount(tester, service, caregiver: false, profilePresentation: true);
+      expect(find.text('Caregiver Connections'), findsOneWidget);
+      await tester.tap(find.text('Invite a Caregiver'));
+      await tester.pumpAndSettle();
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Show my pairing code'),
+      );
+      expect(button.onPressed, isNotNull);
+      expect(find.byType(CheckboxListTile), findsNothing);
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Show my pairing code'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text('ABC234'), findsOneWidget);
+      expect(find.text('Copy code'), findsNothing);
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('QR code'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Create a new code'));
+      await tester.pumpAndSettle();
+      expect(find.byType(QrImageView), findsOneWidget);
+      expect(find.text('Read code aloud'), findsNothing);
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      expect(find.text('Manage connections and access'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await cleanup(tester, service);
+    },
+  );
 
   testWidgets(
     'navigator code is prominent, accessible, copyable and QR stays readable at large scale',
