@@ -21,6 +21,8 @@ function load(file, env, rejectCertificate = false) {
       };
       if (name === 'firebase-admin/auth') return {getAuth: app => app};
       if (name === 'firebase-admin/database') return {getDatabase: app => app};
+      if (name === 'firebase-admin/firestore') return {getFirestore: app => app};
+      if (name === 'firebase-admin/messaging') return {getMessaging: app => app};
       throw new Error('Unexpected import');
     },
   };

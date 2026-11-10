@@ -68,6 +68,43 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final now = DateTime(2026, 10, 22, 12);
   test(
+    'history-only positions never claim live GPS and cane freshness is independent of phone app activity',
+    () {
+      final history = DashboardSnapshot.fromJson({
+        'navigator': {'uid': 'navigator'},
+        'location': {
+          'latitude': 10,
+          'longitude': 20,
+          'time': now.millisecondsSinceEpoch,
+          'source': 'phone_gps',
+          'recordedOnly': true,
+          'live': false,
+        },
+      });
+      expect(history.fresh(now), isFalse);
+      expect(history.trackingLabel(now), contains('Last known position'));
+      final cane = DashboardSnapshot.fromJson({
+        'navigator': {'uid': 'navigator'},
+        'location': {
+          'latitude': 10,
+          'longitude': 20,
+          'time': now.millisecondsSinceEpoch,
+          'source': 'cane_gps',
+          'deviceId': 'physical-cane',
+          'assignmentId': 'assignment',
+          'live': true,
+        },
+        'presence': {'state': 'inactive'},
+        'recordedTrip': {'id': 'cane-trip'},
+      });
+      expect(cane.fresh(now), isTrue);
+      expect(cane.trackingLabel(now), 'Live tracking active · Cane GPS');
+      expect(cane.deviceId, 'physical-cane');
+      expect(cane.recordedTripId, 'cane-trip');
+      expect(cane.fresh(now.add(const Duration(seconds: 46))), isFalse);
+    },
+  );
+  test(
     'null fields and invalid coordinates never become fake locations or blank cards',
     () {
       final data = DashboardSnapshot.fromJson({

@@ -68,7 +68,7 @@
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>AKAY records your daily path while signed in as a navigator, including in the background, so your shared caregivers can monitor your movement. You can pause recording in My tracks.</string>
 	<key>UIBackgroundModes</key>
-	<array><string>location</string><string>audio</string></array>
+	<array><string>location</string><string>audio</string><string>remote-notification</string></array>
 	<key>io.flutter.embedded_views_preview</key>
 	<true/>
 	<key>GMSApiKey</key>

@@ -61,6 +61,12 @@ class BreadcrumbTrip {
     required this.points,
     this.status = 'recording',
     this.endedAt,
+    this.recordedPointCount,
+    this.recordedDistanceMeters,
+    this.lastSampledAt,
+    this.sourceType = 'phone_gps',
+    this.deviceId,
+    this.assignmentId,
   });
   final String id;
   final String ownerId;
@@ -69,17 +75,40 @@ class BreadcrumbTrip {
   final DateTime? endedAt;
   final String status;
   final List<BreadcrumbPoint> points;
+  final int? recordedPointCount;
+  final double? recordedDistanceMeters;
+  final DateTime? lastSampledAt;
+  final String sourceType;
+  final String? deviceId;
+  final String? assignmentId;
+  int get pointCount => recordedPointCount ?? points.length;
+  double get distanceMeters {
+    if (recordedDistanceMeters != null) return recordedDistanceMeters!;
+    double total = 0;
+    for (var i = 1; i < points.length; i++) {
+      total += Geolocator.distanceBetween(
+        points[i - 1].latitude,
+        points[i - 1].longitude,
+        points[i].latitude,
+        points[i].longitude,
+      );
+    }
+    return total;
+  }
+
   bool get isRecording => status == 'recording';
   bool isFresh(DateTime now) =>
       isRecording &&
-      points.isNotEmpty &&
-      now.difference(points.last.time).inSeconds >= -30 &&
-      now.difference(points.last.time) <= const Duration(seconds: 45);
+      (lastSampledAt ?? points.lastOrNull?.time) != null &&
+      now.difference(lastSampledAt ?? points.last.time).inSeconds >= -30 &&
+      now.difference(lastSampledAt ?? points.last.time) <=
+          const Duration(seconds: 45);
 
   BreadcrumbTrip copyWith({
     List<BreadcrumbPoint>? points,
     String? status,
     DateTime? endedAt,
+    DateTime? lastSampledAt,
   }) => BreadcrumbTrip(
     id: id,
     ownerId: ownerId,
@@ -88,6 +117,13 @@ class BreadcrumbTrip {
     points: points ?? this.points,
     status: status ?? this.status,
     endedAt: endedAt ?? this.endedAt,
+    sourceType: sourceType,
+    deviceId: deviceId,
+    assignmentId: assignmentId,
+    recordedPointCount: points == null ? recordedPointCount : null,
+    recordedDistanceMeters: points == null ? recordedDistanceMeters : null,
+    lastSampledAt:
+        lastSampledAt ?? (points == null ? this.lastSampledAt : null),
   );
 
   Map<String, Object?> toJson() => {
@@ -96,6 +132,14 @@ class BreadcrumbTrip {
     'startedAt': startedAt.millisecondsSinceEpoch,
     'endedAt': endedAt?.millisecondsSinceEpoch,
     'status': status,
+    'sourceType': sourceType,
+    'deviceId': deviceId,
+    'assignmentId': assignmentId,
+    if (recordedPointCount != null) 'pointCount': recordedPointCount,
+    if (recordedDistanceMeters != null)
+      'distanceMeters': recordedDistanceMeters,
+    if (lastSampledAt != null)
+      'lastSampledAt': lastSampledAt!.millisecondsSinceEpoch,
     'points': {
       for (var i = 0; i < points.length; i++)
         i.toString().padLeft(8, '0'): points[i].toJson(),
@@ -140,6 +184,16 @@ class BreadcrumbTrip {
           ? 'completed'
           : 'interrupted',
       points: List.unmodifiable(points),
+      recordedPointCount: (raw['pointCount'] as num?)?.toInt(),
+      recordedDistanceMeters: (raw['distanceMeters'] as num?)?.toDouble(),
+      lastSampledAt: raw['lastSampledAt'] is num
+          ? DateTime.fromMillisecondsSinceEpoch(
+              (raw['lastSampledAt'] as num).toInt(),
+            )
+          : null,
+      sourceType: raw['sourceType'] == 'cane_gps' ? 'cane_gps' : 'phone_gps',
+      deviceId: raw['deviceId'] as String?,
+      assignmentId: raw['assignmentId'] as String?,
     );
   }
 }

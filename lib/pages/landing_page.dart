@@ -95,7 +95,7 @@ class _LandingPageState extends State<LandingPage>
     final viewport = MediaQuery.of(context).size;
     final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
     final size = Size(
-      viewport.width,
+      math.max(320.0, viewport.width),
       viewport.height.clamp(
         720.0 + (scale - 1).clamp(0, 3) * 180,
         double.infinity,
@@ -109,105 +109,175 @@ class _LandingPageState extends State<LandingPage>
       backgroundColor: scaffoldBg,
 
       body: SingleChildScrollView(
-        child: SizedBox(
-          height: size.height,
-          child: Stack(
-            children: [
-              CustomPaint(size: size, painter: const _LandingBluePainter()),
-              ClipPath(
-                clipper: _LandingWaveClipper(_liquid),
-                child: Container(
-                  width: double.infinity,
-                  height: size.height,
-                  color: scaffoldBg,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: size.width,
+            height: size.height,
+            child: Stack(
+              children: [
+                CustomPaint(size: size, painter: const _LandingBluePainter()),
+                ClipPath(
+                  clipper: _LandingWaveClipper(_liquid),
+                  child: Container(
+                    width: double.infinity,
+                    height: size.height,
+                    color: scaffoldBg,
+                  ),
                 ),
-              ),
 
-              SafeArea(
-                child: Column(
-                  children: [
-                    SizedBox(height: size.height * .15),
+                SafeArea(
+                  child: Column(
+                    children: [
+                      SizedBox(height: size.height * .15),
 
-                    _reveal(
-                      _logo,
-                      scaleLogo: true,
-                      child: Hero(
-                        tag: 'gabay_logo',
-                        child: SizedBox(
-                          width: 200,
-                          height: 140,
-                          child: OverflowBox(
-                            minHeight: 200,
-                            maxHeight: 200,
-                            child: GabayLogo(
-                              size: 200,
-                              color: Color(0xFF008DE0),
+                      _reveal(
+                        _logo,
+                        scaleLogo: true,
+                        child: Hero(
+                          tag: 'gabay_logo',
+                          child: SizedBox(
+                            width: 200,
+                            height: 140,
+                            child: OverflowBox(
+                              minHeight: 200,
+                              maxHeight: 200,
+                              child: GabayLogo(
+                                size: 200,
+                                color: Color(0xFF008DE0),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
 
-                    const SizedBox(height: 8),
+                      const SizedBox(height: 8),
 
-                    _reveal(
-                      _name,
-                      rise: 12,
-                      child: const Hero(
-                        tag: 'gabay_title',
-                        child: Material(
-                          color: Colors.transparent,
-                          child: Text(
-                            "AKAY",
-                            style: TextStyle(
-                              color: GabayVisualTokens.ink,
-                              fontSize: GabayTypography.brand,
-                              fontWeight: GabayTypography.bold,
-                              letterSpacing: 1.5,
+                      _reveal(
+                        _name,
+                        rise: 12,
+                        child: const Hero(
+                          tag: 'gabay_title',
+                          child: Material(
+                            color: Colors.transparent,
+                            child: Text(
+                              "AKAY",
+                              style: TextStyle(
+                                color: GabayVisualTokens.ink,
+                                fontSize: GabayTypography.brand,
+                                fontWeight: GabayTypography.bold,
+                                letterSpacing: 1.5,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
 
-                    const SizedBox(height: 8),
+                      const SizedBox(height: 8),
 
-                    _reveal(
-                      _tagline,
-                      rise: 10,
-                      child: Hero(
-                        tag: 'gabay_subtitle',
-                        child: Material(
-                          color: Colors.transparent,
-                          child: Text(
-                            "Independence Starts Here",
-                            style: TextStyle(
-                              color: GabayVisualTokens.mutedInk,
-                              fontSize: GabayTypography.supporting,
+                      _reveal(
+                        _tagline,
+                        rise: 10,
+                        child: Hero(
+                          tag: 'gabay_subtitle',
+                          child: Material(
+                            color: Colors.transparent,
+                            child: Text(
+                              "Independence Starts Here",
+                              style: TextStyle(
+                                color: GabayVisualTokens.mutedInk,
+                                fontSize: GabayTypography.supporting,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
 
-                    const Spacer(),
+                      const Spacer(),
 
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        children: [
-                          _reveal(
-                            _login,
-                            rise: 40,
-                            child: SizedBox(
-                              width: double.infinity,
-                              height: 54,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(30),
-                                  gradient: GabayTheme.actionGradient,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          children: [
+                            _reveal(
+                              _login,
+                              rise: 40,
+                              child: SizedBox(
+                                width: double.infinity,
+                                height: 54,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(30),
+                                    gradient: GabayTheme.actionGradient,
+                                  ),
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        PageRouteBuilder(
+                                          pageBuilder:
+                                              (
+                                                context,
+                                                animation,
+                                                secondaryAnimation,
+                                              ) => const LoginPage(),
+                                          transitionsBuilder:
+                                              (
+                                                context,
+                                                animation,
+                                                secondaryAnimation,
+                                                child,
+                                              ) {
+                                                return SlideTransition(
+                                                  position:
+                                                      Tween<Offset>(
+                                                        begin: const Offset(
+                                                          0,
+                                                          1,
+                                                        ),
+                                                        end: Offset.zero,
+                                                      ).animate(
+                                                        CurvedAnimation(
+                                                          parent: animation,
+                                                          curve: Curves
+                                                              .easeOutCubic,
+                                                        ),
+                                                      ),
+                                                  child: child,
+                                                );
+                                              },
+                                        ),
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      shadowColor: Colors.transparent,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(30),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      "Login",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: GabayTypography.cardBody,
+                                        fontWeight: GabayTypography.medium,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                                child: ElevatedButton(
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            _reveal(
+                              _start,
+                              rise: 40,
+                              child: SizedBox(
+                                width: double.infinity,
+                                height: 54,
+                                child: OutlinedButton(
                                   onPressed: () {
                                     Navigator.push(
                                       context,
@@ -217,7 +287,7 @@ class _LandingPageState extends State<LandingPage>
                                               context,
                                               animation,
                                               secondaryAnimation,
-                                            ) => const LoginPage(),
+                                            ) => const SignupPage(),
                                         transitionsBuilder:
                                             (
                                               context,
@@ -243,18 +313,20 @@ class _LandingPageState extends State<LandingPage>
                                       ),
                                     );
                                   },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    elevation: 0,
+                                  style: OutlinedButton.styleFrom(
+                                    backgroundColor: g.surface,
+                                    foregroundColor: g.heading,
+                                    side: BorderSide(
+                                      color: g.heading,
+                                      width: 2,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(30),
                                     ),
                                   ),
                                   child: const Text(
-                                    "Login",
+                                    "Get Started",
                                     style: TextStyle(
-                                      color: Colors.white,
                                       fontSize: GabayTypography.cardBody,
                                       fontWeight: GabayTypography.medium,
                                     ),
@@ -262,80 +334,18 @@ class _LandingPageState extends State<LandingPage>
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
 
-                          _reveal(
-                            _start,
-                            rise: 40,
-                            child: SizedBox(
-                              width: double.infinity,
-                              height: 54,
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    PageRouteBuilder(
-                                      pageBuilder:
-                                          (
-                                            context,
-                                            animation,
-                                            secondaryAnimation,
-                                          ) => const SignupPage(),
-                                      transitionsBuilder:
-                                          (
-                                            context,
-                                            animation,
-                                            secondaryAnimation,
-                                            child,
-                                          ) {
-                                            return SlideTransition(
-                                              position:
-                                                  Tween<Offset>(
-                                                    begin: const Offset(0, 1),
-                                                    end: Offset.zero,
-                                                  ).animate(
-                                                    CurvedAnimation(
-                                                      parent: animation,
-                                                      curve:
-                                                          Curves.easeOutCubic,
-                                                    ),
-                                                  ),
-                                              child: child,
-                                            );
-                                          },
-                                    ),
-                                  );
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  backgroundColor: g.surface,
-                                  foregroundColor: g.heading,
-                                  side: BorderSide(color: g.heading, width: 2),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(30),
-                                  ),
-                                ),
-                                child: const Text(
-                                  "Get Started",
-                                  style: TextStyle(
-                                    fontSize: GabayTypography.cardBody,
-                                    fontWeight: GabayTypography.medium,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          SizedBox(height: size.height * .07),
-                        ],
+                            SizedBox(height: size.height * .07),
+                          ],
+                        ),
                       ),
-                    ),
 
-                    const SizedBox(height: 20),
-                  ],
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

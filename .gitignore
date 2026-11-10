@@ -53,5 +53,8 @@ app.*.map.json
 /tmp/pairing_pg/
 /tmp/health_status_pg/
 /tmp/pairing_pg.log
+/tmp/emergency_pg/
+/tmp/emergency_verified_pg/
+/tmp/emergency_verified_pg.log
 *.private.json
 /backend_patch/original_backup/

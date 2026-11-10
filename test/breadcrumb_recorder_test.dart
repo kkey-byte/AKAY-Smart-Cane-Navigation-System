@@ -23,6 +23,19 @@ class MemoryRepository implements BreadcrumbRepository {
       );
 }
 
+class WritablePreferences extends Fake implements SharedPreferences {
+  final values = <String, String>{};
+  bool allowWrites = true;
+  @override
+  String? getString(String key) => values[key];
+  @override
+  Future<bool> setString(String key, String value) async {
+    if (!allowWrites) return false;
+    values[key] = value;
+    return true;
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final now = DateTime(2026, 9, 29, 12);
@@ -33,6 +46,92 @@ void main() {
         now.add(Duration(seconds: seconds)),
         accuracy,
       );
+
+  test(
+    'failed device persistence is visible and retries before cloud acknowledgement',
+    () async {
+      final preferences = WritablePreferences();
+      final repository = MemoryRepository();
+      final recorder = BreadcrumbRecorder(repository, preferences);
+      await recorder.openAccount('owner');
+      preferences.allowWrites = false;
+      await expectLater(
+        recorder.start('Trip', point(7.3, 0)),
+        throwsStateError,
+      );
+      expect(recorder.storageError, isNotNull);
+      await recorder.sync();
+      expect(repository.saved, isEmpty);
+      expect(recorder.hasPending, isTrue);
+      preferences.allowWrites = true;
+      await recorder.sync();
+      expect(recorder.storageError, isNull);
+      expect(recorder.hasPending, isFalse);
+      final restarted = BreadcrumbRecorder(repository, preferences);
+      await restarted.openAccount('owner');
+      expect(restarted.trips.single.points.first.time, now);
+    },
+  );
+
+  test(
+    'unreadable pending data is preserved even when pause is requested',
+    () async {
+      final preferences = WritablePreferences();
+      const corrupt = '{invalid saved track data';
+      preferences.values['akay_breadcrumbs_owner'] = corrupt;
+      final recorder = BreadcrumbRecorder(MemoryRepository(), preferences);
+      await recorder.openAccount('owner');
+      expect(recorder.storageError, isNotNull);
+      await expectLater(recorder.stop(pauseRecording: true), throwsStateError);
+      await recorder.sync();
+      expect(preferences.values['akay_breadcrumbs_owner'], corrupt);
+    },
+  );
+
+  test(
+    'retention is opt-in and never removes an unacknowledged trip',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final recorder = BreadcrumbRecorder(
+        MemoryRepository(),
+        await SharedPreferences.getInstance(),
+      );
+      await recorder.openAccount('owner');
+      await recorder.start('Trip', point(7.3, 0));
+      await recorder.stop();
+      final future = DateTime.now().add(const Duration(days: 20));
+      await recorder.applyRetention(days: 1, now: future);
+      expect(recorder.trips, hasLength(1));
+      await recorder.sync();
+      await recorder.applyRetention(now: future);
+      expect(recorder.trips, hasLength(1));
+      await recorder.applyRetention(days: 1, now: future);
+      expect(recorder.trips, isEmpty);
+    },
+  );
+
+  test(
+    'confirmed account removal erases the durable queue and cannot restore it',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      final repository = MemoryRepository()..offline = true;
+      final recorder = BreadcrumbRecorder(repository, preferences);
+      await recorder.openAccount('removed-owner');
+      await recorder.start('Trip', point(7.3, 0));
+      await recorder.stop();
+      await recorder.eraseLocalAccountHistory();
+      expect(recorder.hasPending, isFalse);
+      expect(recorder.trips, isEmpty);
+      expect(
+        preferences.containsKey('akay_breadcrumbs_removed-owner'),
+        isFalse,
+      );
+      final restarted = BreadcrumbRecorder(repository, preferences);
+      await restarted.openAccount('removed-owner');
+      expect(restarted.trips, isEmpty);
+    },
+  );
 
   test(
     'records movement, rejects jitter, stale fixes and invalid coordinates',

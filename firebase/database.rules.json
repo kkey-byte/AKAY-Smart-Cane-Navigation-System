@@ -7,7 +7,7 @@
     "breadcrumb_trips": {
       "$owner": {
         ".read": "auth != null && auth.uid === $owner",
-        ".write": "auth != null && auth.uid === $owner",
+        ".write": false,
         ".indexOn": [
           "startedAt"
         ],
@@ -69,8 +69,8 @@
     "phone_location": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid",
-        ".validate": "newData.hasChildren(['latitude','longitude','timestamp','source']) && newData.child('source').val() === 'phone_gps' && newData.child('latitude').isNumber() && newData.child('latitude').val() >= -90 && newData.child('latitude').val() <= 90 && newData.child('longitude').isNumber() && newData.child('longitude').val() >= -180 && newData.child('longitude').val() <= 180 && newData.child('timestamp').isNumber() && newData.child('timestamp').val() >= now - 300000 && newData.child('timestamp').val() <= now + 30000",
+        ".write": "auth != null && auth.uid === $uid && !root.child('deleted_location_accounts').child($uid).exists()",
+        ".validate": "newData.hasChildren(['latitude','longitude','timestamp','source']) && newData.child('source').val() === 'phone_gps' && newData.child('latitude').isNumber() && newData.child('latitude').val() >= -90 && newData.child('latitude').val() <= 90 && newData.child('longitude').isNumber() && newData.child('longitude').val() >= -180 && newData.child('longitude').val() <= 180 && newData.child('timestamp').isNumber() && newData.child('timestamp').val() >= now - 300000 && newData.child('timestamp').val() <= now + 30000 && (!data.exists() || newData.child('timestamp').val() > data.child('timestamp').val())",
         "latitude": {
           ".validate": "newData.isNumber() && newData.val() >= -90 && newData.val() <= 90"
         },
@@ -96,6 +96,14 @@
           ".validate": false
         }
       }
+    },
+    "cane_location": {
+      ".read": false,
+      ".write": false
+    },
+    "deleted_location_accounts": {
+      ".read": false,
+      ".write": false
     }
   }
 }

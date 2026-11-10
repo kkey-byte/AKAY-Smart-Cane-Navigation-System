@@ -16,6 +16,12 @@ class DashboardSnapshot {
     this.presenceTime,
     this.points = const [],
     this.errors = const [],
+    this.sourceType,
+    this.deviceId,
+    this.assignmentId,
+    this.recordedTripId,
+    this.recordedOnly = false,
+    this.liveEnabled = true,
   });
   final String uid, name, presence;
   final LatLng? position, target;
@@ -30,7 +36,12 @@ class DashboardSnapshot {
   final bool routeActive;
   final List<LatLng> points;
   final List<String> errors;
+  final String? sourceType, deviceId, assignmentId, recordedTripId;
+  final bool recordedOnly, liveEnabled;
   bool fresh(DateTime now) =>
+      !recordedOnly &&
+      liveEnabled &&
+      position != null &&
       locationTime != null &&
       now.difference(locationTime!).inSeconds >= -30 &&
       now.difference(locationTime!) <= const Duration(seconds: 45);
@@ -56,6 +67,7 @@ class DashboardSnapshot {
   String trackingLabel(DateTime now) {
     if (position == null) return 'Waiting for GPS location';
     if (!fresh(now)) return 'Location offline · Last known position';
+    if (sourceType == 'cane_gps') return 'Live tracking active · Cane GPS';
     if (appActive(now)) return 'Live tracking active · App in use';
     return switch (presence) {
       'active' => 'Recent location · No recent app activity',
@@ -115,6 +127,12 @@ class DashboardSnapshot {
       errors: data['errors'] is List
           ? (data['errors'] as List).whereType<String>().toList()
           : const [],
+      sourceType: clean(location['source']),
+      deviceId: clean(location['deviceId']),
+      assignmentId: clean(location['assignmentId']),
+      recordedTripId: clean(asMap(data['recordedTrip'])['id']),
+      recordedOnly: location['recordedOnly'] == true,
+      liveEnabled: location['live'] != false,
     );
   }
   static Map<String, dynamic> asMap(Object? raw) =>

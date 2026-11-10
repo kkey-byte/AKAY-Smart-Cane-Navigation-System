@@ -204,11 +204,12 @@ function createPairingService(pool, usersTable) {
         const lat=body.latitude??null,lon=body.longitude??null,battery=body.battery??null,status=body.status??null;
         if ((lat===null)!==(lon===null) || (lat!==null && (!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)) ||
           (battery!==null && (!Number.isInteger(battery)||battery<0||battery>100)) || (status!==null && !['idle','moving','fault'].includes(status)) ||
-          (body.alert!=null && !['sos','obstacle','battery_low','device_fault'].includes(body.alert))) fail(400,'invalid_reading','Reading fields are invalid.');
+          (body.alert!=null && !['sos','motion','obstacle','battery_low','device_fault'].includes(body.alert)) ||
+          (body.eventId!=null && (typeof body.eventId!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(body.eventId)))) fail(400,'invalid_reading','Reading fields are invalid.');
         const reading=await one(db,`INSERT INTO akay_readings(device_id,assignment_id,navigator_id,credential_id,sequence,sampled_at,latitude,longitude,battery,status)
           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,[d.id,assignment.id,assignment.navigator_id,credential.id,body.sequence,sample,lat,lon,battery,status]);
         await db.query('UPDATE akay_device_credentials SET last_sequence=$2 WHERE id=$1',[credential.id,body.sequence]);
-        if(body.alert) await db.query('INSERT INTO akay_alerts(reading_id,navigator_id,device_id,assignment_id,kind) VALUES($1,$2,$3,$4,$5)',[reading.id,assignment.navigator_id,d.id,assignment.id,body.alert]);
+        if(body.alert) await db.query('INSERT INTO akay_alerts(reading_id,navigator_id,device_id,assignment_id,kind,event_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',[reading.id,assignment.navigator_id,d.id,assignment.id,body.alert,body.eventId??null]);
         return reading;
       });
     },

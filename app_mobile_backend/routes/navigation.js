@@ -190,9 +190,9 @@ router.put("/live", async (req, res) => {
       `,
       [
         sessionId,
-        totalDistance != null ? Number(totalDistance) : null,
-        duration != null ? Number(duration) : null,
-        averageSpeed != null ? Number(averageSpeed) : null,
+        null, // History metrics are authoritative in Firestore; retain legacy values.
+        null,
+        null,
         status || null,
         req.actor.id,
       ]
@@ -249,9 +249,9 @@ router.post("/end", async (req, res) => {
       [
         sessionId,
         requested,
-        totalDistance != null ? Number(totalDistance) : null,
-        duration != null ? Number(duration) : null,
-        averageSpeed != null ? Number(averageSpeed) : null,
+        null, // History metrics are authoritative in Firestore; retain legacy values.
+        null,
+        null,
         req.actor.id,
       ]
     );

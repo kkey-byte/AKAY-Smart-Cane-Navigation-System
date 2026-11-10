@@ -5,7 +5,6 @@ import '../../models/pairing.dart';
 import '../../services/pairing_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import '../../models/breadcrumb_trip.dart';
 import '../../services/app_session_service.dart';
 import '../../services/breadcrumb_service.dart';
@@ -401,15 +400,7 @@ class RecordedReportContent extends StatelessWidget {
     final week = today.subtract(Duration(days: today.weekday - 1));
     double meters = 0;
     for (final trip in records ?? <BreadcrumbTrip>[]) {
-      for (var i = 1; i < trip.points.length; i++) {
-        final a = trip.points[i - 1], b = trip.points[i];
-        meters += Geolocator.distanceBetween(
-          a.latitude,
-          a.longitude,
-          b.latitude,
-          b.longitude,
-        );
-      }
+      meters += trip.distanceMeters;
     }
     final values = <String, String>{
       'Trips Today': records == null
@@ -421,8 +412,7 @@ class RecordedReportContent extends StatelessWidget {
       'This Week': records == null
           ? 'Unavailable'
           : records.where((t) => !t.startedAt.isBefore(week)).length.toString(),
-      'Total Distance':
-          records == null || !records.any((t) => t.points.isNotEmpty)
+      'Total Distance': records == null || !records.any((t) => t.pointCount > 0)
           ? 'Unavailable'
           : '${(meters / 1000).toStringAsFixed(2)} km recorded',
       'Total Route': records == null

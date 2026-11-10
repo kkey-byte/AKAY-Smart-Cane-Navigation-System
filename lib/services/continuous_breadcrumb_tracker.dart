@@ -37,7 +37,9 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
   }
 
   /// Called on session changes, app resume and recovery, never per page.
-  Future<void> reconcile() {
+  Future<void> reconcile() => _reconcile();
+
+  Future<void> _reconcile({bool resume = false}) {
     final owner = eligibleOwner();
     final generation = ++_generation;
     return _enqueue(() async {
@@ -47,6 +49,10 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
         await backgroundRecording(false);
         await recorder.openAccount(owner);
         _sessionOwner = owner;
+        _paused = recorder.recordingPaused;
+      }
+      if (owner != null && resume) {
+        await recorder.setRecordingPaused(false);
         _paused = false;
       }
       if (owner == null || _paused) return;
@@ -73,8 +79,17 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
     final point = currentPoint();
     final now = clock();
     if (point == null || !shouldRecordBreadcrumb(null, point, now)) {
-      error =
-          'Waiting for a fresh, accurate GPS location. Check GPS and location access.';
+      if (kDebugMode && error == null) {
+        final reason = point == null
+            ? 'no location fix'
+            : point.accuracy > 50
+            ? 'location accuracy exceeds the 50-meter recording limit'
+            : 'stale or invalid location fix';
+        debugPrint('Trip recording waiting: $reason.');
+      }
+      error = point != null && point.accuracy > 50
+          ? 'Location accuracy must be 50 metres or better. Recording starts automatically when a valid location arrives.'
+          : 'Waiting for a fresh GPS location. Check location access; recording starts automatically when a valid location arrives.';
       notifyListeners();
       return;
     }
@@ -93,17 +108,22 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
       return;
     }
     final active = recorder.active;
-    if (active != null && !point.time.isAfter(active.points.last.time)) {
+    if (active != null &&
+        !point.time.isAfter(active.lastSampledAt ?? active.points.last.time)) {
       return;
     }
     if (active != null &&
-        (point.time.difference(active.points.last.time) >
+        (point.time.difference(
+                  active.lastSampledAt ?? active.points.last.time,
+                ) >
                 const Duration(seconds: 90) ||
             active.points.length >= 500 ||
             point.time.difference(active.startedAt) >=
                 const Duration(hours: 1) ||
             !_sameDay(point.time, active.startedAt))) {
-      await recorder.stop();
+      await recorder.stop(
+        endedAt: active.lastSampledAt ?? active.points.last.time,
+      );
     }
     if (eligibleOwner() != owner || recorder.ownerId != owner || _paused) {
       return;
@@ -124,17 +144,21 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
 
   Future<void> resume() {
     _paused = false;
-    return reconcile();
+    return _reconcile(resume: true);
   }
 
   /// Explicit user pause or logout, rather than route completion.
-  Future<void> pause() {
+  Future<void> pause({bool rememberPause = true}) {
     _paused = true;
     _generation++;
     return _enqueue(() async {
-      await recorder.stop();
-      await backgroundRecording(false);
-      notifyListeners();
+      try {
+        await recorder.stop(endedAt: clock(), pauseRecording: rememberPause);
+        error = null;
+      } finally {
+        await backgroundRecording(false);
+        notifyListeners();
+      }
     });
   }
 }

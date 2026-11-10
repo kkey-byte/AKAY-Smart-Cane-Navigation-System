@@ -1,80 +1,133 @@
+import 'dart:convert';
 import 'package:app_mobile/models/breadcrumb_trip.dart';
 import 'package:app_mobile/services/breadcrumb_repository.dart';
-import 'package:firebase_database/firebase_database.dart';
+import 'package:app_mobile/services/secure_api.dart';
+import 'package:app_mobile/services/breadcrumb_recorder.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-class FakeTrackReference extends Fake implements DatabaseReference {
-  bool offline = false;
-  String? lastPath;
-  final writes = <Map<String, Object?>>[];
-  @override
-  DatabaseReference child(String path) {
-    lastPath = path;
-    return this;
-  }
-
-  @override
-  Future<void> update(Map<String, Object?> value) async {
-    if (offline) throw StateError('Synthetic offline failure');
-    writes.add(Map.of(value));
-  }
-}
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   test(
-    'history writes keep existing database schema and only acknowledge uploaded points',
+    'HTTP success without explicit upload confirmation keeps the durable queue',
     () async {
-      final root = FakeTrackReference();
-      final repository = FirebaseBreadcrumbRepository(root: root);
-      final time = DateTime(2026, 10, 22, 12);
-      final first = BreadcrumbTrip(
-        id: 'synthetic-trip',
-        ownerId: 'synthetic-owner',
-        name: 'Daily track',
-        startedAt: time,
-        points: [BreadcrumbPoint(7.3, 125.68, time, 8)],
-      );
-      root.offline = true;
-      await expectLater(repository.save(first), throwsStateError);
-      root.offline = false;
-      await repository.save(first);
-      expect(root.lastPath, 'breadcrumb_trips/synthetic-owner/synthetic-trip');
-      expect(
-        root.writes.single['points/00000000'],
-        first.points.first.toJson(),
-      );
-      expect(root.writes.single['ownerId'], 'synthetic-owner');
-      final updated = first.copyWith(
-        points: [
-          ...first.points,
-          BreadcrumbPoint(
-            7.301,
-            125.68,
-            time.add(const Duration(seconds: 5)),
-            8,
-          ),
-        ],
-      );
-      await repository.save(updated);
-      expect(root.writes.last.containsKey('points/00000000'), isTrue);
-      expect(root.writes.last['points/00000001'], updated.points.last.toJson());
-      await repository.save(
-        updated.copyWith(
-          status: 'completed',
-          endedAt: time.add(const Duration(minutes: 1)),
+      SharedPreferences.setMockInitialValues({});
+      var acknowledged = false;
+      final api = SecureApi(
+        idToken: () async => 'synthetic-token',
+        revision: () => 1,
+        bases: ['https://example.test'],
+        client: MockClient(
+          (_) async =>
+              http.Response(jsonEncode({'accepted': acknowledged}), 200),
         ),
       );
-      expect(root.writes.last['status'], 'completed');
-      expect(
-        root.writes.last.keys.where((key) => key.startsWith('points/')),
-        hasLength(1),
+      final recorder = BreadcrumbRecorder(
+        FirebaseBreadcrumbRepository(api: api),
+        await SharedPreferences.getInstance(),
       );
-      // After restart, deterministic point keys safely overwrite rather than duplicate.
-      await FirebaseBreadcrumbRepository(root: root).save(updated);
-      expect(
-        root.writes.last.keys.where((key) => key.startsWith('points/')),
-        hasLength(2),
+      await recorder.openAccount('owner');
+      final now = DateTime(2026, 11, 1);
+      await recorder.start('Trip', BreadcrumbPoint(10, 20, now, 5));
+      await recorder.sync();
+      expect(recorder.hasPending, isTrue);
+      acknowledged = true;
+      await recorder.sync();
+      expect(recorder.hasPending, isFalse);
+    },
+  );
+  test(
+    'bounded stable uploads retry capture times and finalize last',
+    () async {
+      final requests = <http.Request>[];
+      var fail = true;
+      final api = SecureApi(
+        idToken: () async => 'synthetic-token',
+        revision: () => 1,
+        bases: ['https://example.test'],
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response(
+            fail && request.url.path.endsWith('/summary')
+                ? '{"message":"synthetic failure"}'
+                : '{"accepted":true}',
+            fail && request.url.path.endsWith('/summary') ? 503 : 200,
+          );
+        }),
       );
+      final time = DateTime(2026, 1, 1);
+      final trip = BreadcrumbTrip(
+        id: 'trip',
+        ownerId: 'owner',
+        name: 'Trip',
+        startedAt: time,
+        status: 'completed',
+        endedAt: time.add(const Duration(minutes: 2)),
+        points: [
+          for (var i = 0; i < 85; i++)
+            BreadcrumbPoint(10, 20, time.add(Duration(seconds: i)), 5),
+        ],
+      );
+      await expectLater(
+        FirebaseBreadcrumbRepository(api: api).save(trip),
+        throwsA(isA<SecureApiException>()),
+      );
+      expect(requests, hasLength(4));
+      final first = requests.take(3).map((r) => r.body).toList();
+      fail = false;
+      await FirebaseBreadcrumbRepository(api: api).save(trip);
+      expect(requests.skip(4).take(3).map((r) => r.body), first);
+      expect(requests.last.url.path, endsWith('/summary'));
+      expect(jsonDecode(requests.last.body)['pointCount'], 85);
+      final points = requests
+          .take(3)
+          .expand((r) => jsonDecode(r.body)['points'] as List)
+          .toList();
+      expect(points.map((p) => p['sequence']), List.generate(85, (i) => i));
+      expect(points.first['sampledAt'], time.millisecondsSinceEpoch);
+      expect(points.every((p) => !p.containsKey('deviceId')), isTrue);
+    },
+  );
+
+  test(
+    'summary pages require no coordinates and retain physical cane identity',
+    () async {
+      final api = SecureApi(
+        idToken: () async => 'synthetic-token',
+        revision: () => 1,
+        bases: ['https://example.test'],
+        client: MockClient(
+          (request) async => http.Response(
+            jsonEncode({
+              'trips': {
+                'trip': {
+                  'ownerId': 'owner',
+                  'name': 'Cane track',
+                  'startedAt': 1000,
+                  'status': 'completed',
+                  'sourceType': 'cane_gps',
+                  'deviceId': 'physical-cane',
+                  'assignmentId': 'assignment',
+                  'pointCount': 12,
+                  'distanceMeters': 125.0,
+                },
+              },
+              'nextCursor': null,
+            }),
+            200,
+          ),
+        ),
+      );
+      final rows = await FirebaseBreadcrumbRepository(
+        api: api,
+      ).watchTrips('owner').first;
+      expect(rows.single.points, isEmpty);
+      expect(rows.single.pointCount, 12);
+      expect(rows.single.distanceMeters, 125);
+      expect(rows.single.sourceType, 'cane_gps');
+      expect(rows.single.deviceId, 'physical-cane');
     },
   );
 }

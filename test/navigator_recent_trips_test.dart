@@ -2,7 +2,7 @@ import 'package:app_mobile/models/breadcrumb_trip.dart';
 import 'package:app_mobile/theme/gabay_theme.dart';
 import 'package:app_mobile/widgets/dashboard_widgets/recorded_reports.dart';
 import 'package:app_mobile/widgets/dashboard_widgets/report_details_view.dart';
-import 'package:app_mobile/widgets/track/breadcrumb_trip_tile.dart';
+import 'package:app_mobile/widgets/track/breadcrumb_trip_records.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -103,19 +103,29 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Recent Trips'));
-    expect(find.byType(BreadcrumbTripTile), findsNWidgets(2));
+    expect(
+      tester
+          .widget<BreadcrumbTripRecords>(find.byType(BreadcrumbTripRecords))
+          .trips,
+      hasLength(2),
+    );
+    expect(find.byIcon(Icons.directions_walk_rounded), findsNWidgets(2));
     expect(find.text('Current walk'), findsOneWidget);
     expect(find.text('Previous walk'), findsOneWidget);
+    expect(find.text('My tracks · Record without a destination'), findsNothing);
     expect(
       tester
           .widget<ReportDetailsView>(find.byType(ReportDetailsView))
           .values['Total Route'],
       '0 recorded trips',
     );
-    expect(
-      tester.getTopLeft(find.text('Current walk')).dy,
-      lessThan(tester.getTopLeft(find.text('Previous walk')).dy),
-    );
+    final current = tester.getTopLeft(find.text('Current walk'));
+    final previous = tester.getTopLeft(find.text('Previous walk'));
+    if (current.dy == previous.dy) {
+      expect(current.dx, lessThan(previous.dx));
+    } else {
+      expect(current.dy, lessThan(previous.dy));
+    }
     expect(tester.takeException(), isNull);
   });
 }

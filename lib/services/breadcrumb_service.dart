@@ -10,6 +10,7 @@ import 'breadcrumb_repository.dart';
 import 'continuous_breadcrumb_tracker.dart';
 import 'navigator_location_service.dart';
 import 'live_location_service.dart';
+import 'secure_api.dart';
 
 /// App/session-owned recording, independent of navigation and screen lifetimes.
 class BreadcrumbService extends ChangeNotifier with WidgetsBindingObserver {
@@ -26,6 +27,7 @@ class BreadcrumbService extends ChangeNotifier with WidgetsBindingObserver {
   bool _permissionAttempted = false;
   bool get isRecording => recorder?.active != null;
   bool get trackingRequested => _tracker?.requested ?? false;
+  String? get recordingError => _tracker?.error;
   String? get error =>
       recorder?.storageError ?? _tracker?.error ?? recorder?.syncError;
   List<BreadcrumbTrip> get trips => recorder?.trips ?? [];
@@ -87,6 +89,7 @@ class BreadcrumbService extends ChangeNotifier with WidgetsBindingObserver {
         LiveLocationService.instance.sharingEnabled = enabled;
       },
       publishLocation: (point) => LiveLocationService.instance.publish(
+        deviceId: 'phone_${recorder?.ownerId}',
         latitude: point.latitude,
         longitude: point.longitude,
         accuracy: point.accuracy,
@@ -173,13 +176,42 @@ class BreadcrumbService extends ChangeNotifier with WidgetsBindingObserver {
     }
     _permissionAttempted = false;
     await _tracker!.resume();
-    if (error != null) throw StateError(error!);
+    if (recorder?.storageError != null) {
+      throw StateError(recorder!.storageError!);
+    }
+    if (NavigatorLocationService.instance.permissionDenied) {
+      throw StateError('Location access is required for recording.');
+    }
     unawaited(recorder!.sync());
   }
 
-  Future<void> stop() async {
+  Future<void> stop({bool rememberPause = true}) async {
     LiveLocationService.instance.sharingEnabled = false;
-    await _tracker?.pause();
+    await _tracker?.pause(rememberPause: rememberPause);
     unawaited(recorder?.sync() ?? Future.value());
+  }
+
+  Future<void> deleteTrip(String tripId) async {
+    await initialize();
+    final owner = _eligibleOwner();
+    if (owner == null || recorder?.ownerId != owner) {
+      throw StateError('Sign in as the navigator first.');
+    }
+    if (recorder?.activeId == tripId) await stop();
+    await repository.deleteTrip(owner, tripId);
+    if (recorder?.ownerId == owner) await recorder!.removeLocalTrip(tripId);
+  }
+
+  /// Account deletion preparation; the identity must still be authenticated.
+  Future<void> deleteAccountLocationHistory() async {
+    await initialize();
+    final owner = _eligibleOwner();
+    if (owner == null) throw StateError('Sign in as the navigator first.');
+    await stop();
+    await SecureApi.instance.request(
+      'DELETE',
+      '/v2/navigators/${Uri.encodeComponent(owner)}/location-history',
+    );
+    if (recorder?.ownerId == owner) await recorder!.eraseLocalAccountHistory();
   }
 }

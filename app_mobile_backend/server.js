@@ -76,6 +76,20 @@ async function start() {
 
     app.listen(PORT, "0.0.0.0", () => {
         console.log(`Server running on port ${PORT}`);
+        const emergency=require('./services/emergencyService').createEmergencyService(
+          require('./database/db'),require('./database/ensureUsersTable').usersTable,require('./services/firebaseAdmin'));
+        let dispatching=false,lastDispatchWarning=0;
+        const dispatch=async()=>{
+          if(dispatching) return;
+          dispatching=true;
+          try {const result=await emergency.dispatch();if(result.deliveryUnavailable) throw new Error('Emergency delivery pending.');}
+          catch(_) {if(Date.now()-lastDispatchWarning>60000) {
+            lastDispatchWarning=Date.now();console.warn('Emergency push delivery unavailable; check migration and Firebase messaging configuration.');
+          }}
+          finally {dispatching=false;}
+        };
+        void dispatch();
+        setInterval(dispatch,3000).unref();
     });
 }
 

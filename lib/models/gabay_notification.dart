@@ -1,26 +1,11 @@
 import 'package:flutter/material.dart';
+import 'cane_incident.dart';
 
-enum NotificationCategory {
-  emergency,
-  location,
-  connection,
-  reports,
-  system,
-}
+enum NotificationCategory { emergency, location, connection, reports, system }
 
-enum NotificationDateGroup {
-  today,
-  yesterday,
-  older,
-}
+enum NotificationDateGroup { today, yesterday, older }
 
-enum NotificationDestination {
-  emergency,
-  track,
-  reports,
-  profile,
-  none,
-}
+enum NotificationDestination { emergency, track, reports, profile, none }
 
 class GabayNotification {
   const GabayNotification({
@@ -31,6 +16,7 @@ class GabayNotification {
     required this.createdAt,
     this.isRead = false,
     required this.destination,
+    this.incident,
   });
 
   final String id;
@@ -40,10 +26,9 @@ class GabayNotification {
   final DateTime createdAt;
   final bool isRead;
   final NotificationDestination destination;
+  final CaneIncident? incident;
 
-  GabayNotification copyWith({
-    bool? isRead,
-  }) {
+  GabayNotification copyWith({bool? isRead}) {
     return GabayNotification(
       id: id,
       category: category,
@@ -52,6 +37,7 @@ class GabayNotification {
       createdAt: createdAt,
       isRead: isRead ?? this.isRead,
       destination: destination,
+      incident: incident,
     );
   }
 

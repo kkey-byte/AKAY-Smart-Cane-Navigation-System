@@ -11,6 +11,7 @@ import '../../widgets/shared/floating_bottom_nav_shell.dart';
 import '../../widgets/track/gabay_map_marker.dart';
 import '../../widgets/track/gabay_track_map.dart';
 import '../../widgets/track/breadcrumb_trip_tile.dart';
+import '../../widgets/track/breadcrumb_recording_controls.dart';
 
 class BreadcrumbHistoryPage extends StatefulWidget {
   const BreadcrumbHistoryPage({super.key, required this.caregiver});
@@ -123,7 +124,12 @@ class _BreadcrumbHistoryPageState extends State<BreadcrumbHistoryPage> {
     final map = {for (final trip in _remote) trip.id: trip};
     if (!widget.caregiver && service.recorder?.ownerId == _uid) {
       for (final trip in service.trips) {
-        map[trip.id] = trip;
+        if (!map.containsKey(trip.id) ||
+            trip.isRecording ||
+            map[trip.id]!.status != trip.status ||
+            service.recorder!.isPending(trip.id)) {
+          map[trip.id] = trip;
+        }
       }
     }
     return map.values.toList()
@@ -254,7 +260,7 @@ class _BreadcrumbHistoryPageState extends State<BreadcrumbHistoryPage> {
             const SizedBox(height: 12),
             if (!service.connected)
               const Text(
-                'Cloud connection unavailable. Showing saved data; live updates will resume when connected.',
+                'Live sharing connection unavailable. Saved tracks remain available; track uploads retry separately.',
               ),
             if (_uid == null)
               const Text('Sign in to view and record tracks.')
@@ -293,24 +299,19 @@ class _BreadcrumbHistoryPageState extends State<BreadcrumbHistoryPage> {
                 'With location permission, your daily path records automatically while signed in, even without a destination. Pause stops new shared locations and recording; approved caregivers can still view saved tracks.',
               ),
               const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: _busy
-                    ? null
-                    : () => _run(
-                        () => service.isRecording
-                            ? service.stop()
-                            : service.start(),
-                      ),
-                icon: Icon(
-                  service.isRecording ? Icons.stop : Icons.fiber_manual_record,
-                ),
-                label: Text(
-                  _busy
-                      ? 'Please wait…'
-                      : service.isRecording
-                      ? 'Pause sharing and save track'
-                      : 'Resume sharing and recording',
-                ),
+              BreadcrumbRecordingControls(
+                requested: service.trackingRequested,
+                recording: service.isRecording,
+                waitingReason: service.recordingError,
+                storageError: service.recorder?.storageError,
+                syncError: service.recorder?.syncError,
+                pendingCount: service.recorder?.pendingCount ?? 0,
+                syncing: service.recorder?.isSyncing ?? false,
+                hasTrips: service.trips.isNotEmpty,
+                busy: _busy,
+                onStart: () => _run(() => service.start()),
+                onPause: () => _run(service.stop),
+                onSync: () => unawaited(service.recorder!.sync()),
               ),
               Wrap(
                 spacing: 8,
@@ -325,16 +326,6 @@ class _BreadcrumbHistoryPageState extends State<BreadcrumbHistoryPage> {
                   ),
                 ],
               ),
-              if (service.error != null)
-                Text(
-                  service.error!,
-                  style: TextStyle(color: context.gabay.warning),
-                ),
-              if (service.recorder?.hasPending == true)
-                TextButton(
-                  onPressed: () => unawaited(service.recorder!.sync()),
-                  child: const Text('Saved on device · Sync now'),
-                ),
             ],
             if (_error != null) ...[
               Text(_error!, style: TextStyle(color: context.gabay.danger)),
@@ -391,9 +382,13 @@ class BreadcrumbTripPage extends StatefulWidget {
     super.key,
     required this.trip,
     required this.localOwner,
+    this.embedded = false,
+    this.watchTrip,
   });
   final BreadcrumbTrip trip;
   final bool localOwner;
+  final bool embedded;
+  final Stream<BreadcrumbTrip?> Function(String, String)? watchTrip;
   @override
   State<BreadcrumbTripPage> createState() => _BreadcrumbTripPageState();
 }
@@ -403,6 +398,7 @@ class _BreadcrumbTripPageState extends State<BreadcrumbTripPage> {
   StreamSubscription<BreadcrumbTrip?>? _subscription;
   Timer? _clock;
   BreadcrumbTrip? _trip;
+  BreadcrumbTrip? _remoteTrip;
   String? _error;
   bool _follow = true;
   TrackMapController? _map;
@@ -411,13 +407,16 @@ class _BreadcrumbTripPageState extends State<BreadcrumbTripPage> {
     super.initState();
     _trip = widget.trip;
     service.addListener(_localUpdate);
-    _subscription = service.repository
-        .watchTrip(widget.trip.ownerId, widget.trip.id)
-        .listen(
+    _subscription =
+        (widget.watchTrip ?? service.repository.watchTrip)(
+          widget.trip.ownerId,
+          widget.trip.id,
+        ).listen(
           (match) {
             if (!mounted) return;
             setState(() {
               _trip = match;
+              _remoteTrip = match;
               _error = match == null
                   ? 'This track is no longer available.'
                   : null;
@@ -428,6 +427,7 @@ class _BreadcrumbTripPageState extends State<BreadcrumbTripPage> {
             if (!mounted) return;
             setState(() {
               _trip = null;
+              _remoteTrip = null;
               _error =
                   'Track access is unavailable. Check your connection or ask the navigator to share again.';
             });
@@ -451,7 +451,12 @@ class _BreadcrumbTripPageState extends State<BreadcrumbTripPage> {
         .firstOrNull;
     if (trip != null) {
       setState(() {
-        _trip = trip;
+        _trip =
+            trip.isRecording ||
+                service.recorder!.isPending(trip.id) ||
+                _remoteTrip?.status != trip.status
+            ? trip
+            : _remoteTrip ?? trip;
         _error = null;
       });
     }
@@ -469,104 +474,129 @@ class _BreadcrumbTripPageState extends State<BreadcrumbTripPage> {
   Widget build(BuildContext context) {
     final trip = _trip;
     final points = trip?.points ?? [];
-    return Scaffold(
-      appBar: AppBar(title: Text(trip?.name ?? 'Track')),
-      body: trip == null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(_error ?? 'Track unavailable.'),
-              ),
-            )
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
+    final content = trip == null
+        ? Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(_error ?? 'Track unavailable.'),
+            ),
+          )
+        : Column(
+            mainAxisSize: widget.embedded ? MainAxisSize.min : MainAxisSize.max,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Text(
+                      breadcrumbStatus(
+                        trip,
+                        DateTime.now(),
+                        connected: service.connected,
+                      ),
+                    ),
+                    if (points.isNotEmpty)
+                      Text('Last GPS fix: ${_date(points.last.time)}'),
+                    Text('Started: ${_date(trip.startedAt)}'),
+                    if (trip.endedAt != null)
+                      Text('Ended: ${_date(trip.endedAt!)}'),
+                    Text(
+                      'Recorded distance: ${trip.distanceMeters.toStringAsFixed(0)} m (approximate)',
+                    ),
+                    Text(
+                      '${trip.pointCount} GPS points · ${trip.sourceType == 'cane_gps' ? 'Cane GPS' : 'Phone GPS'}',
+                    ),
+                    if (trip.endedAt != null &&
+                        !trip.endedAt!.isBefore(trip.startedAt))
                       Text(
-                        breadcrumbStatus(
-                          trip,
-                          DateTime.now(),
-                          connected: service.connected,
-                        ),
+                        'Duration: ${trip.endedAt!.difference(trip.startedAt).inMinutes} min '
+                        '${trip.endedAt!.difference(trip.startedAt).inSeconds % 60} sec',
                       ),
-                      if (points.isNotEmpty)
-                        Text('Last GPS fix: ${_date(points.last.time)}'),
-                      if (widget.localOwner && service.error != null)
-                        Text(service.error!),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          TextButton(
-                            onPressed: () {
-                              setState(() => _follow = false);
-                              if (points.isNotEmpty) {
-                                unawaited(
-                                  _map?.fitBounds(
-                                        points
-                                            .map((point) => point.location)
-                                            .toList(),
-                                      ) ??
-                                      Future.value(),
-                                );
-                              }
-                            },
-                            child: const Text('Show whole track'),
-                          ),
-                          TextButton(
-                            onPressed: () => setState(() => _follow = true),
-                            child: const Text('Follow latest location'),
-                          ),
-                        ],
+                    if (widget.localOwner &&
+                        service.recorder?.ownerId == trip.ownerId)
+                      Text(
+                        service.recorder!.storageError != null
+                            ? 'Device save is not confirmed · Keep the app open'
+                            : service.recorder!.isPending(trip.id)
+                            ? 'Saved on device · Upload pending'
+                            : identical(trip, _remoteTrip)
+                            ? 'Loaded from cloud history'
+                            : 'Showing saved device copy',
                       ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: points.isEmpty
-                      ? const Center(
-                          child: Text('Waiting for recorded locations.'),
-                        )
-                      : GabayTrackMap(
-                          initialCamera: CameraPosition(
-                            target: points.first.location,
-                            zoom: 16,
-                          ),
-                          routePoints: points
-                              .map((point) => point.location)
-                              .toList(),
-                          markers: [
-                            GabayMapMarkerData(
-                              id: 'start',
-                              position: points.first.location,
-                              kind: GabayMapMarkerKind.routeStart,
-                            ),
-                            GabayMapMarkerData(
-                              id: 'latest',
-                              position: points.last.location,
-                              kind: GabayMapMarkerKind.navigator,
-                            ),
-                          ],
-                          padding: EdgeInsets.zero,
-                          followTarget: points.last.location,
-                          followUser: trip.isRecording && _follow,
-                          onControllerReady: (map) {
-                            _map = map;
-                            if (!trip.isRecording) {
+                    if (widget.localOwner && service.error != null)
+                      Text(service.error!),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            setState(() => _follow = false);
+                            if (points.isNotEmpty) {
                               unawaited(
-                                map.fitBounds(
-                                  points
-                                      .map((point) => point.location)
-                                      .toList(),
-                                ),
+                                _map?.fitBounds(
+                                      points
+                                          .map((point) => point.location)
+                                          .toList(),
+                                    ) ??
+                                    Future.value(),
                               );
                             }
                           },
+                          child: const Text('Show whole track'),
                         ),
+                        TextButton(
+                          onPressed: () => setState(() => _follow = true),
+                          child: const Text('Follow latest location'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              if (widget.embedded)
+                SizedBox(height: 300, child: _routeMap(trip, points))
+              else
+                Expanded(child: _routeMap(trip, points)),
+            ],
+          );
+    if (widget.embedded) return content;
+    return Scaffold(
+      appBar: AppBar(title: Text(trip?.name ?? 'Track')),
+      body: content,
     );
   }
+
+  Widget _routeMap(BreadcrumbTrip trip, List<BreadcrumbPoint> points) =>
+      points.isEmpty
+      ? const Center(child: Text('Waiting for recorded locations.'))
+      : GabayTrackMap(
+          initialCamera: CameraPosition(
+            target: points.first.location,
+            zoom: 16,
+          ),
+          routePoints: points.map((point) => point.location).toList(),
+          markers: [
+            GabayMapMarkerData(
+              id: 'start',
+              position: points.first.location,
+              kind: GabayMapMarkerKind.routeStart,
+            ),
+            GabayMapMarkerData(
+              id: 'latest',
+              position: points.last.location,
+              kind: GabayMapMarkerKind.navigator,
+            ),
+          ],
+          padding: EdgeInsets.zero,
+          followTarget: points.last.location,
+          followUser: trip.isRecording && _follow,
+          onControllerReady: (map) {
+            _map = map;
+            if (!trip.isRecording) {
+              unawaited(
+                map.fitBounds(points.map((point) => point.location).toList()),
+              );
+            }
+          },
+        );
 }

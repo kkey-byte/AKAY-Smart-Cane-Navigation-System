@@ -33,6 +33,7 @@ before(async()=>{
   await pool.query('INSERT INTO smartcanes VALUES($1,$2,$3)',[legacyDevice,'synthetic-legacy-cane',nav.id]);
   await pool.query(readFileSync(require.resolve('../database/migrations/001_pairing.sql'),'utf8').replaceAll('__USERS_TABLE__','users'));
   await pool.query(readFileSync(require.resolve('../database/migrations/002_integrity.sql'),'utf8').replaceAll('__USERS_TABLE__','users'));
+  await pool.query(readFileSync(require.resolve('../database/migrations/006_emergency_workflow.sql'),'utf8').replaceAll('__USERS_TABLE__','users'));
   service=createPairingService(pool,()=> 'users');
 });
 beforeEach(async()=>{
@@ -49,6 +50,7 @@ after(async()=>{
   await admin.end();
 });
 const error=code=>e=>e.code===code;
+const emergency=(send=async()=> 'synthetic-message')=>require('../services/emergencyService').createEmergencyService(pool,()=> 'users',{messaging:()=>({send})});
 async function device() {
   const id=randomUUID(),key=secret(),claim=secret();
   await pool.query('INSERT INTO akay_devices(id,serial,claim_hash) VALUES($1,$2,$3)',[id,randomUUID(),hash(claim)]);
@@ -63,6 +65,72 @@ async function connect(n=nav,c=car) {
 }
 async function assigned(n=nav) {const d=await device();await service.claim(n,d.id,d.claim);return {...d,assignment:await service.assign(n,d.id)};}
 const reading=(assignment,sequence=0)=>({assignmentId:assignment.id,sequence,sampledAt:new Date(Math.max(Date.now(),new Date(assignment.started_at).getTime())).toISOString(),latitude:12.3,longitude:123.4,battery:60,status:'moving',alert:'obstacle'});
+
+test('emergency feed identifies each navigator and stable cane event retries create one incident',async()=>{
+  await connect();await connect(nav2);
+  const a=await assigned(),b=await assigned(nav2);
+  await service.ingest(a.id,a.key,{...reading(a.assignment),alert:'sos',eventId:'button-event-1'});
+  await service.ingest(a.id,a.key,{...reading(a.assignment,1),alert:'sos',eventId:'button-event-1'});
+  await service.ingest(b.id,b.key,{...reading(b.assignment),alert:'motion',eventId:'impact-event-1'});
+  const feed=await emergency().list(car);
+  assert.equal(feed.alerts.length,2);
+  assert.equal(feed.alerts.find(a=>a.kind==='sos').navigator_uid,nav.uid);
+  assert.equal(feed.alerts.find(a=>a.kind==='motion').navigator_uid,nav2.uid);
+  assert.match(feed.alerts.find(a=>a.kind==='motion').title,/Possible fall or impact.*Synthetic nav-b/);
+  assert.equal((await emergency().list(stranger)).alerts.length,0);
+  await assert.rejects(emergency().list(nav),e=>e.status===403);
+});
+
+test('reading and clearing cannot resolve incidents; caregiver responses persist and consent revocation denies access',async()=>{
+  const connection=await connect(),a=await assigned();
+  await service.ingest(a.id,a.key,{...reading(a.assignment),alert:'motion',eventId:'impact-1'});
+  const workflow=emergency(),id=(await workflow.list(car)).alerts[0].id;
+  await workflow.respond(car,id,'read');
+  let alert=(await workflow.list(car)).alerts[0];
+  assert.ok(alert.read_at);assert.equal(alert.resolved_at,null);assert.equal(alert.acknowledged_at,null);
+  await assert.rejects(workflow.respond(car,id,'dismiss'),e=>e.status===409);
+  await assert.rejects(workflow.respond(stranger,id,'resolve'),e=>e.status===403);
+  await workflow.respond(car,id,'acknowledge');
+  const acknowledged=(await workflow.list(car)).alerts[0].acknowledged_at;
+  await workflow.respond(car,id,'acknowledge');
+  assert.equal((await workflow.list(car)).alerts[0].acknowledged_at.toISOString(),acknowledged.toISOString());
+  await workflow.respond(car,id,'false_alarm');
+  alert=(await workflow.list(car)).alerts[0];assert.ok(alert.resolved_at);assert.equal(alert.resolution,'false_alarm');
+  await workflow.respond(car,id,'resolve');
+  assert.equal((await workflow.list(car)).alerts[0].resolution,'false_alarm');
+  await workflow.respond(car,id,'dismiss');assert.equal((await workflow.list(car)).alerts.length,0);
+  await service.revoke(nav,connection.id);
+  await assert.rejects(workflow.respond(car,id,'read'),e=>e.status===403);
+});
+
+test('durable emergency push retries, sends once per token and excludes revoked caregivers',async()=>{
+  const connection=await connect(),a=await assigned();
+  await service.ingest(a.id,a.key,{...reading(a.assignment),alert:'sos',eventId:'sos-1'});
+  const deliveries=[];let fail=true;
+  const workflow=emergency(async message=>{if(fail) throw Object.assign(new Error('synthetic failure'),{code:'messaging/server-unavailable'});deliveries.push(message);});
+  await workflow.token(car,'synthetic-notification-token-00001');
+  await workflow.token(stranger,'synthetic-notification-token-00002');
+  await workflow.dispatch();assert.equal(deliveries.length,0);
+  assert.equal((await pool.query('SELECT attempts FROM akay_alert_deliveries')).rows[0].attempts,1);
+  await pool.query('UPDATE akay_alert_deliveries SET next_attempt_at=clock_timestamp()');fail=false;
+  await workflow.dispatch();await workflow.dispatch();assert.equal(deliveries.length,1);
+  assert.equal(deliveries[0].data.type,'cane_alert');assert.match(deliveries[0].notification.title,/SOS.*Synthetic nav-a/);
+  assert.equal(deliveries[0].data.latitude,undefined);
+  await service.ingest(a.id,a.key,{...reading(a.assignment,1),alert:'motion',eventId:'impact-2'});
+  await service.revoke(nav,connection.id);await workflow.dispatch();assert.equal(deliveries.length,1);
+  assert.equal((await workflow.list(car)).alerts.length,0);
+});
+
+test('resolved incidents do not notify and permanently invalid push tokens are removed',async()=>{
+  await connect();const a=await assigned();
+  await service.ingest(a.id,a.key,{...reading(a.assignment),alert:'sos',eventId:'sos-2'});
+  const workflow=emergency(async()=>{throw Object.assign(new Error('synthetic invalid token'),{code:'messaging/registration-token-not-registered'});});
+  await workflow.token(car,'synthetic-invalid-token-00001');await workflow.dispatch();
+  assert.equal((await pool.query('SELECT * FROM akay_push_tokens')).rowCount,0);
+  const id=(await workflow.list(car)).alerts[0].id;await workflow.respond(car,id,'resolve');
+  await workflow.token(car,'synthetic-new-token-00000001');await workflow.dispatch();
+  assert.equal((await pool.query('SELECT * FROM akay_alert_deliveries')).rowCount,0);
+});
 
 test('migration preserves legacy physical identity but does not invent custody or claims',async()=>{
   await pool.query(readFileSync(require.resolve('../database/migrations/001_pairing.sql'),'utf8').replaceAll('__USERS_TABLE__','users'));
@@ -200,7 +268,10 @@ test('HTTP endpoints reject UID-only auth and enforce consent, roles and session
   override('../database/ensurePatientProfilesTable',{patientProfilesTable:()=> 'patientprofiles'});
   const trip={ownerId:nav.uid,name:'Synthetic trip',startedAt:Date.now(),status:'completed',points:{}};
   let beforeRead=async()=>{};
+  const historyQuery={collection(){return this;},doc(){return this;},orderBy(){return this;},where(){return this;},limit(){return this;},
+    get:async()=>{await beforeRead();return {exists:false,data:()=>undefined,docs:[],size:0};}};
   override('../services/firebaseAdmin',{
+    firestore:()=>historyQuery,
     auth:()=>({verifyIdToken:async(token,checkRevoked)=>{
       assert.equal(checkRevoked,true);
       const who=[nav,nav2,car,stranger,{uid:'new-navigator'}].find(a=>token===`synthetic:${a.uid}`);
@@ -365,6 +436,8 @@ test('restricted runtime role permits required writes but denies identity edits,
     .replaceAll('__USERS_TABLE__','users').replaceAll('__PATIENT_TABLE__','patientprofiles')
     .replaceAll('akay_runtime',runtimeRole).replace('SCHEMA public',`SCHEMA ${schema}`);
   await pool.query(sql);
+  await pool.query(readFileSync(require.resolve('../database/migrations/006_emergency_workflow.sql'),'utf8')
+    .replaceAll('__USERS_TABLE__','users').replaceAll('akay_runtime',runtimeRole));
   const cane=await device();
   const db=await pool.connect();
   try {
@@ -377,6 +450,13 @@ test('restricted runtime role permits required writes but denies identity edits,
     const invite=await runtime.invite(nav),connection=await runtime.redeem(car,invite.code);
     await runtime.decide(nav,connection.id,true);
     await runtime.ingest(cane.id,cane.key,reading(assignment));
+    await runtime.ingest(cane.id,cane.key,{...reading(assignment,1),alert:'motion',eventId:'runtime-motion'});
+    const workflow=require('../services/emergencyService').createEmergencyService(
+      {query:(...args)=>db.query(...args),connect:async()=>({query:(...args)=>db.query(...args),release(){}})},()=> 'users',{messaging:()=>({send:async()=> 'synthetic'})});
+    const incident=(await workflow.list(car)).alerts[0];
+    await workflow.token(car,'synthetic-runtime-token-00001');await workflow.dispatch();
+    await workflow.respond(car,incident.id,'acknowledge');await workflow.respond(car,incident.id,'resolve');
+    assert.ok((await workflow.list(car)).alerts[0].resolved_at);
     assert.equal((await runtime.snapshot(car,nav.uid)).devices[0].id,cane.id);
     const offer=await runtime.transfer(nav,cane.id,nav2.uid);
     await runtime.acceptTransfer(nav2,offer.code);

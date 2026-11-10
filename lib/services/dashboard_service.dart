@@ -16,7 +16,16 @@ class DashboardService {
         '/v2/navigators/${Uri.encodeComponent(uid)}/dashboard',
         interval: const Duration(seconds: 2),
       )
-      .map(DashboardSnapshot.fromJson);
+      .map((data) {
+        final snapshot = DashboardSnapshot.fromJson(data);
+        if (snapshot.uid != uid) {
+          throw const SecureApiException(
+            'Monitoring identity could not be verified.',
+            status: 403,
+          );
+        }
+        return snapshot;
+      });
   Future<void> presence(bool active) async {
     await api.request('POST', '/v2/dashboard/presence', {'active': active});
   }

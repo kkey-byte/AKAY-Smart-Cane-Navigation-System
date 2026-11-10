@@ -4,9 +4,8 @@ import 'package:flutter/material.dart';
 import '../../models/breadcrumb_trip.dart';
 import '../../theme/gabay_theme.dart';
 import '../shared/gabay_card.dart';
-import '../../pages/shared/breadcrumb_history_page.dart';
-import '../../services/breadcrumb_service.dart';
-import '../track/breadcrumb_trip_tile.dart';
+import '../track/breadcrumb_trip_records.dart';
+import '../track/breadcrumb_report_controls.dart';
 
 /// Presentation only: values are supplied by the existing report calculation.
 class ReportDetailsView extends StatelessWidget {
@@ -181,6 +180,10 @@ class ReportDetailsView extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _heading(context, 'Recent Trips'),
+        if (localOwner) ...[
+          const SizedBox(height: 12),
+          const BreadcrumbReportControls(),
+        ],
         const SizedBox(height: 12),
         if (recent != null && recent.isEmpty)
           GabayCard(
@@ -193,22 +196,10 @@ class ReportDetailsView extends StatelessWidget {
               ),
             ),
           ),
-        for (final trip in recent ?? <BreadcrumbTrip>[])
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: BreadcrumbTripTile(
-              trip: trip,
-              now: DateTime.now(),
-              connected: BreadcrumbService.instance.connected,
-              regularTypography: true,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) =>
-                      BreadcrumbTripPage(trip: trip, localOwner: localOwner),
-                ),
-              ),
-            ),
-          ),
+        BreadcrumbTripRecords(
+          trips: recent ?? const [],
+          localOwner: localOwner,
+        ),
         const SizedBox(height: 24),
         _heading(context, 'Navigation Events'),
         const SizedBox(height: 12),

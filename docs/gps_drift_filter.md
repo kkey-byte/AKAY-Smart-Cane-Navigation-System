@@ -14,12 +14,11 @@ Existing saved tracks are not rewritten or cleaned.
   a generous sanity bound, not a minimum walking speed or measured activity.
 - After 30 seconds without displacement beyond uncertainty, require confirmation
   again. Stationary fixes add no coordinates. At most every 30 seconds, aggregate
-  freshness at the fixed endpoint by updating its timestamp, retaining its
-  coordinate and original accuracy. An aggregate endpoint represents the stop;
-  it does not claim every raw fix had that exact coordinate.
-- Re-upload the last endpoint along with new points, retaining the existing
-  schema. Confirmation restores its original anchor timestamp if needed to keep
-  chronological order. Keep the existing 500-point cap and account isolation.
+  freshness in the trip's separate `lastSampledAt` field. Do not change a route
+  point's coordinate, accuracy or original capture timestamp for freshness.
+- Stable point sequences can be retried without changing original captures.
+  The summary preserves stationary freshness independently of route geometry.
+  Keep the existing 500-point cap and account isolation.
 - After a GPS gap longer than 90 seconds, start a separate segment using the
   existing trip mechanism. Do not draw a line across unobserved movement.
 

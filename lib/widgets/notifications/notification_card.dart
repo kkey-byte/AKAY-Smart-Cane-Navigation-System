@@ -44,7 +44,9 @@ class NotificationCard extends StatelessWidget {
 
     return Dismissible(
       key: ValueKey(notification.id),
-      direction: DismissDirection.endToStart,
+      direction: notification.incident != null
+          ? DismissDirection.none
+          : DismissDirection.endToStart,
       onDismissed: (_) => onDismissed(),
       background: Container(
         alignment: Alignment.centerRight,

@@ -103,8 +103,9 @@ void main() {
         isTrue,
       );
       await recorder.sync();
+      expect(repository.saved.values.single.points.single.time, start);
       expect(
-        repository.saved.values.single.points.single.time,
+        repository.saved.values.single.lastSampledAt,
         start.add(const Duration(seconds: 300)),
       );
       await recorder.record(

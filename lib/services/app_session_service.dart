@@ -95,8 +95,9 @@ class AppSessionService extends ChangeNotifier {
     await pendingLogout;
     final prefs = await SharedPreferences.getInstance();
     identityRevision++;
+    LiveLocationService.instance.sharingEnabled = false;
+    NavigatorLocationService.instance.stopTracking(clearLocation: true);
     if (userId != id || email != userEmail || !isLoggedIn) {
-      NavigatorLocationService.instance.stopTracking(clearLocation: true);
       displayName = null;
       phone = null;
       profilePicture = null;
@@ -113,7 +114,7 @@ class AppSessionService extends ChangeNotifier {
       ]) {
         await prefs.remove(key);
       }
-      NotificationService.instance.clearAll();
+      NotificationService.instance.reset();
       ViNavigationSession.instance.setNavigating(false);
     }
     isLoggedIn = true;
@@ -143,8 +144,9 @@ class AppSessionService extends ChangeNotifier {
     await pendingLogout;
     final prefs = await SharedPreferences.getInstance();
     identityRevision++;
+    LiveLocationService.instance.sharingEnabled = false;
+    NavigatorLocationService.instance.stopTracking(clearLocation: true);
     if (userId != id || email != userEmail || !isLoggedIn) {
-      NavigatorLocationService.instance.stopTracking(clearLocation: true);
       displayName = null;
       phone = null;
       profilePicture = null;
@@ -161,7 +163,7 @@ class AppSessionService extends ChangeNotifier {
       ]) {
         await prefs.remove(key);
       }
-      NotificationService.instance.clearAll();
+      NotificationService.instance.reset();
       ViNavigationSession.instance.setNavigating(false);
     }
     isLoggedIn = true;
@@ -278,7 +280,7 @@ class AppSessionService extends ChangeNotifier {
     setupData = const OnboardingSetupData();
     LiveLocationService.instance.sharingEnabled = false;
     NavigatorLocationService.instance.stopTracking(clearLocation: true);
-    NotificationService.instance.clearAll();
+    NotificationService.instance.reset();
     ViNavigationSession.instance.setNavigating(false);
     notifyListeners();
 
@@ -289,7 +291,8 @@ class AppSessionService extends ChangeNotifier {
     final clearingStorage = _clearStoredSession();
     unawaited(
       Future<void>.sync(() async {
-        await (cleanupTracking ?? BreadcrumbService.instance.stop)();
+        await (cleanupTracking ??
+            () => BreadcrumbService.instance.stop(rememberPause: false))();
         if (identityRevision == revision && !isLoggedIn) {
           await BreadcrumbService.instance.recorder?.openAccount(null);
         }

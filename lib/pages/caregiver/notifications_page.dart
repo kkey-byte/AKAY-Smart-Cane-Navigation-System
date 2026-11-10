@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/gabay_notification.dart';
 import '../../services/notification_service.dart';
+import '../../services/emergency_push_service.dart';
 import '../../theme/gabay_theme.dart';
 import '../../widgets/shared/gabay_selection_dialog.dart';
 import '../../widgets/notifications/notification_card.dart';
@@ -16,9 +17,10 @@ typedef NotificationNavigateCallback =
     void Function(NotificationDestination destination);
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key, this.onNavigate});
+  const NotificationsPage({super.key, this.onNavigate, this.service});
 
   final NotificationNavigateCallback? onNavigate;
+  final NotificationService? service;
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -26,12 +28,13 @@ class NotificationsPage extends StatefulWidget {
 
 class _NotificationsPageState extends State<NotificationsPage>
     with SingleTickerProviderStateMixin {
-  final _service = NotificationService.instance;
+  late final NotificationService _service;
   late AnimationController _entryController;
 
   @override
   void initState() {
     super.initState();
+    _service = widget.service ?? NotificationService.instance;
     _entryController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -50,8 +53,117 @@ class _NotificationsPageState extends State<NotificationsPage>
 
   void _handleTap(GabayNotification notification) {
     _service.markAsRead(notification.id);
+    if (notification.incident != null) {
+      _showIncident(notification.id);
+      return;
+    }
     if (notification.destination == NotificationDestination.none) return;
     widget.onNavigate?.call(notification.destination);
+  }
+
+  Future<void> _showIncident(String id) async {
+    var busy = false;
+    String? error;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => ListenableBuilder(
+          listenable: _service,
+          builder: (context, _) {
+            final matches = _service.notifications.where(
+              (n) => n.id == id && n.incident != null,
+            );
+            final incident = matches.isEmpty ? null : matches.first.incident;
+            Future<void> respond(String action) async {
+              setDialogState(() {
+                busy = true;
+                error = null;
+              });
+              try {
+                await _service.respond(id, action);
+              } catch (_) {
+                if (context.mounted) {
+                  setDialogState(
+                    () => error =
+                        'Response not confirmed. Check your connection or access, then retry.',
+                  );
+                }
+              } finally {
+                if (context.mounted) setDialogState(() => busy = false);
+              }
+            }
+
+            return AlertDialog(
+              title: Text(incident?.title ?? 'Alert unavailable'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (incident == null)
+                      const Text(
+                        'Unable to load this alert. Check your connection and navigator sharing access.',
+                      )
+                    else ...[
+                      Text('Status: ${incident.status}'),
+                      const SizedBox(height: 12),
+                      Text(
+                        incident.kind == 'sos'
+                            ? 'The navigator requested assistance using the cane SOS button.'
+                            : 'The cane detected unusual movement. A fall or accident has not been confirmed. Please check on this navigator.',
+                      ),
+                      const SizedBox(height: 12),
+                      Text('Detected: ${incident.detectedAt.toLocal()}'),
+                      Text('Received: ${incident.createdAt.toLocal()}'),
+                      const SizedBox(height: 12),
+                      Text(
+                        incident.latitude == null
+                            ? 'No location was attached to this event.'
+                            : 'Event location: ${incident.latitude}, ${incident.longitude}\nCaptured: ${incident.detectedAt.toLocal()} (not necessarily the current location).',
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Resolving this alert records your response in AKAY. It does not remotely silence the cane.',
+                      ),
+                    ],
+                    if (error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(error!, semanticsLabel: error),
+                    ],
+                    if (busy)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 12),
+                        child: LinearProgressIndicator(),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: busy ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Close'),
+                ),
+                if (incident?.unresolved == true) ...[
+                  if (incident!.acknowledgedAt == null)
+                    TextButton(
+                      onPressed: busy ? null : () => respond('acknowledge'),
+                      child: const Text('Acknowledge'),
+                    ),
+                  TextButton(
+                    onPressed: busy ? null : () => respond('false_alarm'),
+                    child: const Text('False alarm'),
+                  ),
+                  FilledButton(
+                    onPressed: busy ? null : () => respond('resolve'),
+                    child: const Text('Resolve alert'),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _confirmClearAll() async {
@@ -65,7 +177,7 @@ class _NotificationsPageState extends State<NotificationsPage>
           style: TextStyle(color: g.textPrimary),
         ),
         content: Text(
-          'This will remove all notifications from your list.',
+          'This removes resolved notifications. Unresolved cane alerts stay visible until you respond.',
           style: TextStyle(color: g.textSecondary),
         ),
         actions: [
@@ -96,7 +208,30 @@ class _NotificationsPageState extends State<NotificationsPage>
         child: SafeArea(
           child: GabayScrollingPage(
             header: _buildHeader(context),
-            body: notifications.isEmpty
+            body: _service.errorMessage != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _service.errorMessage!,
+                            textAlign: TextAlign.center,
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              try {
+                                await _service.refresh();
+                              } catch (_) {}
+                            },
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : notifications.isEmpty
                 ? FadeTransition(
                     opacity: CurvedAnimation(
                       parent: _entryController,
@@ -154,6 +289,10 @@ class _NotificationsPageState extends State<NotificationsPage>
                 context,
                 title: 'Notification actions',
                 options: [
+                  const GabaySelectionOption(
+                    value: 'push',
+                    child: Text('Enable push notifications'),
+                  ),
                   GabaySelectionOption(
                     value: 'read',
                     child: Row(
@@ -185,7 +324,30 @@ class _NotificationsPageState extends State<NotificationsPage>
                 ],
               );
               if (!mounted) return;
-              if (value == 'read') {
+              if (value == 'push') {
+                try {
+                  await EmergencyPushService.instance.enable();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Push notifications enabled on this device.',
+                        ),
+                      ),
+                    );
+                  }
+                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Push registration was not confirmed. Check notification permission and Firebase configuration.',
+                        ),
+                      ),
+                    );
+                  }
+                }
+              } else if (value == 'read') {
                 _service.markAllAsRead();
               } else if (value == 'clear') {
                 _confirmClearAll();

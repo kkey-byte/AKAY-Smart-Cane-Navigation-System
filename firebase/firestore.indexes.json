@@ -1,0 +1,20 @@
+{
+  "indexes": [{"collectionGroup":"trips","queryScope":"COLLECTION","fields":[
+    {"fieldPath":"sourceType","order":"ASCENDING"},
+    {"fieldPath":"startedAt","order":"DESCENDING"},
+    {"fieldPath":"__name__","order":"DESCENDING"}
+  ]},{"collectionGroup":"trips","queryScope":"COLLECTION","fields":[
+    {"fieldPath":"sourceType","order":"ASCENDING"},
+    {"fieldPath":"deviceId","order":"ASCENDING"},
+    {"fieldPath":"assignmentId","order":"ASCENDING"},
+    {"fieldPath":"startedAt","order":"DESCENDING"},
+    {"fieldPath":"__name__","order":"DESCENDING"}
+  ]}],
+  "fieldOverrides": [
+    {"collectionGroup":"trips","fieldPath":"endedAt","indexes":[
+      {"order":"ASCENDING","queryScope":"COLLECTION"},
+      {"order":"DESCENDING","queryScope":"COLLECTION"},
+      {"order":"ASCENDING","queryScope":"COLLECTION_GROUP"}
+    ]}
+  ]
+}

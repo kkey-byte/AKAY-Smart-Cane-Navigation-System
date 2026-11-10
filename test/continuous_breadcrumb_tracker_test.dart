@@ -218,11 +218,101 @@ void main() {
       await tracker.reconcile();
       await move();
       final oldId = recorder.activeId;
+      final lastCapture = recorder.active!.points.last.time;
       await move(elapsed: const Duration(minutes: 3), lat: 7.31);
       expect(recorder.trips, hasLength(2));
       expect(recorder.activeId, isNot(oldId));
       expect(recorder.active!.points, hasLength(1));
       expect(recorder.active!.points.first.latitude, 7.31);
+      expect(
+        recorder.trips.singleWhere((trip) => trip.id == oldId).endedAt,
+        lastCapture,
+      );
+    },
+  );
+
+  test(
+    'pause while waiting for accurate GPS survives restart and stays account scoped',
+    () async {
+      fix = BreadcrumbPoint(7.3, 125.68, now, 90);
+      await tracker.reconcile();
+      expect(tracker.requested, isTrue);
+      expect(recorder.active, isNull);
+      await tracker.pause();
+      final restored = BreadcrumbRecorder(
+        repository,
+        await SharedPreferences.getInstance(),
+      );
+      final restarted = ContinuousBreadcrumbTracker(
+        recorder: restored,
+        eligibleOwner: () => owner,
+        currentPoint: () => fix,
+        clock: () => now,
+        startLocation: () async {
+          starts++;
+        },
+        backgroundRecording: (_) async {},
+      );
+      final count = starts;
+      await restarted.reconcile();
+      expect(starts, count);
+      expect(restarted.requested, isFalse);
+      expect(restored.recordingPaused, isTrue);
+      fix = BreadcrumbPoint(7.3, 125.68, now, 8);
+      await restarted.onLocation();
+      expect(restored.active, isNull);
+      await restarted.resume();
+      expect(restored.active, isNotNull);
+      await restarted.pause();
+      owner = 'another-navigator';
+      await restarted.reconcile();
+      expect(restored.active!.ownerId, owner);
+    },
+  );
+
+  test(
+    'session cleanup stops capture without inventing a permanent user pause',
+    () async {
+      await tracker.reconcile();
+      await tracker.pause(rememberPause: false);
+      expect(recorder.active, isNull);
+      expect(recorder.recordingPaused, isFalse);
+      final restored = BreadcrumbRecorder(
+        repository,
+        await SharedPreferences.getInstance(),
+      );
+      final restarted = ContinuousBreadcrumbTracker(
+        recorder: restored,
+        eligibleOwner: () => owner,
+        currentPoint: () => fix,
+        clock: () => now,
+        startLocation: () async {},
+        backgroundRecording: (_) async {},
+      );
+      await restarted.reconcile();
+      expect(restarted.requested, isTrue);
+      expect(restored.active, isNotNull);
+    },
+  );
+
+  test(
+    'stationary freshness does not split a valid session or relabel its first capture',
+    () async {
+      await tracker.reconcile();
+      final id = recorder.activeId, first = fix!.time;
+      for (var i = 0; i < 10; i++) {
+        now = now.add(const Duration(seconds: 30));
+        fix = BreadcrumbPoint(7.3, 125.68, now, 8);
+        await tracker.onLocation();
+      }
+      expect(recorder.activeId, id);
+      expect(recorder.trips, hasLength(1));
+      expect(recorder.active!.points.single.time, first);
+      expect(recorder.active!.lastSampledAt, now);
+      expect(recorder.active!.isFresh(now), isTrue);
+      await tracker.pause();
+      expect(recorder.trips.single.endedAt, now);
+      expect(recorder.hasPending, isTrue);
     },
   );
 

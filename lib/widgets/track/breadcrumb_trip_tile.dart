@@ -48,7 +48,7 @@ class BreadcrumbTripTile extends StatelessWidget {
       ),
       subtitle: Text(
         '${trip.startedAt.toLocal().toString().substring(0, 16)}\n'
-        '${breadcrumbStatus(trip, now, connected: connected)} · ${trip.points.length} points',
+        '${breadcrumbStatus(trip, now, connected: connected)} · ${trip.pointCount} points',
         style: regularTypography
             ? const TextStyle(
                 fontSize: GabayTypography.caption,

@@ -9,7 +9,8 @@ const db=uid=>env.authenticatedContext(uid).database();
 const trip=()=>({ownerId:'navigator',name:'Synthetic walk',startedAt:Date.now()-5000,status:'recording',points:{'00000000':{latitude:12.3,longitude:123.4,accuracy:8,time:Date.now()-1000}}});
 test('owner records; caregiver and strangers require backend, even with legacy grants',async()=>{
   const owner=db('navigator'),caregiver=db('caregiver');
-  await assertSucceeds(set(ref(owner,'breadcrumb_trips/navigator/trip'),trip()));
+  await assertFails(set(ref(owner,'breadcrumb_trips/navigator/trip'),trip()));
+  await env.withSecurityRulesDisabled(async c=>set(ref(c.database(),'breadcrumb_trips/navigator/trip'),trip()));
   await assertSucceeds(get(ref(owner,'breadcrumb_trips/navigator/trip')));
   await env.withSecurityRulesDisabled(async context=>{await set(ref(context.database(),'breadcrumb_shares/navigator/caregiver'),{name:'Legacy grant'});});
   await assertFails(get(ref(caregiver,'breadcrumb_trips/navigator/trip')));
@@ -53,9 +54,18 @@ test('phone records reject invented timestamps and unexpected sensitive fields',
 
 test('trip start cannot be relabelled and points cannot predate the trip',async()=>{
   const owner=db('navigator'),value=trip();
-  await assertSucceeds(set(ref(owner,'breadcrumb_trips/navigator/timechecks'),value));
+  await env.withSecurityRulesDisabled(async c=>set(ref(c.database(),'breadcrumb_trips/navigator/timechecks'),value));
   await assertFails(update(ref(owner,'breadcrumb_trips/navigator/timechecks'),{startedAt:value.startedAt-1000}));
   const bad=trip();bad.points['00000000'].time=bad.startedAt-1000;
   await assertFails(set(ref(owner,'breadcrumb_trips/navigator/earlypoint'),bad));
-  await assertSucceeds(set(ref(owner,'breadcrumb_trips/navigator/timechecks'),null));
+  await assertFails(set(ref(owner,'breadcrumb_trips/navigator/timechecks'),null));
+});
+
+test('older samples and deleted-account uploads are denied by server rules',async()=>{
+  const path='phone_location/order-test',value={latitude:12.3,longitude:123.4,timestamp:Date.now(),source:'phone_gps'};
+  await assertSucceeds(set(ref(db('order-test'),path),value));
+  await assertFails(set(ref(db('order-test'),path),{...value,timestamp:value.timestamp-1000}));
+  await assertFails(set(ref(db('order-test'),path),value));
+  await env.withSecurityRulesDisabled(async c=>set(ref(c.database(),'deleted_location_accounts/order-test'),true));
+  await assertFails(set(ref(db('order-test'),path),{...value,timestamp:value.timestamp+1}));
 });
