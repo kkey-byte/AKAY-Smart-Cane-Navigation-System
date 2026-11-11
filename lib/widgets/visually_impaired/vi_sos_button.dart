@@ -1,3 +1,4 @@
+import '../shared/gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 import '../../theme/gabay_theme.dart';
@@ -82,6 +83,7 @@ class _ViSosButtonState extends State<ViSosButton>
     final danger = context.gabay.danger;
 
     showDialog<void>(
+      animationStyle: gabayModalAnimation(context),
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: context.gabay.surface,

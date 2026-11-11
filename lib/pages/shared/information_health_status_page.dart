@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_modal_motion.dart';
 import '../../widgets/profile/health_display_widgets.dart';
 import '../../theme/gabay_typography.dart';
 import '../../widgets/shared/gabay_accent_icon.dart';
@@ -261,6 +262,7 @@ class _InformationHealthContentState extends State<InformationHealthContent> {
     final editRevision = _identityRevision;
     final editUserId = profile.userId;
     final result = await showModalBottomSheet<bool>(
+      sheetAnimationStyle: gabayModalAnimation(context),
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

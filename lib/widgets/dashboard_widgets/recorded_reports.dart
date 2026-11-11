@@ -1,6 +1,7 @@
 import '../../theme/gabay_typography.dart';
 import '../shared/gabay_accent_icon.dart';
 import 'dart:convert';
+import 'dart:async';
 import '../../models/pairing.dart';
 import '../../services/pairing_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -379,7 +380,7 @@ List<BreadcrumbTrip>? mergeNavigatorReportTrips({
     ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
 }
 
-class RecordedReportContent extends StatelessWidget {
+class RecordedReportContent extends StatefulWidget {
   const RecordedReportContent({
     super.key,
     this.trips,
@@ -387,20 +388,83 @@ class RecordedReportContent extends StatelessWidget {
     this.message,
     this.compact = false,
     this.localOwner = false,
+    this.clock,
   });
   final List<BreadcrumbTrip>? trips;
   final List<BreadcrumbTrip>? recentTrips;
   final String? message;
   final bool compact;
   final bool localOwner;
+  final DateTime Function()? clock;
+  @override
+  State<RecordedReportContent> createState() => _RecordedReportContentState();
+}
+
+class _RecordedReportContentState extends State<RecordedReportContent>
+    with WidgetsBindingObserver {
+  Timer? _dayRollover;
+  DateTime get _now => (widget.clock ?? DateTime.now)().toLocal();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleRollover();
+  }
+
+  void _scheduleRollover() {
+    _dayRollover?.cancel();
+    final now = _now;
+    final midnight = DateTime(now.year, now.month, now.day + 1);
+    _dayRollover = Timer(midnight.difference(now), () {
+      if (!mounted) return;
+      setState(() {});
+      _scheduleRollover();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      setState(() {});
+      _scheduleRollover();
+    }
+  }
+
+  @override
+  void dispose() {
+    _dayRollover?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final records = trips;
-    final today = DateUtils.dateOnly(DateTime.now());
+    final records = widget.trips;
+    final recentTrips = widget.recentTrips;
+    final message = widget.message;
+    final compact = widget.compact;
+    final localOwner = widget.localOwner;
+    final now = _now;
+    final today = DateUtils.dateOnly(now);
+    final tomorrow = DateTime(today.year, today.month, today.day + 1);
+    final dailyTrips = records?.where((trip) {
+      final start = trip.startedAt.toLocal();
+      return !start.isBefore(today) &&
+          start.isBefore(tomorrow) &&
+          !start.isAfter(now);
+    }).toList();
     final week = today.subtract(Duration(days: today.weekday - 1));
     double meters = 0;
+    Duration? walkingDuration;
     for (final trip in records ?? <BreadcrumbTrip>[]) {
       meters += trip.distanceMeters;
+    }
+    for (final trip in dailyTrips ?? <BreadcrumbTrip>[]) {
+      final duration = trip.walkingDuration;
+      if (duration != null) {
+        walkingDuration = (walkingDuration ?? Duration.zero) + duration;
+      }
     }
     final values = <String, String>{
       'Trips Today': records == null
@@ -412,18 +476,24 @@ class RecordedReportContent extends StatelessWidget {
       'This Week': records == null
           ? 'Unavailable'
           : records.where((t) => !t.startedAt.isBefore(week)).length.toString(),
-      'Total Distance': records == null || !records.any((t) => t.pointCount > 0)
+      'Total Distance':
+          records == null || !records.any((t) => t.hasRecordedDistance)
           ? 'Unavailable'
           : '${(meters / 1000).toStringAsFixed(2)} km recorded',
       'Total Route': records == null
           ? 'Unavailable'
           : '${records.length} recorded trips',
+      'Walking Duration':
+          dailyTrips == null ||
+              (dailyTrips.isNotEmpty && walkingDuration == null)
+          ? 'Unavailable'
+          : _formatWalkingDuration(walkingDuration ?? Duration.zero),
     };
     if (!compact) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (message != null) ...[Text(message!), const SizedBox(height: 12)],
+          if (message != null) ...[Text(message), const SizedBox(height: 12)],
           ReportDetailsView(
             values: values,
             trips: records,
@@ -516,4 +586,12 @@ class RecordedReportContent extends StatelessWidget {
       ],
     );
   }
+}
+
+String _formatWalkingDuration(Duration duration) {
+  if (duration.inHours > 0) {
+    return '${duration.inHours} hr ${duration.inMinutes.remainder(60)} min';
+  }
+  if (duration.inMinutes > 0) return '${duration.inMinutes} min';
+  return '${duration.inSeconds} sec';
 }

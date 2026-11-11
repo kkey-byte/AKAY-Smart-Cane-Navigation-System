@@ -61,7 +61,7 @@ class ReportDetailsView extends StatelessWidget {
       ),
       (
         label: 'Walking Duration',
-        value: 'Not available',
+        value: values['Walking Duration'] ?? 'Not available',
         icon: Icons.timer_outlined,
       ),
     ];

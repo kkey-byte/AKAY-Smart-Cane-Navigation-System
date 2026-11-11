@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_modal_motion.dart';
 import 'pairing_management_page.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -164,6 +165,7 @@ class _BreadcrumbHistoryPageState extends State<BreadcrumbHistoryPage> {
     if (uid == null) return;
     final stream = service.repository.watchShares(uid);
     await showDialog<void>(
+      animationStyle: gabayModalAnimation(context),
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Caregivers with access'),
@@ -400,8 +402,6 @@ class _BreadcrumbTripPageState extends State<BreadcrumbTripPage> {
   BreadcrumbTrip? _trip;
   BreadcrumbTrip? _remoteTrip;
   String? _error;
-  bool _follow = true;
-  TrackMapController? _map;
   @override
   void initState() {
     super.initState();
@@ -550,45 +550,15 @@ class _BreadcrumbTripPageState extends State<BreadcrumbTripPage> {
                         Icons.timer_outlined,
                       ),
                     if (widget.localOwner &&
-                        service.recorder?.ownerId == trip.ownerId)
+                        service.recorder?.ownerId == trip.ownerId &&
+                        (service.recorder!.storageError != null ||
+                            service.recorder!.isPending(trip.id)))
                       Text(
                         service.recorder!.storageError != null
-                            ? 'Device save is not confirmed · Keep the app open'
-                            : service.recorder!.isPending(trip.id)
-                            ? 'Saved on device · Upload pending'
-                            : identical(trip, _remoteTrip)
-                            ? 'Loaded from cloud history'
-                            : 'Showing saved device copy',
+                            ? 'Device save not confirmed'
+                            : 'Upload pending',
                       ),
-                    if (widget.localOwner && service.error != null)
-                      Text(service.error!),
                     const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            setState(() => _follow = false);
-                            if (points.isNotEmpty) {
-                              unawaited(
-                                _map?.fitBounds(
-                                      points
-                                          .map((point) => point.location)
-                                          .toList(),
-                                    ) ??
-                                    Future.value(),
-                              );
-                            }
-                          },
-                          child: const Text('Show whole track'),
-                        ),
-                        TextButton(
-                          onPressed: () => setState(() => _follow = true),
-                          child: const Text('Follow latest location'),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -662,9 +632,8 @@ class _BreadcrumbTripPageState extends State<BreadcrumbTripPage> {
           ],
           padding: EdgeInsets.zero,
           followTarget: points.last.location,
-          followUser: trip.isRecording && _follow,
+          followUser: trip.isRecording,
           onControllerReady: (map) {
-            _map = map;
             if (!trip.isRecording) {
               unawaited(
                 map.fitBounds(points.map((point) => point.location).toList()),

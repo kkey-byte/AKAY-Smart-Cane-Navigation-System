@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import '../../widgets/shared/gabay_page_header.dart';
 import '../../widgets/shared/gabay_accent_icon.dart';
@@ -65,6 +66,7 @@ class _NotificationsPageState extends State<NotificationsPage>
     var busy = false;
     String? error;
     await showDialog<void>(
+      animationStyle: gabayModalAnimation(context),
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => ListenableBuilder(
@@ -169,6 +171,7 @@ class _NotificationsPageState extends State<NotificationsPage>
   Future<void> _confirmClearAll() async {
     final g = context.gabay;
     final confirmed = await showDialog<bool>(
+      animationStyle: gabayModalAnimation(context),
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: g.surface,

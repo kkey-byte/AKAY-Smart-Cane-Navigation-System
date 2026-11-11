@@ -3,7 +3,6 @@ import '../../theme/gabay_typography.dart';
 import '../shared/navigator_selection_modal.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../models/breadcrumb_trip.dart';
 import '../../models/dashboard_snapshot.dart';
@@ -814,15 +813,7 @@ class _NavigatorTotalsState extends State<_NavigatorTotals> {
       final trips = snapshot.hasError ? null : snapshot.data;
       double meters = 0;
       for (final trip in trips ?? <BreadcrumbTrip>[]) {
-        for (var i = 1; i < trip.points.length; i++) {
-          final a = trip.points[i - 1], b = trip.points[i];
-          meters += Geolocator.distanceBetween(
-            a.latitude,
-            a.longitude,
-            b.latitude,
-            b.longitude,
-          );
-        }
+        meters += trip.distanceMeters;
       }
       return Semantics(
         label:
@@ -836,7 +827,8 @@ class _NavigatorTotalsState extends State<_NavigatorTotals> {
               foreground: widget.blueCards ? Colors.white : null,
               statistic: widget.blueCards,
               value:
-                  trips == null || !trips.any((trip) => trip.points.isNotEmpty)
+                  trips == null ||
+                      !trips.any((trip) => trip.hasRecordedDistance)
                   ? '—'
                   : '${(meters / 1000).toStringAsFixed(2)} km',
             ),

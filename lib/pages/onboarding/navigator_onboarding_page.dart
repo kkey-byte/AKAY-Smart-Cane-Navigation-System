@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import '../../widgets/shared/gabay_accent_icon.dart';
 import '../../services/pairing_service.dart';
@@ -208,6 +209,7 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
 
   Future<void> _addContact() async {
     final result = await showDialog<EmergencyContact>(
+      animationStyle: gabayModalAnimation(context),
       context: context,
       builder: (context) => const _AddContactDialog(),
     );

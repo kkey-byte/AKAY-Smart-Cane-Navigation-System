@@ -244,27 +244,18 @@ class RouteSearchCard extends StatelessWidget {
     final g = context.gabay;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.all(18),
 
       decoration: GabayTheme.cardDecoration(context),
 
       child: Row(
         children: [
           CircleAvatar(
-            radius: 18,
+            radius: 22,
 
             backgroundColor: g.accentTint,
 
-            child: Text(
-              selectedNavigator.name.isNotEmpty
-                  ? selectedNavigator.name[0].toUpperCase()
-                  : '?',
-
-              style: TextStyle(
-                color: g.accent,
-                fontWeight: GabayTypography.medium,
-              ),
-            ),
+            child: Icon(Icons.my_location_rounded, color: g.accent, size: 22),
           ),
 
           const SizedBox(width: 12),
@@ -275,7 +266,7 @@ class RouteSearchCard extends StatelessWidget {
 
               children: [
                 Text(
-                  'Your location',
+                  'Starting point',
 
                   style: GabayTheme.labelSmall(context).copyWith(
                     color: g.accent,
@@ -283,19 +274,7 @@ class RouteSearchCard extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 2),
-
-                Text(
-                  originTitle ?? 'Your current location',
-
-                  style: TextStyle(
-                    color: g.textPrimary,
-
-                    fontSize: GabayTypography.cardBody,
-
-                    fontWeight: GabayTypography.medium,
-                  ),
-                ),
+                const SizedBox(height: 6),
 
                 ReadablePlaceText(
                   showCoordinateFallback: false,
@@ -304,8 +283,9 @@ class RouteSearchCard extends StatelessWidget {
                       : 'Locating you…',
 
                   style: TextStyle(
-                    color: g.textSecondary,
-                    fontSize: GabayTypography.caption,
+                    color: g.textPrimary,
+                    fontSize: GabayTypography.body,
+                    height: 1.4,
                   ),
                 ),
               ],
@@ -338,34 +318,45 @@ class RouteSearchCard extends StatelessWidget {
             Expanded(
               child: Column(
                 children: [
-                  _originRow(context),
+                  if (showNavigatorPicker) _originRow(context),
 
-                  Divider(height: 1, color: g.border),
+                  if (showNavigatorPicker) Divider(height: 1, color: g.border),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Destination',
+                        style: GabayTheme.sectionTitle(context),
+                      ),
+                    ),
+                  ),
 
                   _destinationRow(context),
                 ],
               ),
             ),
 
-            Container(
-              width: 48,
+            if (showNavigatorPicker)
+              Container(
+                width: 48,
 
-              alignment: Alignment.center,
+                alignment: Alignment.center,
 
-              child: IconButton(
-                onPressed: onSwap,
+                child: IconButton(
+                  onPressed: onSwap,
 
-                icon: Icon(
-                  Icons.swap_vert_rounded,
+                  icon: Icon(
+                    Icons.swap_vert_rounded,
 
-                  color: g.textSecondary,
+                    color: g.textSecondary,
 
-                  size: 26,
+                    size: 26,
+                  ),
+
+                  tooltip: 'Swap origin and destination',
                 ),
-
-                tooltip: 'Swap origin and destination',
               ),
-            ),
           ],
         ),
       ),
@@ -446,7 +437,7 @@ class RouteSearchCard extends StatelessWidget {
     final g = context.gabay;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 0, 10),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
 
       child: Row(
         children: [
@@ -469,7 +460,7 @@ class RouteSearchCard extends StatelessWidget {
               focusNode: destinationFocusNode,
 
               decoration: InputDecoration(
-                hintText: 'Enter a destination, then search',
+                hintText: 'Search destination',
                 suffixIcon: IconButton(
                   tooltip: 'Search destinations',
                   onPressed: isSearching ? null : onSearch,

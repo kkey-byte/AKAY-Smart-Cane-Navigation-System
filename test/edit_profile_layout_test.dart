@@ -53,6 +53,8 @@ class _CaregiverProfileService extends _ProfileService {
 Future<void> _settleAndEdit(WidgetTester tester) async {
   await tester.pumpAndSettle();
   if (find.byTooltip('Edit profile').evaluate().isNotEmpty) {
+    expect(find.byIcon(Icons.edit_calendar_outlined), findsNothing);
+    expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
     expect(find.byTooltip('Save'), findsNothing);
     expect(find.byIcon(Icons.check), findsNothing);
     expect(find.text('Save Changes'), findsNothing);
@@ -63,6 +65,8 @@ Future<void> _settleAndEdit(WidgetTester tester) async {
     expect(blocker.absorbing, isTrue);
     await tester.tap(find.byTooltip('Edit profile'));
     await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.edit_calendar_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
     expect(find.byTooltip('Save'), findsNothing);
     expect(find.byTooltip('Back'), findsNothing);
     expect(find.text('Save Changes'), findsOneWidget);

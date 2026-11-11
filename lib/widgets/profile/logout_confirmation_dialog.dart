@@ -1,3 +1,4 @@
+import '../shared/gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import '../shared/gabay_accent_icon.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ Future<void> showLogoutConfirmationDialog(
 }) {
   var confirmed = false;
   return showDialog<void>(
+    animationStyle: gabayModalAnimation(context),
     context: context,
     barrierDismissible: true,
     builder: (dialogContext) => LogoutConfirmationDialog(

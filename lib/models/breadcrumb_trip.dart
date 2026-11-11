@@ -63,6 +63,7 @@ class BreadcrumbTrip {
     this.endedAt,
     this.recordedPointCount,
     this.recordedDistanceMeters,
+    this.recordedDurationSeconds,
     this.lastSampledAt,
     this.sourceType = 'phone_gps',
     this.deviceId,
@@ -77,11 +78,23 @@ class BreadcrumbTrip {
   final List<BreadcrumbPoint> points;
   final int? recordedPointCount;
   final double? recordedDistanceMeters;
+  final int? recordedDurationSeconds;
+  Duration? get walkingDuration {
+    if (recordedDurationSeconds != null) {
+      return Duration(seconds: recordedDurationSeconds!);
+    }
+    final end = endedAt ?? lastSampledAt ?? points.lastOrNull?.time;
+    if (end == null || end.isBefore(startedAt)) return null;
+    return end.difference(startedAt);
+  }
+
   final DateTime? lastSampledAt;
   final String sourceType;
   final String? deviceId;
   final String? assignmentId;
   int get pointCount => recordedPointCount ?? points.length;
+  bool get hasRecordedDistance =>
+      pointCount > 0 || recordedDistanceMeters != null;
   double get distanceMeters {
     if (recordedDistanceMeters != null) return recordedDistanceMeters!;
     double total = 0;
@@ -122,6 +135,10 @@ class BreadcrumbTrip {
     assignmentId: assignmentId,
     recordedPointCount: points == null ? recordedPointCount : null,
     recordedDistanceMeters: points == null ? recordedDistanceMeters : null,
+    recordedDurationSeconds:
+        points == null && endedAt == null && lastSampledAt == null
+        ? recordedDurationSeconds
+        : null,
     lastSampledAt:
         lastSampledAt ?? (points == null ? this.lastSampledAt : null),
   );
@@ -138,6 +155,8 @@ class BreadcrumbTrip {
     if (recordedPointCount != null) 'pointCount': recordedPointCount,
     if (recordedDistanceMeters != null)
       'distanceMeters': recordedDistanceMeters,
+    if (recordedDurationSeconds != null)
+      'durationSeconds': recordedDurationSeconds,
     if (lastSampledAt != null)
       'lastSampledAt': lastSampledAt!.millisecondsSinceEpoch,
     'points': {
@@ -186,6 +205,12 @@ class BreadcrumbTrip {
       points: List.unmodifiable(points),
       recordedPointCount: (raw['pointCount'] as num?)?.toInt(),
       recordedDistanceMeters: (raw['distanceMeters'] as num?)?.toDouble(),
+      recordedDurationSeconds:
+          raw['durationSeconds'] is num &&
+              (raw['durationSeconds'] as num).isFinite &&
+              (raw['durationSeconds'] as num) >= 0
+          ? (raw['durationSeconds'] as num).toInt()
+          : null,
       lastSampledAt: raw['lastSampledAt'] is num
           ? DateTime.fromMillisecondsSinceEpoch(
               (raw['lastSampledAt'] as num).toInt(),

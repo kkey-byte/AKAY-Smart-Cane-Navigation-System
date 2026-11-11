@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import '../../widgets/shared/gabay_glass_surface.dart';
 import '../../widgets/shared/gabay_accent_icon.dart';
@@ -97,6 +98,7 @@ class _LinkedNavigatorCanePageState extends State<LinkedNavigatorCanePage> {
   Future<void> _remove(PairingConnection row) async {
     if (!_valid || _removing != null) return;
     final confirmed = await showDialog<bool>(
+      animationStyle: gabayModalAnimation(context),
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Remove linked navigator?'),
@@ -329,6 +331,7 @@ class _LinkedNavigatorCanePageState extends State<LinkedNavigatorCanePage> {
   }
 
   Future<void> _seeAll() => showDialog<void>(
+    animationStyle: gabayModalAnimation(context),
     context: context,
     builder: (dialogContext) => Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),

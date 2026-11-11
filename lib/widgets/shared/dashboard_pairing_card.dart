@@ -1,3 +1,4 @@
+import 'gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import 'gabay_accent_icon.dart';
 import 'dart:async';
@@ -185,6 +186,7 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
     });
     if (generated && mounted && _valid && _modalPairing) {
       await showDialog<void>(
+        animationStyle: gabayModalAnimation(context),
         context: context,
         builder: (dialogContext) => StreamBuilder<int>(
           stream: Stream<int>.periodic(const Duration(seconds: 1), (i) => i),
@@ -243,6 +245,7 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
   Future<void> _disconnect(PairingConnection row) async {
     if (_busy || !_valid) return;
     final confirmed = await showDialog<bool>(
+      animationStyle: gabayModalAnimation(context),
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Disconnect caregiver?'),
@@ -272,6 +275,7 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
 
   Future<void> _pair() async {
     final submission = await showDialog<_PairSubmission>(
+      animationStyle: gabayModalAnimation(context),
       context: context,
       builder: (_) => _PairCodeDialog(
         scanCode: widget.scanCode,
@@ -292,6 +296,7 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
   Future<void> _decide(PairingConnection row, bool accept) async {
     if (accept) {
       final approved = await showDialog<bool>(
+        animationStyle: gabayModalAnimation(context),
         context: context,
         builder: (context) => AlertDialog(
           title: Text('Pair with ${row.caregiverName}?'),

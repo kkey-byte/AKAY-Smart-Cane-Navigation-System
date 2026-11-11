@@ -1,3 +1,4 @@
+import 'gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 import '../../theme/gabay_theme.dart';
@@ -25,6 +26,7 @@ Future<T?> showGabaySelectionDialog<T>(
 }) {
   FocusScope.of(context).unfocus();
   return showDialog<T>(
+    animationStyle: gabayModalAnimation(context),
     context: context,
     barrierColor: Colors.black.withValues(alpha: .32),
     builder: (_) => _SelectionDialog<T>(

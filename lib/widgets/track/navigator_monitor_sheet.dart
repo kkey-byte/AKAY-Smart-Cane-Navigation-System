@@ -1,3 +1,4 @@
+import '../shared/gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
 
@@ -47,6 +48,7 @@ class NavigatorMonitorSheet extends StatelessWidget {
   }) {
     var allOnMap = showAllOnMap;
     return showDialog<void>(
+      animationStyle: gabayModalAnimation(context),
       context: context,
       barrierColor: Colors.black54,
       builder: (context) => Dialog(

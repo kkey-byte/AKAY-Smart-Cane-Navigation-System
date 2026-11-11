@@ -44,7 +44,8 @@ class TurnByTurnPanel extends StatelessWidget {
       color: g.surface,
       elevation: 4,
       shadowColor: g.shadow,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(22),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 8, 12),
         child: Column(

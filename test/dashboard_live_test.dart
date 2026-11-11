@@ -236,6 +236,7 @@ void main() {
         });
       final pairing = FakePairing()..rows = [link('a'), link('b')];
       final liveKey = GlobalKey<DashboardLiveSectionState>();
+      ({String uid, String name})? activityNavigator;
       String? shown;
       int peers = 0;
       await tester.pumpWidget(
@@ -245,6 +246,8 @@ void main() {
             body: SingleChildScrollView(
               child: DashboardLiveSection(
                 key: liveKey,
+                onNavigatorChanged: (navigator) =>
+                    activityNavigator = navigator,
                 caregiver: true,
                 onViewMap: () {},
                 service: service,
@@ -261,6 +264,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(shown, 'navigator-a');
+      expect(activityNavigator, (uid: 'navigator-a', name: 'Navigator a'));
       expect(peers, 2);
       await tester.tap(find.byTooltip('Select navigator'));
       await tester.pumpAndSettle();
@@ -270,10 +274,12 @@ void main() {
       await tester.tap(find.text('Navigator b').last);
       await tester.pumpAndSettle();
       expect(shown, 'navigator-b');
+      expect(activityNavigator, (uid: 'navigator-b', name: 'Navigator b'));
       pairing.updates.add([]);
       await tester.pumpAndSettle();
       expect(find.textContaining('No paired Navigators yet'), findsOneWidget);
       expect(find.byKey(const ValueKey('map')), findsNothing);
+      expect(activityNavigator, isNull);
       await tester.pumpWidget(const SizedBox());
       await service.close();
       await pairing.close();

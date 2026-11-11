@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_modal_motion.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../widgets/shared/gabay_selection_dialog.dart';
@@ -134,6 +135,7 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
   }) async {
     final controllers = [for (final _ in labels) TextEditingController()];
     final values = await showDialog<List<String>>(
+      animationStyle: gabayModalAnimation(context),
       context: context,
       builder: (context) => AlertDialog(
         title: Text(title),
@@ -180,6 +182,7 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
 
   Future<bool> _confirm(String title, String explanation) async =>
       await showDialog<bool>(
+        animationStyle: gabayModalAnimation(context),
         context: context,
         builder: (context) => AlertDialog(
           title: Text(title),
@@ -200,6 +203,7 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
   Future<void> _showCode(Map<String, dynamic> result, String title) async {
     if (!mounted) return;
     await showDialog<void>(
+      animationStyle: gabayModalAnimation(context),
       context: context,
       builder: (context) => AlertDialog(
         title: Text(title),

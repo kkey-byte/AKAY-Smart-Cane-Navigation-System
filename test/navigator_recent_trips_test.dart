@@ -22,6 +22,41 @@ BreadcrumbTrip track(
 );
 
 void main() {
+  for (final count in [null, 12]) {
+    testWidgets('distance summary displays without coordinates count=$count', (
+      tester,
+    ) async {
+      final trip = BreadcrumbTrip(
+        id: 'summary',
+        ownerId: 'navigator',
+        name: 'Recorded walk',
+        startedAt: DateTime(2026, 1, 1),
+        points: const [],
+        recordedPointCount: count,
+        recordedDistanceMeters: 1250,
+      );
+      expect(trip.hasRecordedDistance, isTrue);
+      expect(trip.distanceMeters, 1250);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GabayTheme.lightTheme,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: RecordedReportContent(trips: [trip]),
+            ),
+          ),
+        ),
+      );
+      expect(
+        tester
+            .widget<ReportDetailsView>(find.byType(ReportDetailsView))
+            .values['Total Distance'],
+        '1.25 km recorded',
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   test(
     'current and previous local tracks overlay uploads once, newest first',
     () {

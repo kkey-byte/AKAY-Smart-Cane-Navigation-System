@@ -94,9 +94,12 @@ class TrackingOverlayLayout extends StatelessWidget {
                         offstage: panel != TrackingPanel.directions,
                         child: Align(
                           alignment: Alignment.topCenter,
-                          child: SingleChildScrollView(
-                            primary: false,
-                            child: directions,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(22),
+                            child: SingleChildScrollView(
+                              primary: false,
+                              child: directions,
+                            ),
                           ),
                         ),
                       ),

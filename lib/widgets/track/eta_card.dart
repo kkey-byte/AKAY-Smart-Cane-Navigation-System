@@ -297,56 +297,32 @@ class _LocationDestinationRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final g = context.gabay;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Current Location',
-                style: GabayTheme.labelSmall(
-                  context,
-                ).copyWith(fontSize: GabayTypography.caption),
-              ),
-              const SizedBox(height: 6),
-              ReadablePlaceText(
-                currentLocation,
-                showCoordinateFallback: false,
-                style: TextStyle(
-                  fontSize: GabayTypography.body,
-                  fontWeight: GabayTypography.medium,
-                  color: g.textPrimary,
-                  height: 1.35,
-                ),
-              ),
-            ],
+        Text('Current Location', style: GabayTheme.labelSmall(context)),
+        const SizedBox(height: 6),
+        ReadablePlaceText(
+          currentLocation,
+          showCoordinateFallback: false,
+          style: TextStyle(
+            fontSize: GabayTypography.body,
+            color: g.textPrimary,
+            height: 1.35,
           ),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                'Destination',
-                style: GabayTheme.labelSmall(
-                  context,
-                ).copyWith(fontSize: GabayTypography.caption),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                destinationLabel,
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontSize: GabayTypography.body,
-                  fontWeight: GabayTypography.medium,
-                  color: g.textPrimary,
-                  height: 1.35,
-                ),
-              ),
-            ],
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Divider(height: 1, color: g.border),
+        ),
+        Text('Destination', style: GabayTheme.labelSmall(context)),
+        const SizedBox(height: 6),
+        Text(
+          destinationLabel,
+          style: TextStyle(
+            fontSize: GabayTypography.body,
+            color: g.textPrimary,
+            height: 1.35,
           ),
         ),
       ],

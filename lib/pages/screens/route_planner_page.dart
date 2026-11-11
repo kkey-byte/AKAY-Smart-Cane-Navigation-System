@@ -370,17 +370,6 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
                       ),
                     ),
                   ],
-                  if (widget.isNavigatorMode) ...[
-                    const SizedBox(height: 20),
-                    Text(
-                      'Tip: On the Track map, tap or long-press to pin a destination.',
-                      style: TextStyle(
-                        color: g.textSecondary,
-                        fontSize: GabayTypography.supporting,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

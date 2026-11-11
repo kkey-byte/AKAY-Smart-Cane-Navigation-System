@@ -27,6 +27,7 @@ class CaregiverDashboard extends StatefulWidget {
 class _CaregiverDashboardState extends State<CaregiverDashboard> {
   int _selectedIndex = 0;
   final _liveKey = GlobalKey<DashboardLiveSectionState>();
+  final _activityNavigator = ValueNotifier<({String uid, String name})?>(null);
   Future<void> _refreshHome() async {
     await Future.wait([
       _loadDisplayName(),
@@ -68,6 +69,7 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
   @override
   void dispose() {
     _notificationService.removeListener(_onNotificationsChanged);
+    _activityNavigator.dispose();
     super.dispose();
   }
 
@@ -169,6 +171,8 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
                 DashboardLiveSection(
                   key: _liveKey,
                   caregiver: true,
+                  onNavigatorChanged: (navigator) =>
+                      _activityNavigator.value = navigator,
                   onViewMap: () => _onNavTapped(1),
                 ),
                 const SizedBox(height: 16),
@@ -199,7 +203,14 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
                   style: GabayDashboardBackdrop.headingStyle(context),
                 ),
                 const SizedBox(height: 14),
-                const RecentActivityList(),
+                ValueListenableBuilder<({String uid, String name})?>(
+                  valueListenable: _activityNavigator,
+                  builder: (context, navigator, _) => RecentActivityList(
+                    caregiver: true,
+                    ownerId: navigator?.uid,
+                    navigatorName: navigator?.name,
+                  ),
+                ),
               ],
             ),
           ),

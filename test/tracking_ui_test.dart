@@ -102,6 +102,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+    expect(
+      tester.getTopLeft(find.text('Destination')).dy,
+      greaterThan(tester.getTopLeft(find.text('Current Location')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('Destination')).dx,
+      tester.getTopLeft(find.text('Current Location')).dx,
+    );
     for (var i = 0; i < 3; i++) {
       await tester.tap(find.text('Route Timeline'));
       await tester.pumpAndSettle();

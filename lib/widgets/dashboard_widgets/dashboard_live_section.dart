@@ -25,6 +25,7 @@ class DashboardLiveSection extends StatefulWidget {
     this.pairing,
     this.routeLoader,
     this.mapBuilder,
+    this.onNavigatorChanged,
   });
   final bool caregiver;
   final VoidCallback onViewMap;
@@ -33,6 +34,7 @@ class DashboardLiveSection extends StatefulWidget {
   final Future<OsrmRouteGeometry?> Function(LatLng origin, LatLng target)?
   routeLoader;
   final DashboardMapBuilder? mapBuilder;
+  final ValueChanged<({String uid, String name})?>? onNavigatorChanged;
   @override
   State<DashboardLiveSection> createState() => DashboardLiveSectionState();
 }
@@ -55,6 +57,17 @@ class DashboardLiveSectionState extends State<DashboardLiveSection> {
   bool _routing = false;
   int _routeGeneration = 0;
   bool get _valid => _revision == AppSessionService.instance.identityRevision;
+  void _publishNavigator() {
+    final row = _connections
+        ?.where((row) => row.navigatorUid == _selected)
+        .firstOrNull;
+    widget.onNavigatorChanged?.call(
+      _valid && row != null
+          ? (uid: row.navigatorUid, name: row.navigatorName)
+          : null,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -97,6 +110,7 @@ class DashboardLiveSectionState extends State<DashboardLiveSection> {
           _route = null;
           _linkError = 'Account changed. Reopen your dashboard.';
         });
+        _publishNavigator();
       }
     }
   }
@@ -156,6 +170,7 @@ class DashboardLiveSectionState extends State<DashboardLiveSection> {
           _connections = active;
           _linkError = null;
         });
+        _publishNavigator();
         if (uids.isEmpty) _finishRefresh();
         for (final uid in uids) {
           if (!_subscriptions.containsKey(uid)) _watch(uid);
@@ -176,6 +191,7 @@ class DashboardLiveSectionState extends State<DashboardLiveSection> {
             _linkError =
                 'Connected Navigators could not be loaded. Check your connection and access.';
           });
+          _publishNavigator();
         }
       },
     );
@@ -415,6 +431,7 @@ class DashboardLiveSectionState extends State<DashboardLiveSection> {
             _selected = uid;
             _resetRoute();
           });
+          _publishNavigator();
           _updateRoute();
         },
       );

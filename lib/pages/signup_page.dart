@@ -1,3 +1,4 @@
+import '../widgets/shared/gabay_modal_motion.dart';
 import '../theme/gabay_typography.dart';
 import '../widgets/shared/gabay_accent_icon.dart';
 import 'package:flutter/material.dart';
@@ -42,6 +43,7 @@ class _SignupPageState extends State<SignupPage> {
     FocusScope.of(context).unfocus();
     _termsOpening = true;
     final confirmed = await showDialog<bool>(
+      animationStyle: gabayModalAnimation(context),
       context: context,
       barrierColor: Colors.black.withValues(alpha: .32),
       builder: (dialogContext) => Dialog(

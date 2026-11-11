@@ -14,9 +14,7 @@ class GabayMetricGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final two =
-          constraints.maxWidth >= 300 &&
-          MediaQuery.textScalerOf(context).scale(14) <= 20;
+      final two = constraints.maxWidth >= 240;
       return Wrap(
         spacing: 12,
         runSpacing: 12,

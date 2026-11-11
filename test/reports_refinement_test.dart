@@ -50,6 +50,22 @@ void main() {
         expect(tiles, hasLength(4));
         expect(tiles.map((tile) => tile.height).toSet(), hasLength(1));
         expect(tiles.map((tile) => tile.width).toSet(), hasLength(1));
+        final tileFinders = find.descendant(
+          of: find.byType(GabayMetricGrid),
+          matching: find.byType(SizedBox),
+        );
+        final tileElements = tileFinders
+            .evaluate()
+            .where(
+              (element) =>
+                  element.widget is SizedBox &&
+                  (element.widget as SizedBox).height == tiles.first.height,
+            )
+            .toList();
+        final first = tester.getTopLeft(find.byWidget(tileElements[0].widget));
+        final second = tester.getTopLeft(find.byWidget(tileElements[1].widget));
+        expect(first.dy, second.dy);
+        expect(first.dx, lessThan(second.dx));
         expect(find.text('Navigation Events'), findsNothing);
         expect(find.text('Most Visited Places'), findsNothing);
         expect(tester.takeException(), isNull);

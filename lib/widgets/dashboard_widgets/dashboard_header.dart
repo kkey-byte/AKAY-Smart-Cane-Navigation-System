@@ -69,17 +69,22 @@ class DashboardHeader extends StatelessWidget {
             height: 56,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: g.border, width: 2),
+              border: photo == null
+                  ? Border.all(color: g.border, width: 2)
+                  : null,
               color: g.accentTint,
             ),
             clipBehavior: Clip.antiAlias,
             child: photo == null
                 ? Icon(Icons.person_rounded, color: g.accent, size: 28)
-                : Image(
-                    image: photo,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) =>
-                        Icon(Icons.person_rounded, color: g.accent, size: 28),
+                : Transform.scale(
+                    scale: 1.12,
+                    child: Image(
+                      image: photo,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) =>
+                          Icon(Icons.person_rounded, color: g.accent, size: 28),
+                    ),
                   ),
           ),
           const SizedBox(width: 14),

@@ -1,3 +1,4 @@
+import '../shared/gabay_modal_motion.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/breadcrumb_trip.dart';
@@ -73,6 +74,7 @@ class _BreadcrumbTripRecordsState extends State<BreadcrumbTripRecords> {
   }
 
   Future<void> _viewAll() => showDialog<void>(
+    animationStyle: gabayModalAnimation(context),
     context: context,
     builder: (dialogContext) => Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -126,6 +128,7 @@ class _BreadcrumbTripRecordsState extends State<BreadcrumbTripRecords> {
     setState(() => _selectedId = trip.id);
     try {
       await showDialog<void>(
+        animationStyle: gabayModalAnimation(context),
         context: context,
         builder: (dialogContext) => Dialog(
           clipBehavior: Clip.antiAlias,

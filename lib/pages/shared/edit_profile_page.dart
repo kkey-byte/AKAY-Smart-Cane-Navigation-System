@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import '../../widgets/shared/gabay_page_header.dart';
 import '../../widgets/shared/gabay_accent_icon.dart';
@@ -52,6 +53,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Future<void> _editAddress() async {
     if (!_editing || _saving) return;
     final address = await showModalBottomSheet<ProfileAddress>(
+      sheetAnimationStyle: gabayModalAnimation(context),
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -216,6 +218,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Future<void> _pickPhoto() async {
     final source = await showModalBottomSheet<ImageSource>(
+      sheetAnimationStyle: gabayModalAnimation(context),
       context: context,
       builder: (context) {
         return SafeArea(
@@ -553,11 +556,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                           decoration: _inputDecoration(context)
                                               .copyWith(
                                                 prefixIcon: null,
-                                                suffixIcon: Icon(
-                                                  Icons.edit_calendar_outlined,
-                                                  color: g.accent,
-                                                  size: 20,
-                                                ),
+                                                suffixIcon: _editing
+                                                    ? Icon(
+                                                        Icons
+                                                            .edit_calendar_outlined,
+                                                        color: g.accent,
+                                                        size: 20,
+                                                      )
+                                                    : null,
                                               ),
                                           child: Text(
                                             _birthdate == null
@@ -574,6 +580,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                   _LabeledField(
                                     label: 'Gender',
                                     child: GabayDropdownFormField<String>(
+                                      icon: _editing
+                                          ? null
+                                          : const SizedBox.shrink(),
                                       dialogTitle: 'Gender',
                                       key: ValueKey(
                                         'gender_${_gender ?? 'none'}',

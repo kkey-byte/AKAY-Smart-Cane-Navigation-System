@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import '../../widgets/track/tracking_overlay_layout.dart';
 import '../../widgets/track/voice_destination_dialog.dart';
@@ -658,6 +659,7 @@ class TrackPageState extends State<TrackPage> {
       unawaited(GabayTtsService.instance.stop());
       final revision = AppSessionService.instance.identityRevision;
       final query = await showDialog<String>(
+        animationStyle: gabayModalAnimation(context),
         context: context,
         builder: (_) => const VoiceDestinationDialog(),
       );
