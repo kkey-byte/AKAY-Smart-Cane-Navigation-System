@@ -1,7 +1,9 @@
 {
   "database": { "rules": "database.rules.json" },
+  "firestore": { "rules": "firestore.rules", "indexes": "firestore.indexes.json" },
   "emulators": {
     "database": { "port": 9009 },
+    "firestore": { "port": 8089 },
     "ui": { "enabled": false },
     "singleProjectMode": true
   }

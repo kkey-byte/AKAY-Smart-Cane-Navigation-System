@@ -2,8 +2,9 @@
 const {ApiError}=require('./pairingService');
 const timestamp=value=>{const time=typeof value==='number'?value:Date.parse(value);return Number.isFinite(time)?time:null;};
 const coordinate=(value,bound)=>{if(value==null||typeof value==='boolean'||value==='') return null;const n=Number(value);return Number.isFinite(n)&&Math.abs(n)<=bound?n:null;};
-function createDashboardService(pool,authorize,firebase,{clock=Date.now}={}) {
-  // Ephemeral app activity only. GPS history remains in its existing database.
+function createDashboardService(pool,authorize,firebase,{clock=Date.now,tripStore}={}) {
+  const trips=tripStore??require('./tripStore').createTripStore(firebase,{clock});
+  // Ephemeral activity only; history uses PostgreSQL and latest GPS uses RTDB.
   const activity=new Map();
   function presence(actor,active) {
     if(actor.role!=='visually_impaired') throw new ApiError(403,'role_required','Navigator activity only.');
@@ -28,18 +29,22 @@ function createDashboardService(pool,authorize,firebase,{clock=Date.now}={}) {
       if(navigation&&['Active','Paused'].includes(navigation.status)&&!navigation.active) errors.push('Saved route status is not updating. Showing the last destination.');
     } catch(_) {errors.push('Saved navigation details are unavailable.');}
     try {
-      const read=async path=>{
+      const read=async fetch=>{
         let timer;
-        try{return await Promise.race([path.get(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('GPS read timeout')),4000);})]);}
+        try{return await Promise.race([fetch(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('GPS read timeout')),4000);})]);}
         finally{clearTimeout(timer);}
       };
       const [history,phoneRead]=await Promise.allSettled([
-        read(firebase.database().ref(`breadcrumb_trips/${uid}`).orderByChild('startedAt').limitToLast(1)),
-        read(firebase.database().ref(`phone_location/${uid}`)),
+        read(async()=>{
+          const page=await trips.list(uid,{limit:1});
+          const id=Object.keys(page.trips)[0];
+          return id?trips.preview(uid,id):null;
+        }),
+        read(()=>firebase.database().ref(`phone_location/${uid}`).get()),
       ]);
       if(history.status==='rejected') errors.push('Recorded path is unavailable.');
       if(phoneRead.status==='rejected') errors.push('Phone GPS is unavailable.');
-      const trip=history.status==='fulfilled'?Object.values(history.value.val()||{})[0]:null;
+      const trip=history.status==='fulfilled'?history.value:null;
       points=Object.values(trip?.points||{}).filter(point=>coordinate(point?.latitude,90)!=null&&coordinate(point?.longitude,180)!=null&&typeof point.time==='number'&&Number.isFinite(point.time)&&point.time>=0&&point.time<=now+30000)
         .sort((a,b)=>a.time-b.time).slice(-500).map(point=>({latitude:Number(point.latitude),longitude:Number(point.longitude),time:point.time}));
       if(points.length) location={...points.at(-1),heading:null};

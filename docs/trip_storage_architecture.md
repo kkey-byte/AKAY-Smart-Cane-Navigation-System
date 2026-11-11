@@ -1,3 +1,9 @@
+# Historical architecture reference
+
+This document describes the earlier Firestore implementation. It is superseded
+by [PostgreSQL and RTDB storage](postgres_realtime_storage.md). Use the new guide
+for current persistence, import and deployment instructions.
+
 # AKAY location storage and rollout
 
 The Flutter UI, role routing and source-selection controls are unchanged. The
@@ -103,39 +109,14 @@ configuration. RTDB legacy grants cannot authorize caregiver history or live rea
 
 ## Controlled migration and deployment
 
-No production records have been read or migrated during implementation. Existing
-repository schemas and synthetic records were inspected. Do not switch the API
-until the following controlled migration has validated the actual legacy data.
-Commands run from `app_mobile_backend` with authorized server credentials; do not
-paste identities, credentials or coordinate output into tickets or logs.
-
-1. Back up RTDB legacy history securely. Deploy the reviewed RTDB rules to freeze
-   `breadcrumb_trips` writes while preserving owner reads. Phone latest-location
-   writes continue. Stop old backend history mutations during this window.
-2. Run `node scripts/tripHistory.js inspect NAVIGATOR_UID` for each navigator
-   obtained from the PostgreSQL account catalog. It validates bounded legacy
-   pages and prints counts only. Investigate nonzero failure counts privately.
-3. Run `node scripts/tripHistory.js migrate NAVIGATOR_UID --apply`. It retains
-   original trip IDs, validates ownership/capture order, uploads separate point
-   documents, finalizes server summaries and verifies the resulting point count.
-   Retry safely after interruptions. Existing identity conflicts fail closed.
-   Legacy recording sessions become interrupted at their last original capture.
-4. Deploy Firestore rules/indexes from `firebase/deploy.json`; wait for index
-   readiness. Deploy the updated backend and app together after successful
-   migration. Imported open legacy trips carry a recovery marker: a newer local
-   outbox may reopen that same ID and finalize its remaining original captures.
-   The first normal summary confirmation closes that recovery allowance.
-   Migration retries then leave the newer authoritative history intact.
-5. Verify navigator and authorized/revoked caregiver reads in a synthetic staging
-   environment. Keep legacy records until an operator validates migration and
-   selects a deletion policy. There is no dual-write path and no automatic legacy
-   deletion during migration. Retain the backup for controlled rollback.
-
-The migration tool is a controlled migration, not an indefinite compatibility
-reader. Empty/malformed legacy routes or identity conflicts require reconciliation;
-they are not silently skipped as successful uploads. `inspect` and migration
-without `--apply` are read-only. Firestore must already be enabled and authorized
-for the server service account. Do not deploy the old `backend_patch` over this API.
+The current audit, collection mapping, compatibility rules, verified cleanup and
+staged rollout are documented in [Firebase storage split](firebase_storage_split.md).
+Use `node scripts/migrateFirebaseStorage.js USER_UID` for a read-only inspection,
+add --apply to copy, and add --apply --cleanup only after cutover validation.
+This tool preserves active recordings and checks every copied capture before
+conditionally removing an unchanged legacy record. The older tripHistory.js tool
+remains available for special recovery, retention and account-removal operations.
+No production migration or rules deployment has been performed by this change.
 
 ## Retention and removal
 
@@ -216,6 +197,10 @@ Verification performed locally:
 - `npm test` in `firebase`: 8 Realtime Database emulator rules tests passed.
   Missing locked test dependencies were installed using `npm ci --ignore-scripts`.
 - JavaScript syntax checks and `git diff --check` passed.
-- Production migration/deployment, Firestore emulator transactions, execution
+- Production migration/deployment, execution
   against PostgreSQL, physical GPS, firmware and gateway connectivity were not
   verified.
+
+The Firebase-only follow-up additionally verified both Firebase emulators,
+including real Firestore transactions and conditional RTDB cleanup. See the
+current results and rollout in [Firebase storage split](firebase_storage_split.md).

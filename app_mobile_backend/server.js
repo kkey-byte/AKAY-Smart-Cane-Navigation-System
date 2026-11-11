@@ -39,6 +39,7 @@ app.use(express.urlencoded({ extended: true, limit: "8mb" }));
 
 app.get("/", (req, res) => {
     res.set('X-Akay-Auth-Contract','firebase-id-token-v2');
+    res.set('X-Akay-History-Storage','postgresql-v1');
     res.send("AKAY Backend Running");
 });
 
@@ -90,6 +91,19 @@ async function start() {
         };
         void dispatch();
         setInterval(dispatch,3000).unref();
+        const liveSignals=require('./services/liveCaneSignals').createLiveCaneSignals(
+          pool,require('./database/ensureUsersTable').usersTable,require('./services/firebaseAdmin'));
+        let syncingSignals=false,lastSignalWarning=0;
+        const syncSignals=async()=>{
+          if(syncingSignals) return;
+          syncingSignals=true;
+          try {if((await liveSignals.sync()).failed) throw new Error('Live signal publication pending.');}
+          catch(_) {if(Date.now()-lastSignalWarning>60000) {
+            lastSignalWarning=Date.now();console.warn('Live cane status/signals pending; committed PostgreSQL records remain available.');
+          }} finally {syncingSignals=false;}
+        };
+        void syncSignals();
+        setInterval(syncSignals,3000).unref();
     });
 }
 

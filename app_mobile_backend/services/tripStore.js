@@ -1,5 +1,7 @@
 'use strict';
-const {FieldValue, Timestamp, FieldPath}=require('firebase-admin/firestore');
+const Timestamp={fromMillis:value=>value};
+const FieldValue={serverTimestamp:()=>Date.now()};
+const FieldPath={documentId:()=>'__name__'};
 const {ApiError}=require('./pairingService');
 const {createHash}=require('node:crypto');
 const invalid=message=>{throw new ApiError(400,'invalid_trip',message);};
@@ -40,8 +42,9 @@ function legacyShape(uid,data,points) {
   for(const p of points||[]) result.points[String(p.sequence).padStart(8,'0')]={latitude:p.latitude,longitude:p.longitude,time:millis(p.sampledAt),accuracy:p.accuracyMeters??0};
   return result;
 }
-function createTripStore(firebase,{clock=Date.now}={}) {
-  const db=()=>firebase.firestore();
+function createTripStore(firebase,{clock=Date.now,recordStore,pool}={}) {
+  const persistent=recordStore??require('./postgresRecordStore').createPostgresRecordStore(pool??require('../database/db'));
+  const db=()=>persistent;
   const trips=uid=>db().collection('navigators').doc(identifier(uid)).collection('trips');
   const account=uid=>db().collection('navigators').doc(identifier(uid));
   async function writable(tx,uid,ref) {
@@ -165,6 +168,9 @@ function createTripStore(firebase,{clock=Date.now}={}) {
     await firebase.database().ref(`breadcrumb_trips/${uid}`).remove();
     await firebase.database().ref(`phone_location/${uid}`).remove();
     await firebase.database().ref(`cane_location/${uid}`).remove();
+    await firebase.database().ref(`cane_status/${uid}`).remove();
+    await firebase.database().ref(`urgent_signals/${uid}`).remove();
+    await firebase.database().ref(`destination_assignments/${uid}`).remove();
     return {deleted:true};
   }
   async function retain(days) {

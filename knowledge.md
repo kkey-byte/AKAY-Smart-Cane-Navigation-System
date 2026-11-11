@@ -18,7 +18,10 @@ This repository contains the Flutter application for navigator and caregiver wor
 - Profile and patient information, reports, and text-to-speech support.
 
 ## Technologies
-Dart and Flutter; Firebase Authentication, Firestore, and Realtime Database; HTTP API services; Google Maps and flutter_map; geolocator and geocoding; shared_preferences; flutter_tts.
+Dart and Flutter; Firebase Authentication and Realtime Database for live state;
+PostgreSQL for permanent GPS history, profiles and operational records; Firestore
+is a legacy import source only. HTTP API services; Google Maps and flutter_map;
+geolocator and geocoding; shared_preferences; flutter_tts.
 See pubspec.yaml for the installed dependency constraints.
 
 ## Source map

@@ -7,6 +7,12 @@ tables are never selected; removing one does not require changing API fields.
 
 This directory retains the security change alongside the Flutter repository because the configured backend is a separate, non-Git folder. It is a patch set, not a standalone server distribution: unchanged search services and other backend modules remain in `C:/Users/Asus/app_mobile_backend`.
 
+History handlers now use the PostgreSQL trip store instead of Firebase history reads.
+The manifest includes the required storage services and migration CLI.
+Use `app_mobile_backend` for the current complete API; this older patch must not
+be applied over that API as an upgrade. The staged Firebase migration and cleanup
+instructions are in [PostgreSQL and RTDB storage](../docs/postgres_realtime_storage.md).
+
 `Apply-BackendPatch.ps1` copies only its explicit manifest into that backend and backs up pre-existing files under ignored `original_backup/`. It does not apply SQL, restart a server, or deploy Firebase rules. Dependencies have been installed in the target backend. Do not run the migration against a live database without the documented review and rollout.
 
 See [the audit, model, firmware contract and migration plan](../docs/pairing_and_devices.md). `node --test test/security.test.js` uses only a separately started disposable PostgreSQL test server on localhost port 55439, never application credentials.

@@ -1,0 +1,7 @@
+{
+  "firestore": {"rules":"firestore.rules","indexes":"firestore.indexes.json"},
+  "database": {
+    "instance": "gabay-application-db-default-rtdb",
+    "rules": "database.compat.rules.json"
+  }
+}

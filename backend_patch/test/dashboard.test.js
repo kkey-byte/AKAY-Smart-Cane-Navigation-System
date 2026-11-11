@@ -7,7 +7,11 @@ function setup() {
   const pool={query:async(sql,args)=>{assert.match(sql,/^SELECT/);assert.deepEqual(args,['synthetic-user']);return {rows:[{sessionid:'synthetic-session',destinationlatitude:'7.31',destinationlongitude:'125.68',destinationaddress:'Synthetic destination, Sample street',status:'Active',updatedat:new Date(now),starttime:new Date(now)}]};}};
   const authorize=async(_actor,uid)=>{checks++;if(deny)throw new Error('Access revoked');return {id:'synthetic-user',uid,name:'Synthetic Navigator'};};
   const firebase={database:()=>({ref:path=>({orderByChild(){return this;},limitToLast(){return this;},async get(){if(sources[path] instanceof Error)throw sources[path];return {val:()=>sources[path]??null};}})})};
-  const service=createDashboardService(pool,authorize,firebase,{clock:()=>now});
+  const tripStore={list:async()=>{
+    if(sources['breadcrumb_trips/nav'] instanceof Error) throw sources['breadcrumb_trips/nav'];
+    return {trips:sources['breadcrumb_trips/nav']||{}};
+  },preview:async(_uid,id)=>sources['breadcrumb_trips/nav']?.[id]};
+  const service=createDashboardService(pool,authorize,firebase,{clock:()=>now,tripStore});
   return {service,sources,advance:ms=>{now+=ms;},now:()=>now,deny:()=>{deny=true;},checks:()=>checks,pool};
 }
 test('dashboard reads saved sessions and filtered GPS without hardware-table prerequisites',async()=>{

@@ -2,6 +2,11 @@
 
 Node.js / Express API for the AKAY Flutter app, backed by PostgreSQL.
 
+GPS trip history and permanent archives now use PostgreSQL. RTDB holds latest
+GPS, cane status and urgent signals. Apply the reviewed history migration before
+deploying this backend; see [storage rollout](../docs/postgres_realtime_storage.md)
+for existing Firestore imports and validation.
+
 ## Setup
 
 1. Install Node.js and PostgreSQL.

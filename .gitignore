@@ -57,4 +57,6 @@ app.*.map.json
 /tmp/emergency_verified_pg/
 /tmp/emergency_verified_pg.log
 *.private.json
+/tmp/postgres_history_pg/
+/tmp/postgres_history_pg.log
 /backend_patch/original_backup/

@@ -2,6 +2,7 @@
 const { getApps, initializeApp, applicationDefault, cert } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { getDatabase } = require('firebase-admin/database');
+const { getFirestore } = require('firebase-admin/firestore');
 function app() {
   if (!getApps().length) {
     const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
@@ -22,4 +23,4 @@ function app() {
   }
   return getApps()[0];
 }
-module.exports = {auth: () => getAuth(app()), database: () => getDatabase(app())};
+module.exports = {auth: () => getAuth(app()), database: () => getDatabase(app()), firestore: () => getFirestore(app())};

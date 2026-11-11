@@ -29,6 +29,10 @@ router.post('/telemetry',route(req=>{const [id,key]=machine(req); return service
 router.post('/gps',route(req=>{const [id,key]=machine(req); return caneGps(id,key,req.body||{});}));
 router.get('/device-assignment',route(req=>{const [id,key]=machine(req); return service.hardware(id,key,async(_db,_d,_c,a)=>({assignmentId:a?.id??null}));}));
 router.use(verifyFirebase,requireProfile);
+const destinations=require('../services/destinationAssignment').createDestinationAssignment(service.authorize,firebase);
+router.post('/navigators/:uid/destination',route(req=>destinations.send(req.actor,req.params.uid,req.body||{})));
+router.get('/destination',route(req=>destinations.pending(req.actor)));
+router.post('/destination/:id/acknowledge',route(req=>destinations.acknowledge(req.actor,req.params.id)));
 router.get('/alerts',route(req=>emergencies.list(req.actor)));
 router.post('/alerts/:id/respond',route(req=>emergencies.respond(req.actor,req.params.id,req.body?.action)));
 router.put('/push-token',route(req=>emergencies.token(req.actor,req.body?.token)));

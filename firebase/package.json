@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "firebase emulators:exec --only database --project demo-akay-breadcrumbs --config emulator.json \"node --test pairing.rules.test.mjs phone-location.integration.test.mjs\""
+    "test": "firebase emulators:exec --only database,firestore --project demo-akay-breadcrumbs --config emulator.json \"node --test pairing.rules.test.mjs firestore.rules.test.mjs phone-location.integration.test.mjs storage-migration.integration.test.mjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.0",

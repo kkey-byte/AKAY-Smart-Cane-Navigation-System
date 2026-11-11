@@ -11,7 +11,7 @@ test('owner records; caregiver and strangers require backend, even with legacy g
   const owner=db('navigator'),caregiver=db('caregiver');
   await assertFails(set(ref(owner,'breadcrumb_trips/navigator/trip'),trip()));
   await env.withSecurityRulesDisabled(async c=>set(ref(c.database(),'breadcrumb_trips/navigator/trip'),trip()));
-  await assertSucceeds(get(ref(owner,'breadcrumb_trips/navigator/trip')));
+  await assertFails(get(ref(owner,'breadcrumb_trips/navigator/trip')));
   await env.withSecurityRulesDisabled(async context=>{await set(ref(context.database(),'breadcrumb_shares/navigator/caregiver'),{name:'Legacy grant'});});
   await assertFails(get(ref(caregiver,'breadcrumb_trips/navigator/trip')));
   await assertFails(get(ref(db('unrelated'),'breadcrumb_trips/navigator/trip')));

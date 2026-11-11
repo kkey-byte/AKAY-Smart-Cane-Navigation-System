@@ -5,54 +5,8 @@
       ".write": false
     },
     "breadcrumb_trips": {
-      "$owner": {
-        ".read": "auth != null && auth.uid === $owner",
-        ".write": false,
-        ".indexOn": [
-          "startedAt"
-        ],
-        "$trip": {
-          ".validate": "newData.hasChildren(['ownerId', 'name', 'startedAt', 'status', 'points']) && newData.child('ownerId').val() === $owner",
-          "ownerId": {
-            ".validate": "newData.isString() && newData.val() === $owner"
-          },
-          "name": {
-            ".validate": "newData.isString() && newData.val().length <= 500"
-          },
-          "startedAt": {
-            ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 30000 && (!data.exists() || newData.val() === data.val())"
-          },
-          "endedAt": {
-            ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('startedAt').val() && newData.val() <= now + 30000"
-          },
-          "status": {
-            ".validate": "newData.val() === 'recording' || newData.val() === 'completed' || newData.val() === 'interrupted'"
-          },
-          "points": {
-            "$point": {
-              ".validate": "newData.hasChildren(['latitude', 'longitude', 'time', 'accuracy'])",
-              "latitude": {
-                ".validate": "newData.isNumber() && newData.val() >= -90 && newData.val() <= 90"
-              },
-              "longitude": {
-                ".validate": "newData.isNumber() && newData.val() >= -180 && newData.val() <= 180"
-              },
-              "time": {
-                ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 30000 && newData.val() >= newData.parent().parent().parent().child('startedAt').val()"
-              },
-              "accuracy": {
-                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 50"
-              },
-              "$other": {
-                ".validate": false
-              }
-            }
-          },
-          "$other": {
-            ".validate": false
-          }
-        }
-      }
+      ".read": false,
+      ".write": false
     },
     "breadcrumb_shares": {
       ".read": false,
@@ -102,6 +56,20 @@
       ".write": false
     },
     "deleted_location_accounts": {
+      ".read": false,
+      ".write": false
+    },
+    "destination_assignments": {
+      ".read": false,
+      ".write": false
+    },
+    ".read": false,
+    ".write": false,
+    "cane_status": {
+      ".read": false,
+      ".write": false
+    },
+    "urgent_signals": {
       ".read": false,
       ".write": false
     }

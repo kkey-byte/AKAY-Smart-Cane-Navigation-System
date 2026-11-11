@@ -2,11 +2,11 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');
 const {createTripStore}=require('../services/tripStore');
 const {memoryFirestore}=require('./helpers/memoryFirestore');
-const {Timestamp}=require('firebase-admin/firestore');
+const Timestamp={fromMillis:value=>value};
 function setup() {
   const memory=memoryFirestore(),now=Date.UTC(2026,0,2);
-  const firebase={firestore:()=>memory.store,database:()=>({ref:()=>({remove:async()=>{},set:async()=>{}})})};
-  const service=createTripStore(firebase,{clock:()=>now});
+  const firebase={firestore:()=>{throw new Error('Runtime Firestore access forbidden.');},database:()=>({ref:()=>({remove:async()=>{},set:async()=>{}})})};
+  const service=createTripStore(firebase,{clock:()=>now,recordStore:memory.store});
   const p=sequence=>({latitude:10+sequence/10000,longitude:20,sequence,sampledAt:now-60000+sequence*1000,accuracyMeters:5});
   return {...memory,service,now,p};
 }
@@ -16,7 +16,7 @@ test('idempotent capture and receipt times; interrupted finalization recovers',a
   const first=c.records.get('navigators/nav/trips/trip/points/00000000');
   await c.service.phoneBatch('nav','trip',body);
   assert.equal(c.records.get('navigators/nav/trips/trip/points/00000000'),first);
-  assert.equal(first.sampledAt.toMillis(),c.p(0).sampledAt);assert.ok(first.receivedAt);
+  assert.equal(first.sampledAt,c.p(0).sampledAt);assert.ok(first.receivedAt);
   const summary={pointCount:2,status:'completed',endedAt:c.now};
   c.failNext();await assert.rejects(c.service.finalizePhone('nav','trip',summary));
   assert.equal(c.records.get('navigators/nav/trips/trip').status,'recording');
@@ -30,7 +30,7 @@ test('missing points prevent finalization; stale point retries cannot overwrite 
   await assert.rejects(c.service.finalizePhone('nav','trip',{pointCount:2,status:'completed',endedAt:c.now}),e=>e.code==='upload_incomplete');
   await c.service.phoneBatch('nav','trip',{...body,points:[{...c.p(0),sampledAt:c.now-10000}]});
   await c.service.phoneBatch('nav','trip',body);
-  assert.equal(c.records.get('navigators/nav/trips/trip/points/00000000').sampledAt.toMillis(),c.now-10000);
+  assert.equal(c.records.get('navigators/nav/trips/trip/points/00000000').sampledAt,c.now-10000);
 });
 test('stationary freshness changes summary only and survives finalization without changing original captures',async()=>{
   const c=setup();
@@ -38,7 +38,7 @@ test('stationary freshness changes summary only and survives finalization withou
   const original=c.records.get('navigators/nav/trips/trip/points/00000000');
   await c.service.finalizePhone('nav','trip',{pointCount:1,status:'recording',lastSampledAt:c.now-1000});
   assert.equal(c.records.get('navigators/nav/trips/trip/points/00000000'),original);
-  assert.equal(c.records.get('navigators/nav/trips/trip').lastSampledAt.toMillis(),c.now-1000);
+  assert.equal(c.records.get('navigators/nav/trips/trip').lastSampledAt,c.now-1000);
   assert.equal(c.records.get('navigators/nav/trips/trip').durationSeconds,59);
   await assert.rejects(c.service.finalizePhone('nav','trip',{pointCount:1,status:'recording',lastSampledAt:c.now-5000}),e=>e.code==='stale_summary');
   await c.service.finalizePhone('nav','trip',{pointCount:1,status:'completed',endedAt:c.now,lastSampledAt:c.now-1000});

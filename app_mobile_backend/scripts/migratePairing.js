@@ -11,7 +11,7 @@ const pool=require('../database/db');
     if(names.length!==1) throw new Error('Resolve ambiguous or missing Users table before migration.');
     const table=names[0]==='Users'?'"Users"':'users';
     const migration=process.argv.find(arg=>arg.startsWith('--migration='))?.slice('--migration='.length)||'001_pairing';
-    if(!['001_pairing','002_integrity','003_runtime_role','004_accessible_pairing','005_pairings','006_emergency_workflow'].includes(migration)) throw new Error('Select a reviewed migration from the explicit allowlist.');
+    if(!['001_pairing','002_integrity','003_runtime_role','004_accessible_pairing','005_pairings','006_emergency_workflow','007_postgres_history'].includes(migration)) throw new Error('Select a reviewed migration from the explicit allowlist.');
     let sql=readFileSync(path.join(__dirname,`../database/migrations/${migration}.sql`),'utf8').replaceAll('__USERS_TABLE__',table);
     if(migration==='003_runtime_role') {
       const patient=await require('../database/schemaCatalog').resolveTable(pool,['patientprofiles'],process.env.AKAY_PATIENT_TABLE,['user_id'],['user_id']);

@@ -1,6 +1,7 @@
 'use strict';
 require('dotenv').config();
 const firebase=require('../services/firebaseAdmin');
+const historyPool=require('../database/db');
 const store=require('../services/tripStore').createTripStore(firebase);
 const {identifier}=require('../services/tripStore');
 let stage='arguments';
@@ -16,26 +17,22 @@ async function main() {
   if(operation==='delete-account') {
     stage='account removal';
     if(flag!=='--apply') throw new Error('Account history removal requires --apply.');
-    const pool=require('../database/db');
-    try {
-      await require('../services/locationRemoval').createLocationRemoval(pool,require('../database/ensureUsersTable').usersTable,store)(uid);
-    } finally {await pool.end();}
+    await require('../services/locationRemoval').createLocationRemoval(historyPool,require('../database/ensureUsersTable').usersTable,store)(uid);
     console.log('Account location history removed.'); return;
   }
-  const pool=require('../database/db');
-  try {
+  {
     stage='PostgreSQL account table resolution';
     // Resolve the same approved table names as server startup, without running
     // bootstrap DDL. A standalone script cannot use an uninitialized resolver.
-    const table=await require('../database/schemaCatalog').resolveTable(pool,
+    const table=await require('../database/schemaCatalog').resolveTable(historyPool,
       ['Users','users'],process.env.AKAY_USERS_TABLE,['user_id','firebase_uid','role']);
     stage='PostgreSQL navigator lookup';
-    const identity=await pool.query(`SELECT user_id FROM ${table} WHERE firebase_uid=$1 AND role='visually_impaired'`,[uid]);
+    const identity=await historyPool.query(`SELECT user_id FROM ${table} WHERE firebase_uid=$1 AND role='visually_impaired'`,[uid]);
     if(identity.rows.length!==1) {
       const error=new Error('Navigator identity requires reconciliation.');
       error.code='navigator_identity_unresolved';throw error;
     }
-  } finally {await pool.end();}
+  }
   let cursor,scanned=0,validated=0,failed=0;
   do {
     stage='Firebase Realtime Database history read';
@@ -73,6 +70,7 @@ main().catch(error=>{
   process.exitCode=1;
 })
   .finally(async()=>{
+    await historyPool.end();
     const {getApps,deleteApp}=require('firebase-admin/app');
     await Promise.all(getApps().map(deleteApp));
   });

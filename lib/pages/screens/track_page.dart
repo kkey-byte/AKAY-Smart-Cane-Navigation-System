@@ -16,6 +16,7 @@ import '../../models/route_plan.dart';
 
 import '../../models/search_destination.dart';
 import '../../services/destination_search_service.dart';
+import '../../services/destination_assignment_service.dart';
 import '../../services/gabay_tts_service.dart';
 import '../../services/navigation_voice_service.dart';
 import '../../services/map_place_service.dart';
@@ -147,6 +148,9 @@ class TrackPageState extends State<TrackPage> {
   List<LinkedNavigator> _navigators = [];
   final _liveLocationSubscriptions = <StreamSubscription<DashboardSnapshot>>[];
   StreamSubscription<User?>? _caregiverAuth;
+  StreamSubscription<Map<String, dynamic>>? _assignmentSubscription;
+  bool _receivingAssignment = false;
+  String? _receivedAssignmentId;
   StreamSubscription<Map<String, String>>? _caregiverLinks;
   final _patientLive = <String, DashboardSnapshot>{};
   Map<String, String> _patientNames = {};
@@ -253,11 +257,57 @@ class TrackPageState extends State<TrackPage> {
       _locationService.addListener(_onLocationUpdated);
       unawaited(_bootstrapLiveLocation());
       unawaited(_loadRecentSearches());
+      _assignmentSubscription = DestinationAssignmentService.instance
+          .watch()
+          .listen(
+            (data) => unawaited(_receiveAssignment(data)),
+            onError: (Object _) {},
+          );
     } else {
       _watchCaregiverLocations();
     }
 
     _loadMapIcons();
+  }
+
+  Future<void> _receiveAssignment(Map<String, dynamic> data) async {
+    final assignment = data['assignment'];
+    if (!mounted ||
+        !_isNavigatorMode ||
+        _receivingAssignment ||
+        assignment is! Map) {
+      return;
+    }
+    final id = assignment['id'];
+    if (id is! String) return;
+    _receivingAssignment = true;
+    try {
+      if (_receivedAssignmentId != id) {
+        final destination = assignment['destination'];
+        if (destination is! Map) return;
+        final revision = AppSessionService.instance.identityRevision;
+        await _selectDestinationPlace(
+          MapPlace(
+            id: id,
+            name: destination['name'] as String,
+            address: destination['address'] as String,
+            latitude: (destination['latitude'] as num).toDouble(),
+            longitude: (destination['longitude'] as num).toDouble(),
+          ),
+        );
+        if (!mounted ||
+            revision != AppSessionService.instance.identityRevision ||
+            _activeRoute?.destination.id != id) {
+          return;
+        }
+        _receivedAssignmentId = id;
+      }
+      await DestinationAssignmentService.instance.acknowledge(id);
+    } catch (_) {
+      // Keep the assignment pending for the next permission-checked poll.
+    } finally {
+      _receivingAssignment = false;
+    }
   }
 
   void _watchCaregiverLocations() {
@@ -482,6 +532,7 @@ class TrackPageState extends State<TrackPage> {
 
   @override
   void dispose() {
+    unawaited(_assignmentSubscription?.cancel());
     _caregiverAccountGeneration++;
     _patientGeneration++;
     unawaited(_caregiverAuth?.cancel());
@@ -626,6 +677,8 @@ class TrackPageState extends State<TrackPage> {
   }
 
   Future<void> _selectDestinationPlace(MapPlace place) async {
+    if (!_isNavigatorMode) return;
+    final identityRevision = AppSessionService.instance.identityRevision;
     if (!place.hasValidCoordinates) {
       _showSnack(
         'This destination has invalid coordinates. Select another place or pin.',
@@ -655,7 +708,11 @@ class TrackPageState extends State<TrackPage> {
       if (live == null) {
         _showSnack('Fetching your current location...');
         await _locationService.refreshCurrentLocation();
-        if (!mounted || token != _destinationSearchToken) return;
+        if (!mounted ||
+            token != _destinationSearchToken ||
+            identityRevision != AppSessionService.instance.identityRevision) {
+          return;
+        }
         live = _locationService.livePosition;
         if (live == null) {
           _showSnack(
@@ -682,7 +739,11 @@ class TrackPageState extends State<TrackPage> {
         destination: place,
       );
 
-      if (!mounted || token != _destinationSearchToken) return;
+      if (!mounted ||
+          token != _destinationSearchToken ||
+          identityRevision != AppSessionService.instance.identityRevision) {
+        return;
+      }
 
       setState(() {
         _activeRoute = result;
@@ -710,7 +771,11 @@ class TrackPageState extends State<TrackPage> {
         _showSnack('Navigating to ${place.name}');
       }
     } catch (e) {
-      if (!mounted || token != _destinationSearchToken) return;
+      if (!mounted ||
+          token != _destinationSearchToken ||
+          identityRevision != AppSessionService.instance.identityRevision) {
+        return;
+      }
       _showSnack(
         e is NavigationRouteException
             ? e.message
@@ -882,6 +947,23 @@ class TrackPageState extends State<TrackPage> {
     );
 
     if (!mounted || result == null) return;
+
+    if (!_isNavigatorMode) {
+      try {
+        await DestinationAssignmentService.instance.send(
+          result.navigator.id,
+          result.destination,
+        );
+        if (!mounted) return;
+        setState(() => _selectedNavigatorId = result.navigator.id);
+        _showSnack('Destination dispatched to ${result.navigator.name}.');
+      } catch (_) {
+        if (mounted) {
+          _showSnack('Could not dispatch destination. Please retry.');
+        }
+      }
+      return;
+    }
 
     final stamped = _isNavigatorMode
         ? RoutePlanResult(

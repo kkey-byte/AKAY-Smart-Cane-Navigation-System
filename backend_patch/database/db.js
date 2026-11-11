@@ -9,6 +9,7 @@ const pool = new Pool({
     user: process.env.DB_USER,
     // pg requires a string; undefined causes SASL auth failures.
     password: String(process.env.DB_PASSWORD ?? ""),
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: true } : undefined,
 });
 
 pool.connect()
