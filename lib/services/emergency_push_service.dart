@@ -27,24 +27,26 @@ class EmergencyPushService {
       if (!_supported) return;
       AppSessionService.instance.addListener(_sessionChanged);
       FirebaseMessaging.onMessage.listen((message) {
-        if (!_caregiver || message.data['type'] != 'cane_alert') return;
+        if (!_caregiver || !_isNotification(message.data['type'])) return;
         unawaited(
           NotificationService.instance
               .refresh()
               .then((_) {
-                onForeground?.call();
+                if (message.data['type'] == 'cane_alert') {
+                  onForeground?.call();
+                }
               })
               .catchError((Object _) {}),
         );
       });
       FirebaseMessaging.onMessageOpenedApp.listen((message) {
-        if (_caregiver && message.data['type'] == 'cane_alert') onOpen?.call();
+        if (_caregiver && _isNotification(message.data['type'])) onOpen?.call();
       });
       FirebaseMessaging.instance.onTokenRefresh.listen((token) {
         if (_caregiver) unawaited(_register(token).catchError((Object _) {}));
       });
       final initial = await FirebaseMessaging.instance.getInitialMessage();
-      if (initial?.data['type'] == 'cane_alert') {
+      if (_isNotification(initial?.data['type'])) {
         // The UI callback waits for role routing; never trust a push's navigator identity.
         _openAfterLogin = true;
       }
@@ -55,6 +57,8 @@ class EmergencyPushService {
   }
 
   bool _openAfterLogin = false;
+  bool _isNotification(Object? type) =>
+      type == 'cane_alert' || type == 'destination_progress';
   void _sessionChanged() {
     final session = AppSessionService.instance;
     final next = _caregiver

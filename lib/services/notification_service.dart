@@ -14,6 +14,7 @@ class NotificationService extends ChangeNotifier {
   final SecureApi api;
   final List<GabayNotification> _notifications = [];
   StreamSubscription<Map<String, dynamic>>? _subscription;
+  StreamSubscription<Map<String, dynamic>>? _destinationSubscription;
   bool _initialized = false;
   int _generation = 0;
   String? _sessionKey;
@@ -41,6 +42,21 @@ class NotificationService extends ChangeNotifier {
     reset();
     if (key == null) return;
     final generation = _generation;
+    _destinationSubscription = api
+        .watchGet(
+          '/v2/destination-notifications',
+          interval: const Duration(seconds: 3),
+        )
+        .listen(
+          (data) {
+            if (generation == _generation) _applyDestinations(data);
+          },
+          onError: (Object _) {
+            if (generation != _generation) return;
+            _notifications.removeWhere((n) => n.id.startsWith('destination:'));
+            notifyListeners();
+          },
+        );
     _subscription = api
         .watchGet('/v2/alerts', interval: const Duration(seconds: 3))
         .listen(
@@ -102,6 +118,19 @@ class NotificationService extends ChangeNotifier {
       if (generation == _generation) _unavailable();
       rethrow;
     }
+    try {
+      final destinations = await api.request(
+        'GET',
+        '/v2/destination-notifications',
+      );
+      if (generation == _generation) _applyDestinations(destinations);
+    } catch (_) {
+      if (generation == _generation) {
+        _notifications.removeWhere((n) => n.id.startsWith('destination:'));
+        notifyListeners();
+      }
+      rethrow;
+    }
   }
 
   Future<void> respond(String id, String action) async {
@@ -120,6 +149,10 @@ class NotificationService extends ChangeNotifier {
   void markAsRead(String id) {
     final index = _notifications.indexWhere((n) => n.id == id);
     if (index < 0 || _notifications[index].isRead) return;
+    if (id.startsWith('destination:')) {
+      unawaited(_destinationResponse(id, 'read'));
+      return;
+    }
     if (_notifications[index].incident != null) {
       unawaited(_quietResponse(id, 'read'));
       return;
@@ -155,6 +188,10 @@ class NotificationService extends ChangeNotifier {
   void delete(String id) {
     final index = _notifications.indexWhere((n) => n.id == id);
     if (index < 0) return;
+    if (id.startsWith('destination:')) {
+      unawaited(_destinationResponse(id, 'dismiss'));
+      return;
+    }
     final incident = _notifications[index].incident;
     if (incident != null) {
       if (!incident.unresolved) unawaited(_quietResponse(id, 'dismiss'));
@@ -169,8 +206,63 @@ class NotificationService extends ChangeNotifier {
     _generation++;
     unawaited(_subscription?.cancel());
     _subscription = null;
+    unawaited(_destinationSubscription?.cancel());
+    _destinationSubscription = null;
     _notifications.clear();
     errorMessage = null;
     notifyListeners();
+  }
+
+  void _applyDestinations(Map<String, dynamic> data) {
+    final rows = data['notifications'] as List? ?? [];
+    final notifications = <GabayNotification>[];
+    for (final row in rows.whereType<Map>()) {
+      if (row['dismissed'] == true ||
+          row['id'] is! String ||
+          row['createdAt'] is! num) {
+        continue;
+      }
+      final arrived = row['status'] == 'arrived';
+      notifications.add(
+        GabayNotification(
+          id: 'destination:${row['id']}',
+          category: NotificationCategory.location,
+          title: arrived ? 'Navigator arrived' : 'Navigator has not arrived',
+          description: arrived
+              ? '${row['navigatorName'] ?? 'Your navigator'} reached the assigned destination.'
+              : '${row['navigatorName'] ?? 'Your navigator'} cancelled navigation to the assigned destination before arrival.',
+          createdAt: DateTime.fromMillisecondsSinceEpoch(
+            (row['createdAt'] as num).toInt(),
+          ),
+          isRead: row['isRead'] == true,
+          destination: NotificationDestination.track,
+        ),
+      );
+    }
+    _notifications.removeWhere((n) => n.id.startsWith('destination:'));
+    _notifications.addAll(notifications);
+    notifyListeners();
+  }
+
+  Future<void> _destinationResponse(String id, String action) async {
+    final generation = _generation;
+    try {
+      final result = await api.request(
+        'POST',
+        '/v2/destination-notifications/${Uri.encodeComponent(id.substring('destination:'.length))}/respond',
+        {'action': action},
+      );
+      if (result['accepted'] != true) {
+        throw const SecureApiException('Notification update not confirmed.');
+      }
+      if (generation != _generation) return;
+      final data = await api.request('GET', '/v2/destination-notifications');
+      if (generation == _generation) _applyDestinations(data);
+    } catch (_) {
+      if (generation == _generation) {
+        errorMessage = 'Notification update not confirmed. Please retry.';
+        notifyListeners();
+      }
+    }
   }
 }

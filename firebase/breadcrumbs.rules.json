@@ -63,6 +63,14 @@
       ".read": false,
       ".write": false
     },
+    "destination_progress": {".read": false, ".write": false},
+    "destination_notifications": {
+      ".read": false, ".write": false,
+      "$uid": {".indexOn": ["createdAt"]}
+    },
+    "destination_push_queue": {
+      ".read": false, ".write": false, ".indexOn": ["nextAttemptAt"]
+    },
     ".read": false,
     ".write": false,
     "cane_status": {

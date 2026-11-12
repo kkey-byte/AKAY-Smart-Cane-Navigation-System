@@ -151,6 +151,7 @@ class TrackPageState extends State<TrackPage> {
   StreamSubscription<User?>? _caregiverAuth;
   StreamSubscription<Map<String, dynamic>>? _assignmentSubscription;
   bool _receivingAssignment = false;
+  String? _receivingAssignmentId;
   String? _receivedAssignmentId;
   StreamSubscription<Map<String, String>>? _caregiverLinks;
   final _patientLive = <String, DashboardSnapshot>{};
@@ -282,6 +283,7 @@ class TrackPageState extends State<TrackPage> {
     final id = assignment['id'];
     if (id is! String) return;
     _receivingAssignment = true;
+    _receivingAssignmentId = id;
     try {
       if (_receivedAssignmentId != id) {
         final destination = assignment['destination'];
@@ -308,6 +310,7 @@ class TrackPageState extends State<TrackPage> {
       // Keep the assignment pending for the next permission-checked poll.
     } finally {
       _receivingAssignment = false;
+      _receivingAssignmentId = null;
     }
   }
 
@@ -1043,6 +1046,20 @@ class TrackPageState extends State<TrackPage> {
   }
 
   Future<void> _cancelDestination() async {
+    final destinationId =
+        _activeRoute?.destination.id ?? _pinnedDestination?.id;
+    if (_isNavigatorMode &&
+        destinationId != null &&
+        (destinationId == _receivedAssignmentId ||
+            destinationId == _receivingAssignmentId)) {
+      try {
+        await DestinationAssignmentService.instance.cancel(destinationId);
+      } catch (_) {
+        // Keep the route available so cancellation can be retried when connected.
+        return;
+      }
+      if (!mounted) return;
+    }
     _clearMapRecentSearches();
     setState(() {
       _activeRoute = null;

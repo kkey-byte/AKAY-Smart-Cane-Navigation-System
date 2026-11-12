@@ -24,6 +24,13 @@ class DestinationAssignmentService {
   }
 
   Stream<Map<String, dynamic>> watch() => api.watchGet('/v2/destination');
+  Future<void> cancel(String id) async {
+    await api.request(
+      'POST',
+      '/v2/destination/${Uri.encodeComponent(id)}/cancel',
+    );
+  }
+
   Future<void> acknowledge(String id) async {
     await api.request(
       'POST',

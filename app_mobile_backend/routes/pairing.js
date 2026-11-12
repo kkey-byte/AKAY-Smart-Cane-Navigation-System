@@ -29,17 +29,23 @@ router.post('/telemetry',route(req=>{const [id,key]=machine(req); return service
 router.post('/gps',route(req=>{const [id,key]=machine(req); return caneGps(id,key,req.body||{});}));
 router.get('/device-assignment',route(req=>{const [id,key]=machine(req); return service.hardware(id,key,async(_db,_d,_c,a)=>({assignmentId:a?.id??null}));}));
 router.use(verifyFirebase,requireProfile);
-const destinations=require('../services/destinationAssignment').createDestinationAssignment(service.authorize,firebase);
+const progress=require('../services/destinationProgress').createDestinationProgress(service.authorize,firebase,pool);
+const destinations=require('../services/destinationAssignment').createDestinationAssignment(service.authorize,firebase,progress);
 router.post('/navigators/:uid/destination',route(req=>destinations.send(req.actor,req.params.uid,req.body||{})));
 router.get('/destination',route(req=>destinations.pending(req.actor)));
 router.post('/destination/:id/acknowledge',route(req=>destinations.acknowledge(req.actor,req.params.id)));
+router.post('/destination/:id/cancel',route(req=>progress.cancel(req.actor,req.params.id)));
+router.get('/destination-notifications',route(req=>progress.list(req.actor)));
+router.post('/destination-notifications/:id/respond',route(req=>progress.receipt(req.actor,req.params.id,req.body?.action)));
 router.get('/alerts',route(req=>emergencies.list(req.actor)));
 router.post('/alerts/:id/respond',route(req=>emergencies.respond(req.actor,req.params.id,req.body?.action)));
 router.put('/push-token',route(req=>emergencies.token(req.actor,req.body?.token)));
 router.delete('/push-token',route(req=>emergencies.token(req.actor,req.body?.token,true)));
-router.put('/navigators/:uid/phone-location',route(req=>{
+router.put('/navigators/:uid/phone-location',route(async req=>{
   if(req.actor.uid!==req.params.uid) throw new ApiError(403,'source_not_owned','This phone source belongs to another account.');
-  return phoneLocation.publish(req.actor,req.body||{});
+  const result=await phoneLocation.publish(req.actor,req.body||{});
+  if(result.applied) await progress.location(req.actor,req.body);
+  return result;
 }));
 router.delete('/navigators/:uid/phone-location',route(req=>{
   if(req.actor.uid!==req.params.uid) throw new ApiError(403,'source_not_owned','This phone source belongs to another account.');

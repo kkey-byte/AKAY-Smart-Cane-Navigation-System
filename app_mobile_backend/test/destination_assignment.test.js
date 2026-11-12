@@ -41,3 +41,23 @@ test('acknowledging an older delivery preserves a newer assignment and other acc
   await c.service.acknowledge({...navigator,id:'other-db'},b.id);
   assert.equal((await c.service.pending(navigator)).assignment.id,b.id);
 });
+
+test('reopening never redelivers old pending assignments with a completed outcome',async()=>{
+  for(const outcome of ['not_arrived','arrived']) {
+    const c=setup();const {assignment}=await c.service.send(caregiver,navigator.uid,body);
+    // Models older data: cancellation/arrival saved, but acknowledgement failed.
+    c.values.set(`destination_progress/${navigator.uid}`,{...assignment,outcome});
+    assert.equal((await c.service.pending(navigator)).assignment,null);
+    assert.equal(c.values.get(`destination_assignments/${navigator.uid}`),null);
+    assert.equal((await c.service.pending(navigator)).assignment,null);
+  }
+});
+
+test('superseded pending delivery is discarded while a new unfinished assignment stays deliverable',async()=>{
+  const c=setup();const {assignment:old}=await c.service.send(caregiver,navigator.uid,body);
+  c.values.set(`destination_progress/${navigator.uid}`,{...old,id:'new-assignment',createdAt:old.createdAt+1});
+  assert.equal((await c.service.pending(navigator)).assignment,null);
+  const {assignment:next}=await c.service.send(caregiver,navigator.uid,body);
+  c.values.set(`destination_progress/${navigator.uid}`,next);
+  assert.equal((await c.service.pending(navigator)).assignment.id,next.id);
+});

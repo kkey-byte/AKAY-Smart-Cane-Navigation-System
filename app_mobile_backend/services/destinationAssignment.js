@@ -1,7 +1,7 @@
 'use strict';
 const {randomUUID}=require('node:crypto');
 const {ApiError}=require('./pairingService');
-function createDestinationAssignment(authorize,firebase) {
+function createDestinationAssignment(authorize,firebase,progress) {
   const ref=uid=>firebase.database().ref(`destination_assignments/${uid}`);
   const fail=(status,message)=>{throw new ApiError(status,'destination_assignment',message);};
   return {
@@ -16,6 +16,7 @@ function createDestinationAssignment(authorize,firebase) {
       const assignment={id:randomUUID(),navigator_id:navigator.id,navigator_uid:uid,
         caregiver_id:actor.id,caregiver_uid:actor.uid,createdAt:Date.now(),
         destination:{name:d.name,address:d.address,latitude:d.latitude,longitude:d.longitude}};
+      if(progress) await progress.start(assignment);
       await ref(uid).set(assignment);
       return {assignment};
     },
@@ -25,6 +26,15 @@ function createDestinationAssignment(authorize,firebase) {
       if(!assignment) return {assignment:null};
       if(assignment.navigator_id!==actor.id||assignment.navigator_uid!==actor.uid) return {assignment:null};
       await authorize({id:assignment.caregiver_id,uid:assignment.caregiver_uid,role:'caregiver'},actor.uid);
+      const state=(await firebase.database().ref(`destination_progress/${actor.uid}`).get()).val();
+      // Delivery acknowledgement and journey completion are separate writes.
+      // Repair old pending records after cancellation, arrival, or replacement.
+      if(state?.navigator_id===actor.id&&
+        ((state.id===assignment.id&&state.outcome)||
+          (state.id!==assignment.id&&state.createdAt>=assignment.createdAt))) {
+        await ref(actor.uid).transaction(current=>current?.id===assignment.id&&current.navigator_id===actor.id?null:undefined);
+        return {assignment:null};
+      }
       return {assignment};
     },
     async acknowledge(actor,id) {

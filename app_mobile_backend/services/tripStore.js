@@ -171,6 +171,7 @@ function createTripStore(firebase,{clock=Date.now,recordStore,pool}={}) {
     await firebase.database().ref(`cane_status/${uid}`).remove();
     await firebase.database().ref(`urgent_signals/${uid}`).remove();
     await firebase.database().ref(`destination_assignments/${uid}`).remove();
+    await firebase.database().ref(`destination_progress/${uid}`).remove();
     return {deleted:true};
   }
   async function retain(days) {

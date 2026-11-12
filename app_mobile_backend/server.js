@@ -91,6 +91,19 @@ async function start() {
         };
         void dispatch();
         setInterval(dispatch,3000).unref();
+        const destinationProgress=require('./services/destinationProgress').createDestinationProgress(
+          require('./services/pairingService').createPairingService(pool,ensureUsersTable.usersTable).authorize,
+          require('./services/firebaseAdmin'),pool);
+        let dispatchingDestinations=false;
+        const dispatchDestinations=async()=>{
+          if(dispatchingDestinations) return;
+          dispatchingDestinations=true;
+          try {await destinationProgress.dispatch();}
+          catch(_) { /* Persisted jobs retry on the next pass. */ }
+          finally {dispatchingDestinations=false;}
+        };
+        void dispatchDestinations();
+        setInterval(dispatchDestinations,3000).unref();
         const liveSignals=require('./services/liveCaneSignals').createLiveCaneSignals(
           pool,require('./database/ensureUsersTable').usersTable,require('./services/firebaseAdmin'));
         let syncingSignals=false,lastSignalWarning=0;
