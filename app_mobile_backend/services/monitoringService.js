@@ -1,4 +1,5 @@
 'use strict';
+const {caneCoordinates}=require('./caneCoordinates');
 const time=value=>typeof value==='number'?value:Date.parse(value);
 const coordinate=(value,bound)=>typeof value==='number'&&Number.isFinite(value)&&Math.abs(value)<=bound;
 function createMonitoringService(pool,firebase,trips,{clock=Date.now,timeoutMs=4000}={}) {
@@ -30,6 +31,14 @@ function createMonitoringService(pool,firebase,trips,{clock=Date.now,timeoutMs=4
     const phone=phoneResult.status==='fulfilled'?sample(phoneResult.value.val(),'phone_gps',now):null;
     const assignments=assignmentsResult.status==='fulfilled'?assignmentsResult.value.rows:[];
     const readings=await Promise.allSettled(assignments.map(async assignment=>{
+      if(typeof assignment.serial==='string' && assignment.serial && !/[.#$\[\]/]/.test(assignment.serial)) {
+        try {
+          const snapshot=await bounded(firebase.database().ref(`Device_Location/${assignment.serial}`).get());
+          const coordinates=caneCoordinates(snapshot.val());
+          if(coordinates) return {...assignment,location:{...coordinates,time:now,source:'cane_gps',
+            live:false,heading:null,observedOnly:true,deviceId:assignment.id,assignmentId:assignment.assignment_id}};
+        } catch(_) {errors.push('Firmware GPS is unavailable.');}
+      }
       const snapshot=await bounded(firebase.database().ref(`cane_location/${uid}/${assignment.assignment_id}`).get());
       const location=sample(snapshot.val(),'cane_gps',now,assignment);
       return location?{...assignment,location}:null;
@@ -37,10 +46,10 @@ function createMonitoringService(pool,firebase,trips,{clock=Date.now,timeoutMs=4
     if(readings.some(r=>r.status==='rejected')) errors.push('Cane GPS is unavailable.');
     const devices=readings.filter(r=>r.status==='fulfilled'&&r.value).map(r=>r.value)
       .sort((a,b)=>b.location.time-a.location.time||String(a.assignment_id).localeCompare(String(b.assignment_id)));
-    // Preserve the phone-first workflow; use a currently assigned cane only
-    // when phone GPS has no fresh live sample. Never splice their route points.
-    let location=phone?.live?phone:devices.find(d=>d.location.live)?.location??
-      [phone,...devices.map(d=>d.location)].filter(Boolean).sort((a,b)=>b.time-a.time)[0]??null;
+    // Use the assigned firmware GPS when available, with the existing source
+    // fallback for other records. Never splice phone and cane route points.
+    let location=devices.find(d=>d.location.observedOnly)?.location??(phone?.live?phone:devices.find(d=>d.location.live)?.location??
+      [phone,...devices.map(d=>d.location)].filter(Boolean).sort((a,b)=>b.time-a.time)[0]??null);
     let trip=null,tripId=null,points=[];
     if(history) {
       try {
@@ -64,6 +73,15 @@ function createMonitoringService(pool,firebase,trips,{clock=Date.now,timeoutMs=4
         if(belongs) points=Object.values(trip.points||{}).filter(p=>coordinate(p?.latitude,90)&&coordinate(p?.longitude,180)&&
           Number.isSafeInteger(p.time)&&p.time>=0&&p.time<=now+30000).sort((a,b)=>a.time-b.time).slice(-500)
           .map(p=>({latitude:p.latitude,longitude:p.longitude,time:p.time}));
+        if(location?.observedOnly && !trip) {
+          // These are durable backend observations, not offline hardware captures.
+          const rows=await bounded(pool.query(`SELECT latitude,longitude,sampled_at FROM akay_readings
+            WHERE navigator_id=$1 AND assignment_id=$2 AND source='device_location'
+              AND latitude IS NOT NULL AND longitude IS NOT NULL
+            ORDER BY sampled_at DESC,sequence DESC LIMIT 500`,[navigator.id,location.assignmentId]));
+          points=rows.rows.filter(p=>caneCoordinates(p)&&Number.isFinite(time(p.sampled_at)))
+            .reverse().map(p=>({latitude:p.latitude,longitude:p.longitude,time:time(p.sampled_at)}));
+        }
         if(!location&&points.length) location={...points.at(-1),source,live:false,recordedOnly:true,heading:null};
       } catch(_) {errors.push('Recorded path is unavailable.');}
     }

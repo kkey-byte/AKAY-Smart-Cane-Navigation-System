@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'route_timeline_tracker.dart';
 import 'vi_navigation_session.dart';
+import 'navigation_arrival.dart';
 
 /// Live GPS + reverse geocoding for the logged-in visually impaired navigator.
 ///
@@ -352,6 +353,19 @@ class NavigatorLocationService extends ChangeNotifier {
     errorMessage = null;
     notifyListeners();
 
+    final destination = RouteTimelineTracker.instance.activeDestination;
+    if (RouteTimelineTracker.instance.isTracking &&
+        destination != null &&
+        hasArrivedAtDestination(
+          location: LatLng(position.latitude, position.longitude),
+          destination: destination.latLng,
+          accuracy: position.accuracy,
+          sampledAt: position.timestamp,
+          now: DateTime.now(),
+        )) {
+      RouteTimelineTracker.instance.markDestinationArrived();
+    }
+
     if (geocode && !kIsWeb) {
       final address = await _resolveAddress(_position!, movedMeters);
       if (generation != _locationGeneration) return;
@@ -365,19 +379,6 @@ class NavigatorLocationService extends ChangeNotifier {
         geocodedAddress: _address,
         distanceMovedMeters: movedMeters,
       );
-
-      final destination = RouteTimelineTracker.instance.activeDestination;
-      if (destination != null) {
-        final distanceToDestination = Geolocator.distanceBetween(
-          _position!.latitude,
-          _position!.longitude,
-          destination.latitude,
-          destination.longitude,
-        );
-        if (distanceToDestination <= 35) {
-          RouteTimelineTracker.instance.markDestinationArrived();
-        }
-      }
     }
 
     isLoading = false;

@@ -99,3 +99,24 @@ test('finishing an old journey never deletes a newer pending delivery',async()=>
   await c.service.cancel(navigator,c.assignment.id);
   assert.equal(c.data.destination_assignments[navigator.uid].id,next.id);
 });
+test('orphaned pending delivery can be cancelled without progress metadata and cannot return after reopening',async()=>{
+  const c=setup();
+  c.data.destination_assignments={[navigator.uid]:c.assignment};
+  assert.equal((await c.service.cancel(navigator,c.assignment.id)).accepted,true);
+  assert.equal(c.data.destination_assignments[navigator.uid],undefined);
+  // Simulate a late stale write after cancellation and process restart.
+  c.data.destination_assignments[navigator.uid]=c.assignment;
+  assert.equal((await c.reopen().pending(navigator)).assignment,null);
+  assert.equal(c.sends.length,0);
+});
+test('a navigator can stop their own assignment after caregiver consent is revoked without notifying that caregiver',async()=>{
+  const c=setup();await c.service.start(c.assignment);
+  c.data.destination_assignments={[navigator.uid]:c.assignment};
+  c.revoke();
+  assert.equal((await c.service.cancel(navigator,c.assignment.id)).accepted,true);
+  assert.equal(c.data.destination_assignments[navigator.uid],undefined);
+  assert.equal(c.data.destination_notifications,undefined);
+  assert.equal(c.sends.length,0);
+  c.data.destination_assignments[navigator.uid]=c.assignment;
+  assert.equal((await c.reopen().pending(navigator)).assignment,null);
+});

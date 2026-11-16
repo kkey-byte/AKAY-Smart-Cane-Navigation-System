@@ -70,6 +70,90 @@ void main() {
   }
 
   test(
+    'Point-to-Point route is a distinct completed report with recorded path and daily recording continues',
+    () async {
+      await tracker.reconcile();
+      final daily = recorder.activeId;
+      await tracker.beginNavigation('Synthetic destination');
+      final routeId = recorder.activeId;
+      expect(routeId, isNot(daily));
+      expect(recorder.active!.name, 'Point-to-Point: Synthetic destination');
+      await move();
+      await tracker.finishNavigation();
+      final route = recorder.trips.singleWhere((trip) => trip.id == routeId);
+      expect(route.status, 'completed');
+      expect(route.points.length, greaterThan(1));
+      expect(route.endedAt, isNotNull);
+      await recorder.sync();
+      expect(repository.saved['${owner!}/$routeId']!.status, 'completed');
+      final count = recorder.trips.length;
+      await tracker.finishNavigation();
+      expect(recorder.trips.length, count);
+      await move(lat: 7.3004);
+      expect(recorder.active!.name, startsWith('Daily track'));
+      expect(recorder.activeId, isNot(routeId));
+    },
+  );
+
+  test(
+    'completed navigation stays in the durable outbox offline and uploads after reconnect',
+    () async {
+      await tracker.beginNavigation('Offline destination');
+      await move();
+      final id = recorder.activeId;
+      repository.offline = true;
+      await tracker.finishNavigation();
+      await recorder.sync();
+      expect(recorder.isPending(id!), isTrue);
+      expect(
+        recorder.trips.singleWhere((trip) => trip.id == id).status,
+        'completed',
+      );
+      repository.offline = false;
+      await recorder.sync();
+      expect(
+        repository.saved['${owner!}/$id']!.name,
+        'Point-to-Point: Offline destination',
+      );
+      expect(recorder.isPending(id), isFalse);
+    },
+  );
+
+  test(
+    'navigation restores a pre-existing user pause and cancelled routes are interrupted',
+    () async {
+      await tracker.reconcile();
+      await tracker.pause();
+      await tracker.beginNavigation('Paused destination');
+      expect(recorder.active!.name, contains('Point-to-Point'));
+      final id = recorder.activeId;
+      await move();
+      await tracker.finishNavigation(cancelled: true);
+      expect(
+        recorder.trips.singleWhere((trip) => trip.id == id).status,
+        'interrupted',
+      );
+      expect(tracker.requested, isFalse);
+      expect(recorder.recordingPaused, isTrue);
+      await move(lat: 7.3004);
+      expect(recorder.active, isNull);
+    },
+  );
+
+  test(
+    'Point-to-Point metadata and points cannot cross a logout/account boundary',
+    () async {
+      await tracker.beginNavigation('First navigator destination');
+      owner = 'synthetic-second';
+      await tracker.reconcile();
+      expect(recorder.trips.every((trip) => trip.ownerId == owner), isTrue);
+      expect(recorder.active!.name, startsWith('Daily track'));
+      await tracker.finishNavigation();
+      expect(recorder.active!.name, startsWith('Daily track'));
+    },
+  );
+
+  test(
     'live publication continues when history filters small movements',
     () async {
       await tracker.reconcile();

@@ -9,6 +9,7 @@ test('firmware schema converts fractional battery and rejects ambiguous flags an
   assert.equal(parseDeviceLocation(null),null);
   assert.equal(parseDeviceLocation({...raw,unsafe:'false'}),null);
   assert.equal(parseDeviceLocation({...raw,batteryLevel:120}).battery,null);
+  assert.equal(parseDeviceLocation({...raw,batteryLevel:81.07422}).battery,81);
   assert.equal(parseDeviceLocation({...raw,batteryLevel:NaN}).battery,null);
   assert.equal(parseDeviceLocation({...raw,latitude:91}).longitude,null);
 });
@@ -46,4 +47,29 @@ test('monitor subscribes by serial, never writes RTDB, and cleans up on assignme
   assert.deepEqual(paths,['Device_Location/00001']);
   rows=[];await service.reconcile();assert.equal(removed,1);
   service.stop();await service.reconcile();assert.equal(removed,1);
+});
+
+test('coordinate-only firmware updates persist without clearing sensor latches or raising alerts',async()=>{
+  let listener;const calls=[];
+  const db={release(){},async query(sql,args){
+    calls.push({sql,args});
+    if(sql.includes('FOR SHARE')) return {rows:[{id:'assignment',device_id:'device',navigator_id:'navigator'}]};
+    if(sql.includes('FOR UPDATE')) return {rows:[{...state,sos_active:true,fall_notified:true,
+      sequence:2,payload:null,now:new Date(10000)}]};
+    if(sql.includes('INSERT INTO akay_readings')) return {rows:[{id:'reading'}]};
+    return {rows:[]};
+  }};
+  const service=createDeviceLocationService({connect:async()=>db,
+    query:async()=>({rows:[{id:'assignment',serial:'synthetic'}]})},
+  {database:()=>({ref:()=>({on:(_event,callback)=>{listener=callback;},off(){}})})});
+  try {
+    await service.reconcile();listener({val:()=>({latitude:10,longitude:20})});
+    await new Promise(resolve=>setImmediate(resolve));
+    const insert=calls.find(c=>c.sql.includes('INSERT INTO akay_readings'));
+    assert.deepEqual(insert.args.slice(5,7),[10,20]);
+    const update=calls.find(c=>c.sql.includes('SET sequence='));
+    assert.equal(update.args[2],true);assert.equal(update.args[4],true);
+    assert.equal(calls.some(c=>c.sql.includes('INSERT INTO akay_alerts')),false);
+    assert.ok(calls.some(c=>c.sql==='COMMIT'));
+  } finally {service.stop();}
 });

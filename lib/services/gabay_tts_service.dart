@@ -1,12 +1,47 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Search speech and serialized navigation speech share one native engine.
-class GabayTtsService {
+class GabayTtsService extends ChangeNotifier {
   GabayTtsService({FlutterTts? tts}) : _tts = tts ?? FlutterTts();
   static final instance = GabayTtsService();
   final FlutterTts _tts;
+  static const preferenceKey = 'akay_talkback_enabled';
+  bool _enabled = true;
+  bool get enabled => _enabled;
+  Future<void> _preferenceWrites = Future.value();
+
+  Future<void> initialize() async {
+    try {
+      _enabled =
+          (await SharedPreferences.getInstance()).getBool(preferenceKey) ??
+          true;
+      notifyListeners();
+    } catch (_) {
+      // Retain existing speech behavior if local preferences are unavailable.
+    }
+  }
+
+  Future<void> setEnabled(bool value) async {
+    if (_enabled == value) return;
+    _enabled = value;
+    notifyListeners();
+    final stopped = value ? Future<void>.value() : stop();
+    _preferenceWrites = _preferenceWrites.then((_) async {
+      try {
+        await (await SharedPreferences.getInstance()).setBool(
+          preferenceKey,
+          value,
+        );
+      } catch (_) {
+        // Storage failures must not break the current session's switch.
+      }
+    });
+    await Future.wait([stopped, _preferenceWrites]);
+  }
+
   Future<void>? _initializing;
   Future<void> _queue = Future.value();
   Future<void> _stopping = Future.value();
@@ -81,20 +116,20 @@ class GabayTtsService {
   /// False lets a later GPS event retry instead of breaking navigation.
   Future<bool> speakGuidance(String text) {
     final trimmed = text.trim();
-    if (trimmed.isEmpty) return Future.value(false);
+    if (!_enabled || trimmed.isEmpty) return Future.value(false);
     final generation = _generation;
     final cancelled = _cancelled.future;
     final result = Completer<bool>();
     _queue = _queue.then((_) async {
       try {
         await _stopping;
-        if (generation != _generation) {
+        if (!_enabled || generation != _generation) {
           result.complete(false);
           return;
         }
         await _ensureReady();
         await _prepareNavigation();
-        if (generation != _generation) {
+        if (!_enabled || generation != _generation) {
           result.complete(false);
           return;
         }
@@ -116,10 +151,12 @@ class GabayTtsService {
 
   /// Preserve explicit destination-search playback's replace-current behavior.
   Future<void> speak(String text) async {
-    if (text.trim().isEmpty) return;
+    if (!_enabled || text.trim().isEmpty) return;
     await stop();
+    final generation = _generation;
     try {
       await _ensureReady();
+      if (!_enabled || generation != _generation) return;
       await _tts.speak(text.trim());
     } catch (_) {
       _ready = false;

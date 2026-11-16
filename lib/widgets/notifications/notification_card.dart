@@ -40,7 +40,17 @@ class NotificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final g = context.gabay;
-    final iconColor = _iconColor(g);
+    final emergency = notification.category == NotificationCategory.emergency;
+    final incident = notification.incident;
+    final active = emergency && incident?.unresolved == true;
+    const red = Color(0xFFDC2626);
+    final iconColor = active
+        ? Colors.white
+        : emergency
+        ? red
+        : _iconColor(g);
+    final primary = active ? Colors.white : g.textPrimary;
+    final secondary = active ? Colors.white : g.textSecondary;
 
     return Dismissible(
       key: ValueKey(notification.id),
@@ -65,9 +75,18 @@ class NotificationCard extends StatelessWidget {
           child: Ink(
             decoration: BoxDecoration(
               color: g.surface,
+              gradient: active
+                  ? const LinearGradient(
+                      colors: [red, Color(0xFF991B1B)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
               borderRadius: BorderRadius.circular(22),
               border: Border.all(
-                color: notification.isRead
+                color: emergency
+                    ? const Color(0xFFFECACA)
+                    : notification.isRead
                     ? g.border.withValues(alpha: 0.45)
                     : g.accent.withValues(alpha: 0.25),
               ),
@@ -88,7 +107,9 @@ class NotificationCard extends StatelessWidget {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: _iconBackground(g),
+                      color: active
+                          ? Colors.white.withValues(alpha: 0.18)
+                          : _iconBackground(g),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(notification.icon, size: 20, color: iconColor),
@@ -98,6 +119,20 @@ class NotificationCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (emergency) ...[
+                          Text(
+                            incident?.kind == 'sos'
+                                ? 'SOS EMERGENCY'
+                                : 'CANE ALERT',
+                            style: TextStyle(
+                              fontSize: GabayTypography.caption,
+                              fontWeight: FontWeight.w700,
+                              color: primary,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                        ],
                         Text(
                           notification.title,
                           maxLines: 2,
@@ -105,26 +140,53 @@ class NotificationCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: GabayTypography.cardBody,
                             fontWeight: GabayTypography.semibold,
-                            color: g.textPrimary,
+                            color: primary,
                           ),
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          notification.description,
+                          incident == null
+                              ? notification.description
+                              : incident.kind == 'sos'
+                              ? 'Assistance requested from the smart cane.'
+                              : 'Unusual movement detected. Please check on this navigator.',
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: GabayTypography.supporting,
-                            color: g.textSecondary,
+                            color: secondary,
                             height: 1.3,
                           ),
                         ),
                         const SizedBox(height: 6),
+                        if (incident != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: active
+                                  ? Colors.white.withValues(alpha: 0.16)
+                                  : red.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              incident.status,
+                              style: TextStyle(
+                                fontSize: GabayTypography.caption,
+                                fontWeight: FontWeight.w600,
+                                color: primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                        ],
                         Text(
                           notification.timeAgo,
                           style: TextStyle(
                             fontSize: GabayTypography.caption,
-                            color: g.textSecondary.withValues(alpha: 0.85),
+                            color: secondary,
                             fontWeight: GabayTypography.medium,
                           ),
                         ),
@@ -138,7 +200,11 @@ class NotificationCard extends StatelessWidget {
                       height: 8,
                       margin: const EdgeInsets.only(top: 6),
                       decoration: BoxDecoration(
-                        color: g.accent,
+                        color: active
+                            ? Colors.white
+                            : emergency
+                            ? red
+                            : g.accent,
                         shape: BoxShape.circle,
                       ),
                     ),

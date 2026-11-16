@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../../widgets/shared/gabay_selection_dialog.dart';
 import '../../theme/gabay_theme.dart';
 import '../../models/pairing.dart';
-import '../../models/cane_registration_challenge.dart';
+import '../../widgets/profile/cane_registration_dialog.dart';
 import '../../services/app_session_service.dart';
 import '../../services/pairing_service.dart';
 import '../../widgets/shared/gabay_detail_page_scaffold.dart';
@@ -19,10 +19,12 @@ class PairingManagementPage extends StatefulWidget {
     this.service,
     this.devicesOnly = false,
     this.registerOnOpen = false,
+    this.registrationOnly = false,
   });
   final bool caregiver;
   final PairingService? service;
   final bool devicesOnly, registerOnOpen;
+  final bool? registrationOnly;
   @override
   State<PairingManagementPage> createState() => _PairingManagementPageState();
 }
@@ -151,164 +153,8 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
       return;
     }
     _registrationOpen = true;
-    final controller = TextEditingController();
-    final request = _service.requestCaneRegistration();
-    // Handle immediate failures even before the dialog's first frame subscribes.
-    unawaited(request.then<void>((_) {}, onError: (Object _) {}));
-    var submitting = false;
-    String? error;
     try {
-      final registered = await showDialog<bool>(
-        animationStyle: gabayModalAnimation(context),
-        context: context,
-        builder: (dialogContext) => StatefulBuilder(
-          builder: (context, update) => FutureBuilder<CaneRegistrationChallenge>(
-            future: request,
-            builder: (context, snapshot) {
-              final challenge = snapshot.data;
-              return AlertDialog(
-                backgroundColor: context.gabay.surface,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  side: BorderSide(
-                    color: context.gabay.border.withValues(alpha: .7),
-                  ),
-                ),
-                title: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: context.gabay.accentTint,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Icon(
-                        Icons.sensors_rounded,
-                        color: context.gabay.accent,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    const Text('Register a Cane'),
-                  ],
-                ),
-                titleTextStyle: TextStyle(
-                  color: context.gabay.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-                contentTextStyle: GabayTheme.bodyMedium(
-                  context,
-                ).copyWith(fontSize: 14, height: 1.5),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (snapshot.hasError)
-                        Text(
-                          snapshot.error.toString().contains(
-                                'No cane is authorized for your account',
-                              )
-                              ? 'No cane is authorized for your account. Ask the cane provider to prepare your registration.'
-                              : snapshot.error.toString(),
-                        )
-                      else if (challenge == null)
-                        const Text('Requesting registration code…')
-                      else ...[
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: context.gabay.accentTint,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: SelectableText(
-                            challenge.code,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: context.gabay.textPrimary,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 3,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Expires: ${challenge.expiresAt.toLocal()}',
-                          style: GabayTheme.labelSmall(context),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: controller,
-                          enabled: !submitting,
-                          autocorrect: false,
-                          enableSuggestions: false,
-                          decoration: const InputDecoration(
-                            labelText: 'Registration code',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        FilledButton(
-                          onPressed: submitting
-                              ? null
-                              : () async {
-                                  if (_revision !=
-                                      AppSessionService
-                                          .instance
-                                          .identityRevision) {
-                                    Navigator.pop(dialogContext, false);
-                                    return;
-                                  }
-                                  if (controller.text.trim().isEmpty) {
-                                    update(
-                                      () => error =
-                                          'Enter the registration code.',
-                                    );
-                                    return;
-                                  }
-                                  update(() {
-                                    submitting = true;
-                                    error = null;
-                                  });
-                                  try {
-                                    await _service.confirmCaneRegistration(
-                                      challenge.id,
-                                      controller.text,
-                                    );
-                                    if (dialogContext.mounted) {
-                                      Navigator.pop(dialogContext, true);
-                                    }
-                                  } catch (failure) {
-                                    if (dialogContext.mounted) {
-                                      update(() {
-                                        submitting = false;
-                                        error = failure.toString();
-                                      });
-                                    }
-                                  }
-                                },
-                          child: const Text('Register'),
-                        ),
-                        if (error != null) Text(error!),
-                      ],
-                    ],
-                  ),
-                ),
-                actions: [
-                  OutlinedButton(
-                    onPressed: submitting
-                        ? null
-                        : () => Navigator.pop(dialogContext, false),
-                    child: const Text('Cancel'),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-      );
+      final registered = await showCaneRegistrationDialog(context, _service);
       if (mounted && _revision == AppSessionService.instance.identityRevision) {
         if (registered == true) {
           _listen();
@@ -318,9 +164,6 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
       }
     } finally {
       _registrationOpen = false;
-      unawaited(
-        Future<void>.delayed(const Duration(seconds: 1), controller.dispose),
-      );
     }
   }
 
@@ -429,6 +272,7 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
 
   @override
   Widget build(BuildContext context) {
+    final registrationView = widget.registrationOnly == true;
     final active = (_connections ?? [])
         .where((c) => c.status == 'active')
         .toList();
@@ -438,12 +282,16 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
     final validAccount =
         _revision == AppSessionService.instance.identityRevision;
     return GabayDetailPageScaffold(
-      title: widget.devicesOnly ? 'Smart Cane' : 'Connections',
+      title: widget.devicesOnly
+          ? (registrationView ? 'Register Smart Cane' : 'Manage Smart Cane')
+          : 'Connections',
       subtitle: widget.devicesOnly
-          ? 'Register and manage your smart cane.'
+          ? (registrationView
+                ? 'Register a cane authorized for your account.'
+                : 'Manage your registered canes and assignments.')
           : 'Connections require navigator consent. Cane ownership is separate.',
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.fromLTRB(16, widget.devicesOnly ? 0 : 20, 16, 20),
         children: [
           if (_busy)
             const LinearProgressIndicator(semanticsLabel: 'Saving changes'),
@@ -583,132 +431,117 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
             ],
           ],
           if (!widget.caregiver && validAccount) ...[
+            SmartCaneInfoCard(registration: registrationView),
             const SizedBox(height: 12),
-            const SmartCaneInfoCard(),
-            const SizedBox(height: 16),
-            if (_deviceError != null) Text(_deviceError!),
-            if (_deviceError != null)
+            if (!registrationView && _deviceError != null) Text(_deviceError!),
+            if (!registrationView && _deviceError != null)
               TextButton(
                 onPressed: _busy ? null : _refreshDevices,
                 child: const Text('Retry device list'),
               ),
-            Wrap(
-              spacing: 12,
-              runSpacing: 10,
-              children: [
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  onPressed: _busy ? null : _registerCane,
-                  label: const Text('Register Cane'),
-                ),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 44),
+            if (!widget.devicesOnly || registrationView)
+              Wrap(
+                spacing: 12,
+                runSpacing: 10,
+                children: [
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 44),
+                    ),
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    onPressed: _busy ? null : _registerCane,
+                    label: const Text('Register Cane'),
                   ),
-                  icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-                  onPressed: _busy
-                      ? null
-                      : () async {
-                          final values = await _ask('Accept cane transfer', [
-                            'Private transfer code',
-                          ], private: true);
-                          if (values != null) {
-                            await _run(
-                              () => _service.acceptTransfer(values[0]),
-                            );
-                          }
-                        },
-                  label: const Text('Accept Transfer'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Text('Registered Canes', style: GabayTheme.sectionTitle(context)),
-            const SizedBox(height: 12),
-            if (_devices == null && _error == null)
-              const GabayCard(
-                child: LinearProgressIndicator(
-                  semanticsLabel: 'Loading registered canes',
-                ),
+                ],
               ),
-            if (_devices?.isEmpty == true) const SmartCaneEmptyState(),
-            for (final d in _devices ?? <RegisteredCane>[])
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: GabayCard(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SmartCaneDeviceHeader(device: d),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          TextButton(
-                            onPressed: _busy
-                                ? null
-                                : () => _run(
-                                    () => d.assignmentId == null
-                                        ? _service.assign(d.id)
-                                        : _service.release(d.id),
-                                  ),
-                            child: Text(
-                              d.assignmentId == null
-                                  ? 'Assign to me'
-                                  : 'End assignment',
+            if (!registrationView) ...[
+              const SizedBox(height: 16),
+              Text('Registered Canes', style: GabayTheme.sectionTitle(context)),
+              const SizedBox(height: 12),
+              if (_devices == null && _error == null)
+                const GabayCard(
+                  child: LinearProgressIndicator(
+                    semanticsLabel: 'Loading registered canes',
+                  ),
+                ),
+              if (_devices?.isEmpty == true) const SmartCaneEmptyState(),
+              for (final d in _devices ?? <RegisteredCane>[])
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: GabayCard(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SmartCaneDeviceHeader(device: d),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _run(
+                                      () => d.assignmentId == null
+                                          ? _service.assign(d.id)
+                                          : _service.release(d.id),
+                                    ),
+                              child: Text(
+                                d.assignmentId == null
+                                    ? 'Assign to me'
+                                    : 'End assignment',
+                              ),
                             ),
-                          ),
-                          TextButton(
-                            onPressed: _busy
-                                ? null
-                                : () async {
-                                    final values = await _ask(
-                                      'Transfer cane custody',
-                                      ['Recipient navigator account code'],
-                                    );
-                                    if (values != null) {
-                                      await _run(() async {
-                                        await _showCode(
-                                          await _service.transfer(
-                                            d.id,
-                                            values[0],
-                                          ),
-                                          'Private transfer code',
-                                        );
-                                      });
-                                    }
-                                  },
-                            child: const Text('Transfer custody'),
-                          ),
-                          TextButton(
-                            style: TextButton.styleFrom(
-                              foregroundColor: context.gabay.danger,
-                            ),
-                            onPressed: _busy
-                                ? null
-                                : () async {
-                                    if (await _confirm(
-                                      'Release cane ownership?',
-                                      'This ends its assignment. Physical provisioning is required before it can be claimed again. History is retained.',
-                                    )) {
-                                      await _run(
-                                        () => _service.release(
-                                          d.id,
-                                          ownership: true,
-                                        ),
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () async {
+                                      final values = await _ask(
+                                        'Transfer cane custody',
+                                        ['Recipient navigator account code'],
                                       );
-                                    }
-                                  },
-                            child: const Text('Release ownership'),
-                          ),
-                        ],
-                      ),
-                    ],
+                                      if (values != null) {
+                                        await _run(() async {
+                                          await _showCode(
+                                            await _service.transfer(
+                                              d.id,
+                                              values[0],
+                                            ),
+                                            'Private transfer code',
+                                          );
+                                        });
+                                      }
+                                    },
+                              child: const Text('Transfer custody'),
+                            ),
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                foregroundColor: context.gabay.danger,
+                              ),
+                              onPressed: _busy
+                                  ? null
+                                  : () async {
+                                      if (await _confirm(
+                                        'Release cane ownership?',
+                                        'This ends its assignment. Physical provisioning is required before it can be claimed again. History is retained.',
+                                      )) {
+                                        await _run(
+                                          () => _service.release(
+                                            d.id,
+                                            ownership: true,
+                                          ),
+                                        );
+                                      }
+                                    },
+                              child: const Text('Release ownership'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+            ],
             if (!widget.devicesOnly) ...[
               const Text('Navigator account code (identifier, not a secret):'),
               SelectableText(_service.currentUid ?? 'Sign in required'),

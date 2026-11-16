@@ -25,16 +25,17 @@ function createDestinationAssignment(authorize,firebase,progress) {
       const assignment=(await ref(actor.uid).get()).val();
       if(!assignment) return {assignment:null};
       if(assignment.navigator_id!==actor.id||assignment.navigator_uid!==actor.uid) return {assignment:null};
-      await authorize({id:assignment.caregiver_id,uid:assignment.caregiver_uid,role:'caregiver'},actor.uid);
+      const terminal=(await firebase.database().ref(`destination_terminal/${actor.uid}/${assignment.id}`).get()).val();
       const state=(await firebase.database().ref(`destination_progress/${actor.uid}`).get()).val();
       // Delivery acknowledgement and journey completion are separate writes.
       // Repair old pending records after cancellation, arrival, or replacement.
-      if(state?.navigator_id===actor.id&&
+      if(terminal?.navigator_id===actor.id || (state?.navigator_id===actor.id&&
         ((state.id===assignment.id&&state.outcome)||
-          (state.id!==assignment.id&&state.createdAt>=assignment.createdAt))) {
+          (state.id!==assignment.id&&state.createdAt>=assignment.createdAt)))) {
         await ref(actor.uid).transaction(current=>current?.id===assignment.id&&current.navigator_id===actor.id?null:undefined);
         return {assignment:null};
       }
+      await authorize({id:assignment.caregiver_id,uid:assignment.caregiver_uid,role:'caregiver'},actor.uid);
       return {assignment};
     },
     async acknowledge(actor,id) {

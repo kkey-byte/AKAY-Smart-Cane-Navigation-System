@@ -17,6 +17,11 @@ function createDestinationProgress(authorize,firebase,pool) {
     await ref(`destination_assignments/${uid}`).transaction(old=>
       old?.id===id&&old.navigator_id===navigatorId?null:undefined);
   }
+  async function closeDelivery(actor,id) {
+    await ref(`destination_terminal/${actor.uid}/${id}`).transaction(old=>
+      old?.navigator_id===actor.id?undefined:{navigator_id:actor.id,closedAt:Date.now()});
+    await clearPending(actor.uid,id,actor.id);
+  }
   async function send(message) {
     let timer;
     try {
@@ -28,10 +33,17 @@ function createDestinationProgress(authorize,firebase,pool) {
   async function finish(actor,id,status) {
     if(actor.role!=='visually_impaired'||!validId(id)) throw new ApiError(403,'navigator_required','Navigator account required.');
     const value=(await current(actor.uid).get()).val();
-    if(!value||value.id!==id||value.navigator_id!==actor.id) return {accepted:false};
-    const navigator=await authorize({id:value.caregiver_id,uid:value.caregiver_uid,role:'caregiver'},actor.uid);
+    if(!value || value.id!==id) {
+      // An orphaned delivery or a retry for a replaced trip must not restart it.
+      await closeDelivery(actor,id);
+      return value?{accepted:false,closed:true}:{accepted:true};
+    }
+    if(value.navigator_id!==actor.id) return {accepted:false};
+    let navigator,canNotify=true;
+    try {navigator=await authorize({id:value.caregiver_id,uid:value.caregiver_uid,role:'caregiver'},actor.uid);}
+    catch(error) {if(error.status!==403 && error.status!==404) throw error;canNotify=false;}
     if(value.notified) {
-      await clearPending(actor.uid,id,actor.id);
+      await closeDelivery(actor,id);
       return {accepted:true};
     }
     if(status==='not_arrived'&&!value.outcome) {
@@ -41,7 +53,11 @@ function createDestinationProgress(authorize,firebase,pool) {
     await current(actor.uid).transaction(old=>old?.id===id&&!old.outcome?{...old,outcome:status,finishedAt:Date.now()}:undefined);
     const saved=(await current(actor.uid).get()).val();
     if(saved?.id!==id||!saved.outcome) return {accepted:false};
-    await clearPending(actor.uid,id,actor.id);
+    await closeDelivery(actor,id);
+    if(!canNotify) {
+      await current(actor.uid).transaction(old=>old?.id===id?{...old,notified:true,notificationSuppressed:true}:undefined);
+      return {accepted:true};
+    }
     const notification={id,navigator_uid:actor.uid,caregiver_uid:saved.caregiver_uid,caregiver_id:saved.caregiver_id,
       navigatorName:navigator.name||'Your navigator',status:saved.outcome,createdAt:saved.finishedAt};
     // Stable keys make retries safe after an uncertain network response.

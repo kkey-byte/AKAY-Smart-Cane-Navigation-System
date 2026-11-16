@@ -5,24 +5,24 @@ import '../shared/gabay_card.dart';
 import '../shared/gabay_action_card_header.dart';
 
 class SmartCaneInfoCard extends StatelessWidget {
-  const SmartCaneInfoCard({super.key});
+  const SmartCaneInfoCard({super.key, this.registration = false});
+  final bool? registration;
   @override
   Widget build(BuildContext context) => GabayCard(
-    padding: const EdgeInsets.all(18),
+    padding: const EdgeInsets.all(14),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const GabayActionCardHeader(
-          icon: Icons.sensors_rounded,
-          title: 'Smart Canes',
-          description: 'Your registered navigation devices.',
-        ),
-        const SizedBox(height: 14),
-        Text(
-          'The navigator who verifies physical possession is the registered custodian. Caregivers cannot claim or reassign canes. Multiple canes are supported.',
-          style: GabayTheme.bodyMedium(
-            context,
-          ).copyWith(fontSize: 13, height: 1.5),
+        GabayActionCardHeader(
+          icon: registration == true
+              ? Icons.add_rounded
+              : Icons.settings_outlined,
+          title: registration == true
+              ? 'Cane registration'
+              : 'Device management',
+          description: registration == true
+              ? 'Use your server-issued code to confirm a cane authorized for your account.'
+              : 'View your canes and manage their assignments and ownership.',
         ),
       ],
     ),
@@ -41,11 +41,11 @@ class SmartCaneDeviceHeader extends StatelessWidget {
         title: device.serial,
         description: device.assignmentId == null
             ? 'Not assigned'
-            : 'Assigned to your navigator account',
+            : 'Assigned to you',
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: 10),
       Divider(height: 1, color: context.gabay.border),
-      const SizedBox(height: 12),
+      const SizedBox(height: 8),
       Text('Device ID', style: GabayTheme.labelSmall(context)),
       const SizedBox(height: 5),
       SelectableText(
@@ -54,7 +54,7 @@ class SmartCaneDeviceHeader extends StatelessWidget {
           context,
         ).copyWith(fontSize: 13, height: 1.5),
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: 8),
     ],
   );
 }

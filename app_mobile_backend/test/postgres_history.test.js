@@ -46,6 +46,29 @@ test('concurrent retries serialize; failed transaction rolls back the entire bat
   assert.equal(Object.keys((await trips.detail('nav','trip')).points).length,2);
   await assert.rejects(trips.finalizePhone('nav','trip',{pointCount:3,status:'completed',endedAt:now}));
 });
+test('movement-based walking duration is preserved independently from elapsed time and cannot regress or change after completion',async()=>{
+  await phone();
+  await trips.finalizePhone('nav','trip',{pointCount:2,status:'recording',lastSampledAt:now-1000,walkingDurationSeconds:2.5});
+  const recorded=await trips.detail('nav','trip');
+  assert.equal(recorded.walkingDurationSeconds,2.5);assert.equal(recorded.durationSeconds,9);
+  await assert.rejects(trips.finalizePhone('nav','trip',{pointCount:2,status:'recording',lastSampledAt:now-1000,walkingDurationSeconds:1}),e=>e.code==='stale_summary');
+  for(const walkingDurationSeconds of [-1,Infinity,NaN,'5',11]) {
+    await assert.rejects(trips.finalizePhone('nav','trip',{pointCount:2,status:'completed',endedAt:now,walkingDurationSeconds}),e=>e.code==='invalid_trip');
+  }
+  await trips.finalizePhone('nav','trip',{pointCount:2,status:'completed',endedAt:now,lastSampledAt:now-1000,walkingDurationSeconds:2.5});
+  assert.equal((await trips.list('nav')).trips.trip.walkingDurationSeconds,2.5);
+  await trips.finalizePhone('nav','trip',{pointCount:2,status:'completed',endedAt:now,lastSampledAt:now-1000,walkingDurationSeconds:2.5});
+  await assert.rejects(trips.finalizePhone('nav','trip',{pointCount:2,status:'completed',endedAt:now,lastSampledAt:now-1000,walkingDurationSeconds:3}),e=>e.code==='trip_closed');
+});
+test('stationary walking time remains zero and legacy elapsed duration is not relabeled as walking',async()=>{
+  await phone();
+  await trips.finalizePhone('nav','trip',{pointCount:2,status:'completed',endedAt:now,walkingDurationSeconds:0});
+  assert.equal((await trips.detail('nav','trip')).walkingDurationSeconds,0);
+  await phone('nav','legacy');
+  await trips.finalizePhone('nav','legacy',{pointCount:2,status:'completed',endedAt:now});
+  const legacy=await trips.detail('nav','legacy');assert.equal(legacy.durationSeconds,10);
+  assert.equal(legacy.walkingDurationSeconds,undefined);
+});
 test('keyset pagination, physical-source filters and retention use PostgreSQL indexes',async()=>{
   await phone('nav','a');await phone('nav','b');
   const first=await trips.list('nav',{limit:1});assert.deepEqual(Object.keys(first.trips),['b']);

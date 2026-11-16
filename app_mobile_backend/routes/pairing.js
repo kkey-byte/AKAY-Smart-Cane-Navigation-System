@@ -14,6 +14,7 @@ const trips=require('../services/tripStore').createTripStore(firebase);
 const removeLocationAccount=require('../services/locationRemoval').createLocationRemoval(pool,usersTable,trips);
 const caneGps=require('../services/caneGps').createCaneGps(service,pool,usersTable,trips,firebase);
 const monitoring=require('../services/monitoringService').createMonitoringService(pool,firebase,trips);
+const caneBatteries=require('../services/caneBatteryService').createCaneBatteryService(pool,firebase);
 const phoneLocation=require('../services/phoneLocation').createPhoneLocationService(pool,usersTable,firebase);
 const emergencies=require('../services/emergencyService').createEmergencyService(pool,usersTable,firebase);
 const router=express.Router();
@@ -75,6 +76,11 @@ router.post('/transfers/accept',route(req=>service.acceptTransfer(req.actor,req.
 router.get('/navigators/:uid/snapshot',route(async req=>{
   const result=await service.snapshot(req.actor,req.params.uid);
   const live=await monitoring.read(result.navigator,{history:false});
+  const batteries=await caneBatteries.readDevices(result.devices);
+  for(const device of result.devices) {
+    const current=batteries.find(b=>b.id===device.id&&b.assignment_id===device.assignment_id);
+    device.battery=current?.battery??null;
+  }
   result.phoneLocation=live.phoneLocation;
   if(live.errors.length) result.phoneError='Live location is partially unavailable.';
   for(const device of result.devices) {

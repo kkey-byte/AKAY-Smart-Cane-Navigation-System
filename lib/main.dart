@@ -9,6 +9,7 @@ import 'services/breadcrumb_service.dart';
 import 'services/notification_service.dart';
 import 'services/emergency_push_service.dart';
 import 'services/app_session_service.dart';
+import 'services/gabay_tts_service.dart';
 import 'models/user_role.dart';
 import 'pages/caregiver/notifications_page.dart';
 import 'dart:async';
@@ -29,6 +30,7 @@ void _openEmergencyNotifications() {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await GabayTtsService.instance.initialize();
   await _ensureFirebase();
   await BreadcrumbService.instance.initialize();
   NotificationService.instance.initialize();
@@ -36,10 +38,21 @@ Future<void> main() async {
   EmergencyPushService.instance.onForeground = () =>
       _messengerKey.currentState?.showSnackBar(
         SnackBar(
-          content: const Text(
-            'A cane alert was received. Check Notifications.',
+          backgroundColor: const Color(0xFF991B1B),
+          content: const Row(
+            children: [
+              Icon(Icons.sos_rounded, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Emergency cane alert received. Open to check and respond.',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
           ),
           action: SnackBarAction(
+            textColor: Colors.white,
             label: 'View',
             onPressed: _openEmergencyNotifications,
           ),

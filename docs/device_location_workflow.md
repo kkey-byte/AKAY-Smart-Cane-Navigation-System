@@ -11,13 +11,78 @@ Confirmed firmware fields:
 | --- | --- |
 | `unsafe` | Boolean SOS; true creates an immediate incident |
 | `fallAlert` | Boolean fall signal; true starts a three-second cancellation window |
-| `batteryLevel` | Fraction from 0 to 1; `0.50391` displays as 50% |
+| `batteryLevel` | Numeric fraction (0–1) or percentage (above 1–100); `0.50391` displays as 50%, `81.07422` as 81% |
 | `latitude`, `longitude` | Optional coordinates attached to the incident |
 
 The device child key must match an existing registered cane serial, with current
 ownership and an active navigator assignment. Unregistered records are not
 assigned to an arbitrary navigator. Normal movement is not inferred from a false
 fall flag. Missing/invalid data stays unavailable.
+
+Dashboard and device-detail battery values are read directly from
+`Device_Location/{serial}/batteryLevel` on each API refresh using the existing
+Firebase Admin connection. They do not fall back to saved PostgreSQL battery
+readings. The dashboard refreshes every two seconds; read failures, timeouts or
+invalid/missing values produce an unavailable battery. Battery parsing is
+independent of SOS/fall fields. The latest active cane assignment is the
+dashboard's default battery source; device details read each assigned cane.
+
+Read-only source verification:
+
+```powershell
+cd app_mobile_backend
+node scripts/checkCaneBatteryReadOnly.js 00001
+```
+
+A live read on 16 November 2026 returned `81.07422` from the existing configured
+Firebase database, converted to 81%. This is a point-in-time read, not proof of
+physical battery calibration or continuous firmware transmission. No Firebase
+values or connection settings were changed. Restart/deploy the backend to use
+the direct battery reads; no new migration is needed for this battery fix.
+
+Battery-fix verification: 22 focused backend tests and 14 Flutter dashboard
+tests passed. Backend tests confirm that current Firebase values override saved
+SQL values, subsequent reads reflect changes, and failures do not reuse an old
+percentage. Real Firebase access was verified read-only for the battery field;
+the deployed app screen and physical battery calibration were not verified.
+
+## Current SOS and fall status
+
+The dashboard also reads `Device_Location/{serial}/unsafe` and `fallAlert`
+directly on each refresh using the same assigned-cane mapping and existing
+Firebase connection. It does not obtain current SOS/fall flags from saved SQL
+telemetry. A missing, invalid or failed field read produces an unknown flag,
+not a reused false/true value from a previous read. Signal reads are independent
+and do not synthesize fall detection from ordinary GPS movement.
+
+Current status and incident history are separate: the running backend's existing
+Firebase value listener generates immediate SOS incidents and delayed fall
+incidents, and PostgreSQL retains notifications after the flags clear. The
+three-second physical-reset cancellation window, repeat-event latching and
+personal caregiver deletion remain in place. Reading a current flag via the
+dashboard does not itself insert alerts or bypass that window.
+
+Read-only diagnostics (neither command sends notifications):
+
+```powershell
+node scripts/checkCaneSignalsReadOnly.js 00001
+node scripts/checkCaneAlertReadinessReadOnly.js 00001
+```
+
+On 16 November 2026, live Firebase reads confirmed both fields exist as Boolean
+values and both were false at the time of the check. Read-only backend checks
+also confirmed the active assignment and required incident/state tables. No
+production flags were changed, no real alert was triggered, and physical cane
+reset/push delivery is not established by these read-only checks. Restart/deploy
+the backend for the current-status change; no new migration is required when
+the existing emergency and device-location migrations are already applied.
+
+Current-status verification passed 23 focused backend tests, five disposable
+PostgreSQL emergency integration tests, and 14 Flutter dashboard/notification
+tests. Synthetic true/false transitions covered immediate SOS, fall reset before
+three seconds, sustained fall escalation, repeated-signal deduplication, restart
+latching and caregiver-specific notification persistence/deletion. Push delivery
+in integration tests used a fake provider rather than real caregivers.
 
 ## Alert lifecycle
 

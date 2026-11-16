@@ -257,6 +257,12 @@ router.post("/end", async (req, res) => {
     );
 
     if (!result.rows[0]) {
+      // Retrying after a lost success response must not turn an arrived trip
+      // into a cancellation or change its original completion timestamp.
+      const prior=await pool.query(`SELECT * FROM ${TABLE} WHERE sessionid=$1 AND user_id=$2`,[sessionId,req.actor.id]);
+      const saved=prior.rows[0];
+      if(saved?.status===requested) return res.json({message:'Navigation session already ended',session:mapSession(saved)});
+      if(saved && ['Completed','Cancelled'].includes(saved.status)) return res.status(409).json({message:'Navigation session already ended with a different outcome.'});
       return res.status(404).json({ message: "Active session not found" });
     }
 

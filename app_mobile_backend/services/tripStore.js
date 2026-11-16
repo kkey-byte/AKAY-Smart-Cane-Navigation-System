@@ -86,6 +86,8 @@ function createTripStore(firebase,{clock=Date.now,recordStore,pool}={}) {
     const ref=trips(uid).doc(identifier(id));
     if(!Number.isInteger(body.pointCount)||body.pointCount<1||body.pointCount>500||!['recording','completed','interrupted'].includes(body.status)) invalid('Invalid summary.');
     const endedAt=body.endedAt==null?null:capture(body.endedAt,clock());
+    const walking=body.walkingDurationSeconds;
+    if(walking!==undefined && (typeof walking!=='number'||!Number.isFinite(walking)||walking<0)) invalid('Invalid walking duration.');
     if((body.status==='recording')!==(endedAt===null)) invalid('Trip end time required.');
     await db().runTransaction(async tx=>{
       const prior=await writable(tx,uid,ref);
@@ -96,16 +98,21 @@ function createTripStore(firebase,{clock=Date.now,recordStore,pool}={}) {
       const lastSampledAt=capture(body.lastSampledAt??millis(points.at(-1).sampledAt),clock());
       if(lastSampledAt<millis(points.at(-1).sampledAt)) invalid('Freshness precedes the last recorded point.');
       if(endedAt!=null&&(endedAt<millis(prior.startedAt)||endedAt<lastSampledAt)) invalid('End precedes capture.');
+      const elapsed=Math.max(0,((endedAt??lastSampledAt)-millis(prior.startedAt))/1000);
+      if(walking!==undefined && walking>elapsed+0.001) invalid('Walking duration exceeds recorded time.');
       if(prior.status!=='recording') {
         if(prior.status!==body.status||millis(prior.endedAt)!==endedAt) throw new ApiError(409,'trip_closed','Trip is already finalized.');
+        if(walking!==undefined && walking!==prior.walkingDurationSeconds) throw new ApiError(409,'trip_closed','Walking duration is already finalized.');
         return;
       }
       if(lastSampledAt<millis(prior.lastSampledAt??prior.startedAt)) throw new ApiError(409,'stale_summary','A newer location snapshot is already saved.');
+      if(walking!==undefined && walking<(prior.walkingDurationSeconds??0)) throw new ApiError(409,'stale_summary','A newer walking duration is already saved.');
       let distance=0;
       for(let i=1;i<points.length;i++) distance+=meters(points[i-1],points[i]);
       tx.update(ref,{status:body.status,endedAt:endedAt==null?null:Timestamp.fromMillis(endedAt),
         origin:location(points[0]),destination:location(points.at(-1)),pointCount:points.length,distanceMeters:distance,
         durationSeconds:Math.max(0,Math.floor(((endedAt??lastSampledAt)-millis(prior.startedAt))/1000)),
+        ...(walking===undefined?{}:{walkingDurationSeconds:walking}),
         lastSampledAt:Timestamp.fromMillis(lastSampledAt),syncedAt:FieldValue.serverTimestamp()});
       if(legacyImport) tx.update(ref,{migratedFrom:'breadcrumb_trips',legacyOpen});
       else tx.update(ref,{legacyOpen:false});

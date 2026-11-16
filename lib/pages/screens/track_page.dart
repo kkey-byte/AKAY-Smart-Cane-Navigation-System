@@ -26,6 +26,7 @@ import '../../services/app_session_service.dart';
 import '../../models/dashboard_snapshot.dart';
 import '../../services/dashboard_service.dart';
 import '../../services/navigation_persistence_service.dart';
+import '../../services/navigation_arrival.dart';
 import '../../services/breadcrumb_service.dart';
 
 import '../../services/route_timeline_tracker.dart';
@@ -78,6 +79,18 @@ class TrackPage extends StatefulWidget {
 }
 
 class TrackPageState extends State<TrackPage> {
+  Future<void>? _arrivalCompletion;
+  Future<void>? _navigationStart;
+  bool _cancellingDestination = false;
+  bool _arrivalFinalized = false;
+
+  bool get _hasArrived =>
+      _isNavigatorMode &&
+      _activeRoute != null &&
+      !_timelineTracker.isTracking &&
+      _timelineTracker.activeDestination?.id == _activeRoute!.destination.id &&
+      _timelineTracker.entries.lastOrNull?.isArrived == true;
+
   /// Read-only Home rendering of this screen's existing route and GPS state.
   /// It owns no navigation session, GPS subscription, or route calculation.
   Widget? buildHomeMapPreview() {
@@ -285,7 +298,15 @@ class TrackPageState extends State<TrackPage> {
     if (id is! String) return;
     _receivingAssignment = true;
     _receivingAssignmentId = id;
+    final generation = _destinationSearchToken;
+    final assignmentRevision = AppSessionService.instance.identityRevision;
     try {
+      if (await DestinationAssignmentService.instance.isCancelled(id) ||
+          !mounted ||
+          generation != _destinationSearchToken ||
+          assignmentRevision != AppSessionService.instance.identityRevision) {
+        return;
+      }
       if (_receivedAssignmentId != id) {
         final destination = assignment['destination'];
         if (destination is! Map) return;
@@ -501,14 +522,71 @@ class TrackPageState extends State<TrackPage> {
     unawaited(_mapController!.animateToLatLng(live, zoom: 16));
   }
 
-  Future<void> _persistNavigationStart(RoutePlanResult result) async {
-    if (!_isNavigatorMode) return;
-    final origin = _locationService.livePosition ?? result.navigator.location;
-    await _navPersistence.startSession(
-      origin: origin,
-      destination: result.destination,
-      originAddress: _locationService.address,
-    );
+  Future<void> _persistNavigationStart(RoutePlanResult result) {
+    final revision = AppSessionService.instance.identityRevision;
+    final route = _activeRoute;
+    final previous = _navigationStart;
+    final assigned =
+        result.destination.id == _receivedAssignmentId ||
+        result.destination.id == _receivingAssignmentId;
+    final operation = () async {
+      if (previous != null) {
+        try {
+          await previous;
+        } catch (_) {}
+      }
+      if (!_isNavigatorMode) return;
+      if (revision != AppSessionService.instance.identityRevision ||
+          route != _activeRoute) {
+        return;
+      }
+      _arrivalFinalized = false;
+      await BreadcrumbService.instance.beginNavigation(result.destination.name);
+      if (revision != AppSessionService.instance.identityRevision ||
+          route != _activeRoute) {
+        return;
+      }
+      final origin = _locationService.livePosition ?? result.navigator.location;
+      final createdId = await _navPersistence.startSession(
+        origin: origin,
+        destination: result.destination,
+        originAddress: _locationService.address,
+      );
+      if (revision != AppSessionService.instance.identityRevision) return;
+      if (route != _activeRoute ||
+          (assigned &&
+              await DestinationAssignmentService.instance.isCancelled(
+                result.destination.id,
+              ))) {
+        await DestinationAssignmentService.instance.cancel(
+          result.destination.id,
+          assigned: assigned,
+          sessionId: createdId,
+        );
+        if (createdId != null) {
+          _navPersistence.clearCancelledSession(expectedSessionId: createdId);
+        }
+      }
+    }();
+    _navigationStart = operation;
+    return operation.whenComplete(() {
+      if (identical(_navigationStart, operation)) _navigationStart = null;
+    });
+  }
+
+  void _startRouteTimeline(MapPlace destination) {
+    _timelineTracker.startTracking(destination);
+    final fix = _locationService.lastPosition;
+    if (fix != null &&
+        hasArrivedAtDestination(
+          location: LatLng(fix.latitude, fix.longitude),
+          destination: destination.latLng,
+          accuracy: fix.accuracy,
+          sampledAt: fix.timestamp,
+          now: DateTime.now(),
+        )) {
+      _timelineTracker.markDestinationArrived();
+    }
   }
 
   Future<void> _loadMapIcons() async {
@@ -521,18 +599,52 @@ class TrackPageState extends State<TrackPage> {
 
   void _onTimelineUpdated() {
     if (!mounted) return;
-    if (!_timelineTracker.isTracking &&
-        _timelineTracker.entries.isNotEmpty &&
-        _timelineTracker.entries.last.isArrived) {
-      if (_isNavigatorMode) {
-        if (_navPersistence.hasActiveSession) {
-          unawaited(_navPersistence.endSession());
-        }
-        ViNavigationSession.instance.setNavigating(false);
+    if (_hasArrived) {
+      _visibleTrackingPanel = TrackingPanel.details;
+      if (!_arrivalFinalized && _arrivalCompletion == null) {
+        unawaited(_finishArrivedNavigation());
       }
-      _clearMapRecentSearches();
     }
     setState(() {});
+  }
+
+  Future<void> _finishArrivedNavigation() async {
+    if (_arrivalFinalized) return;
+    final inFlight = _arrivalCompletion;
+    if (inFlight != null) return inFlight;
+    final revision = AppSessionService.instance.identityRevision;
+    final route = _activeRoute;
+    final operation = () async {
+      try {
+        await BreadcrumbService.instance.finishNavigation();
+        await _navPersistence.endSession();
+        if (revision != AppSessionService.instance.identityRevision ||
+            route != _activeRoute) {
+          return;
+        }
+        if (_navPersistence.syncError != null) {
+          if (mounted) _showSnack(_navPersistence.syncError!);
+          return;
+        }
+        _arrivalFinalized = true;
+        ViNavigationSession.instance.setNavigating(false);
+        if (mounted) _clearMapRecentSearches();
+      } catch (_) {
+        if (mounted &&
+            revision == AppSessionService.instance.identityRevision) {
+          _showSnack(
+            'Navigation could not be finished. Keep this trip open and retry.',
+          );
+        }
+      }
+    }();
+    _arrivalCompletion = operation;
+    try {
+      await operation;
+    } finally {
+      if (identical(_arrivalCompletion, operation)) _arrivalCompletion = null;
+      if (mounted) setState(() {});
+    }
   }
 
   @override
@@ -767,12 +879,17 @@ class TrackPageState extends State<TrackPage> {
         estimatedTime: _activeRoute?.estimatedTime,
         estimatedDistance: _activeRoute?.estimatedDistance,
       );
-      _timelineTracker.startTracking(result.destination);
       NavigationVoiceService.instance.start(
         result,
         enabled: _voiceGuidanceEnabled,
       );
       await _persistNavigationStart(result);
+      if (!mounted ||
+          token != _destinationSearchToken ||
+          identityRevision != AppSessionService.instance.identityRevision) {
+        return;
+      }
+      _startRouteTimeline(result.destination);
       await _fitRouteOnMap(result);
       if (mounted && token == _destinationSearchToken) {
         _showSnack('Navigating to ${place.name}');
@@ -933,6 +1050,7 @@ class TrackPageState extends State<TrackPage> {
   }
 
   Future<void> _openRoutePlanner() async {
+    final revision = AppSessionService.instance.identityRevision;
     if (!_isNavigatorMode && _selectedNavigator.lastLocationUpdated == null) {
       _showSnack(
         'Select a shared patient with a recorded location to plan a route.',
@@ -953,7 +1071,11 @@ class TrackPageState extends State<TrackPage> {
       ),
     );
 
-    if (!mounted || result == null) return;
+    if (!mounted ||
+        result == null ||
+        revision != AppSessionService.instance.identityRevision) {
+      return;
+    }
 
     if (!_isNavigatorMode) {
       try {
@@ -1015,8 +1137,17 @@ class TrackPageState extends State<TrackPage> {
         enabled: _voiceGuidanceEnabled,
       );
 
-      await _persistNavigationStart(result);
-
+      try {
+        await _persistNavigationStart(result);
+      } catch (_) {
+        if (mounted) {
+          _showSnack('Trip recording could not be started. Please retry.');
+        }
+        return;
+      }
+      if (!mounted || revision != AppSessionService.instance.identityRevision) {
+        return;
+      }
       if (mounted) {
         _showSnack(
           'Navigation started. Track sharing status is available in My tracks.',
@@ -1024,7 +1155,7 @@ class TrackPageState extends State<TrackPage> {
       }
     }
 
-    _timelineTracker.startTracking(result.destination);
+    _startRouteTimeline(result.destination);
 
     await _fitRouteOnMap(result);
   }
@@ -1048,19 +1179,48 @@ class TrackPageState extends State<TrackPage> {
   }
 
   Future<void> _cancelDestination() async {
+    if (_cancellingDestination) return;
+    _cancellingDestination = true;
+    try {
+      await _cancelCurrentDestination();
+    } finally {
+      _cancellingDestination = false;
+    }
+  }
+
+  Future<void> _cancelCurrentDestination() async {
+    final revision = AppSessionService.instance.identityRevision;
+    final route = _activeRoute;
+    final arrived = _hasArrived;
+    if (arrived) {
+      await _finishArrivedNavigation();
+      if (!mounted || !_arrivalFinalized) return;
+    }
     final destinationId =
         _activeRoute?.destination.id ?? _pinnedDestination?.id;
-    if (_isNavigatorMode &&
-        destinationId != null &&
-        (destinationId == _receivedAssignmentId ||
-            destinationId == _receivingAssignmentId)) {
+    if (!arrived && _isNavigatorMode && destinationId != null) {
       try {
-        await DestinationAssignmentService.instance.cancel(destinationId);
+        await DestinationAssignmentService.instance.cancel(
+          destinationId,
+          assigned:
+              destinationId == _receivedAssignmentId ||
+              destinationId == _receivingAssignmentId,
+          sessionId: _navPersistence.sessionId,
+        );
       } catch (_) {
-        // Keep the route available so cancellation can be retried when connected.
+        if (mounted) {
+          _showSnack(
+            'Cancellation could not be saved on this device. Please retry.',
+          );
+        }
         return;
       }
-      if (!mounted) return;
+      if (!mounted ||
+          revision != AppSessionService.instance.identityRevision ||
+          route != _activeRoute) {
+        return;
+      }
+      _navPersistence.clearCancelledSession();
     }
     _clearMapRecentSearches();
     setState(() {
@@ -1079,11 +1239,22 @@ class TrackPageState extends State<TrackPage> {
 
     if (_isNavigatorMode) {
       ViNavigationSession.instance.setNavigating(false);
-
-      unawaited(_navPersistence.endSession(cancelled: true));
     }
 
     _timelineTracker.reset();
+    if (_isNavigatorMode && !arrived) {
+      unawaited(
+        BreadcrumbService.instance.finishNavigation(cancelled: true).catchError((
+          Object _,
+        ) {
+          if (mounted) {
+            _showSnack(
+              'Navigation cancelled. Track saving needs a retry; keep the app data.',
+            );
+          }
+        }),
+      );
+    }
 
     if (_isNavigatorMode) {
       await _focusOnNavigator(_selectedNavigator);
@@ -1519,6 +1690,7 @@ class TrackPageState extends State<TrackPage> {
                   : null,
               details: _isNavigating
                   ? EtaCard(
+                      hasArrived: _hasArrived,
                       route: _activeRoute!,
                       timelineEntries: _timelineTracker.entries,
                       currentLocationAddress: _displayAddress,

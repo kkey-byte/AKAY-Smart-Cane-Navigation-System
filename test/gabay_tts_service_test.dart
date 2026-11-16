@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // flutter_tts guards the iOS method with dart:io Platform.isIOS. Record its
 // arguments at the plugin boundary so this check also runs on Windows/Linux.
@@ -49,6 +50,49 @@ void main() {
           return 1;
         });
   }
+
+  test(
+    'TalkBack choice persists and blocks both speech entry points until enabled',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        GabayTtsService.preferenceKey: false,
+      });
+      mock(null);
+      await service.initialize();
+      expect(service.enabled, isFalse);
+      await service.speak('Destination');
+      expect(await service.speakGuidance('Turn right'), isFalse);
+      expect(calls.where((c) => c.method == 'speak'), isEmpty);
+      await service.setEnabled(true);
+      expect(await service.speakGuidance('Turn right'), isTrue);
+      await service.setEnabled(false);
+      final restored = GabayTtsService();
+      await restored.initialize();
+      expect(restored.enabled, isFalse);
+      expect(calls.any((c) => c.method == 'stop'), isTrue);
+    },
+  );
+
+  test(
+    'disabling TalkBack cancels active and queued navigation speech',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final pending = Completer<int>();
+      mock((call) async {
+        if (call.method == 'isLanguageAvailable') return true;
+        if (call.method == 'speak') return pending.future;
+        return 1;
+      });
+      final active = service.speakGuidance('First');
+      final queued = service.speakGuidance('Second');
+      await flush();
+      await service.setEnabled(false);
+      expect(await active, isFalse);
+      expect(await queued, isFalse);
+      expect(calls.where((c) => c.method == 'speak').map(text), ['First']);
+      pending.complete(1);
+    },
+  );
 
   test(
     'navigation utterances await completion without cutting off one another',

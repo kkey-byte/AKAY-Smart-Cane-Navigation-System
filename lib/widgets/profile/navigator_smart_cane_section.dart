@@ -55,20 +55,25 @@ class NavigatorSmartCaneSection extends StatelessWidget {
     required this.loading,
     required this.onManage,
     required this.onRetry,
+    this.onRegister,
     this.error,
   });
   final List<RegisteredCane>? devices;
   final bool? loading;
   final String? error;
-  final VoidCallback? onManage, onRetry;
+  final VoidCallback? onManage, onRetry, onRegister;
   @override
   Widget build(BuildContext context) {
     final g = context.gabay;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 18),
-        Text('My Smart Cane', style: GabayTheme.sectionTitle(context)),
+        Text(
+          (loading ?? false) || error != null
+              ? 'Smart Cane'
+              : 'Registered Smart Cane',
+          style: GabayTheme.sectionTitle(context),
+        ),
         const SizedBox(height: 12),
         if (loading ?? (devices == null && error == null))
           GabayCard(
@@ -146,6 +151,13 @@ class NavigatorSmartCaneSection extends StatelessWidget {
                           context,
                         ).copyWith(fontSize: 13),
                       ),
+                      if (onRegister != null) ...[
+                        const SizedBox(height: 10),
+                        OutlinedButton(
+                          onPressed: onRegister,
+                          child: const Text('Register Cane'),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -153,7 +165,10 @@ class NavigatorSmartCaneSection extends StatelessWidget {
             ),
           )
         else ...[
-          for (final device in devices ?? <RegisteredCane>[])
+          for (final device in {
+            for (final device in devices ?? <RegisteredCane>[])
+              device.id: device,
+          }.values)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: GabayCard(
@@ -189,12 +204,6 @@ class NavigatorSmartCaneSection extends StatelessWidget {
                                 label: 'Registered',
                                 icon: Icons.verified_outlined,
                               ),
-                              _DeviceStatus(
-                                label: device.assignmentId == null
-                                    ? 'Not assigned'
-                                    : 'Assigned to you',
-                                icon: Icons.link_rounded,
-                              ),
                             ],
                           ),
                         ],
@@ -204,14 +213,6 @@ class NavigatorSmartCaneSection extends StatelessWidget {
                 ),
               ),
             ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: onManage,
-              icon: const Icon(Icons.settings_outlined, size: 18),
-              label: const Text('Manage Smart Cane'),
-            ),
-          ),
         ],
       ],
     );

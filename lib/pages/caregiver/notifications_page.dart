@@ -100,7 +100,63 @@ class _NotificationsPageState extends State<NotificationsPage>
             }
 
             return AlertDialog(
-              title: Text(incident?.title ?? 'Alert unavailable'),
+              scrollable: true,
+              backgroundColor: context.gabay.surface,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: const BorderSide(color: Color(0xFFFECACA)),
+              ),
+              titlePadding: EdgeInsets.zero,
+              contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              actionsPadding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+              title: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFDC2626), Color(0xFF991B1B)],
+                  ),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(23)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          incident?.kind == 'sos'
+                              ? Icons.sos_rounded
+                              : Icons.warning_amber_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            incident?.kind == 'sos'
+                                ? 'SOS EMERGENCY'
+                                : 'CANE ALERT',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      incident?.title ?? 'Alert unavailable',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -111,7 +167,29 @@ class _NotificationsPageState extends State<NotificationsPage>
                         'Unable to load this alert. Check your connection and navigator sharing access.',
                       )
                     else ...[
-                      Text('Status: ${incident.status}'),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF991B1B)
+                              : const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Status: ${incident.status}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white
+                                : const Color(0xFF991B1B),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       Text(
                         incident.kind == 'sos'
@@ -119,24 +197,40 @@ class _NotificationsPageState extends State<NotificationsPage>
                             : 'The cane detected unusual movement. A fall or accident has not been confirmed. Please check on this navigator.',
                       ),
                       const SizedBox(height: 12),
-                      Text(
-                        '${incident.observedFromDatabase ? 'Database observed' : 'Detected'}: ${incident.detectedAt.toLocal()}',
+                      _EmergencyDetail(
+                        icon: Icons.schedule_rounded,
+                        label: incident.observedFromDatabase
+                            ? 'Database observed'
+                            : 'Detected',
+                        value: _alertTime(context, incident.detectedAt),
                       ),
-                      Text('Received: ${incident.createdAt.toLocal()}'),
                       const SizedBox(height: 12),
-                      Text(
-                        incident.latitude == null
+                      _EmergencyDetail(
+                        icon: Icons.notifications_active_outlined,
+                        label: 'Received',
+                        value: _alertTime(context, incident.createdAt),
+                      ),
+                      const SizedBox(height: 12),
+                      _EmergencyDetail(
+                        icon: Icons.location_on_outlined,
+                        label: 'Event location',
+                        value: incident.latitude == null
                             ? 'No location was attached to this event.'
-                            : 'Event location: ${incident.latitude}, ${incident.longitude}\n${incident.observedFromDatabase ? 'Database observed' : 'Captured'}: ${incident.detectedAt.toLocal()} (not necessarily the current location).',
+                            : '${incident.latitude}, ${incident.longitude}\nAttached to this event; not necessarily the current location.',
                       ),
                       const SizedBox(height: 12),
                       const Text(
                         'Resolving this alert records your response in AKAY. It does not remotely silence the cane.',
+                        style: TextStyle(fontSize: 12, height: 1.4),
                       ),
                     ],
                     if (error != null) ...[
                       const SizedBox(height: 12),
-                      Text(error!, semanticsLabel: error),
+                      Text(
+                        error!,
+                        semanticsLabel: error,
+                        style: TextStyle(color: context.gabay.danger),
+                      ),
                     ],
                     if (busy)
                       const Padding(
@@ -167,6 +261,10 @@ class _NotificationsPageState extends State<NotificationsPage>
                     child: const Text('False alarm'),
                   ),
                   FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFDC2626),
+                      foregroundColor: Colors.white,
+                    ),
                     onPressed: busy ? null : () => respond('resolve'),
                     child: const Text('Resolve alert'),
                   ),
@@ -177,6 +275,12 @@ class _NotificationsPageState extends State<NotificationsPage>
         ),
       ),
     );
+  }
+
+  String _alertTime(BuildContext context, DateTime date) {
+    final local = date.toLocal();
+    final labels = MaterialLocalizations.of(context);
+    return '${labels.formatMediumDate(local)} · ${labels.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
   }
 
   Future<void> _confirmClearAll() async {
@@ -451,6 +555,49 @@ class _NotificationsPageState extends State<NotificationsPage>
         return 'OLDER';
     }
   }
+}
+
+class _EmergencyDetail extends StatelessWidget {
+  const _EmergencyDetail({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label, value;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Icon(icon, size: 20, color: context.gabay.danger),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: context.gabay.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: context.gabay.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 class _AnimatedNotificationItem extends StatelessWidget {

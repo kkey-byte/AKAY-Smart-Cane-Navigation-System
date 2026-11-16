@@ -24,6 +24,83 @@ Map<String, dynamic> incident(String id, String uid, String kind) => {
   'read_at': null,
 };
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets(
+      'SOS details preserve response actions at large text, dark=$dark',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 740);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final row = incident('sos-test', 'navigator-test', 'sos');
+        row['latitude'] = 10.0;
+        row['longitude'] = 120.0;
+        final actions = <String>[];
+        final service = NotificationService.forTest(
+          SecureApi(
+            client: MockClient((request) async {
+              if (request.method == 'POST') {
+                final action = jsonDecode(request.body)['action'] as String;
+                actions.add(action);
+                if (action == 'acknowledge') {
+                  row['acknowledged_at'] = DateTime.now().toIso8601String();
+                }
+                if (action == 'resolve') {
+                  row['resolved_at'] = DateTime.now().toIso8601String();
+                }
+                row['read_at'] = DateTime.now().toIso8601String();
+                return http.Response('{"accepted":true}', 200);
+              }
+              return http.Response(
+                jsonEncode({
+                  'alerts': [row],
+                }),
+                200,
+              );
+            }),
+            idToken: () async => 'synthetic',
+            bases: ['http://synthetic.invalid/api'],
+          ),
+        );
+        await service.refresh();
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: dark ? GabayTheme.darkTheme : GabayTheme.lightTheme,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
+            home: NotificationsPage(service: service),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('SOS EMERGENCY'), findsOneWidget);
+        expect(find.text('Needs response'), findsOneWidget);
+        await tester.tap(find.text('SOS — Synthetic navigator-test'));
+        await tester.pumpAndSettle();
+        expect(actions, ['read']);
+        expect(find.text('Status: Needs response'), findsOneWidget);
+        expect(
+          find.textContaining('not necessarily the current location'),
+          findsOneWidget,
+        );
+        await tester.tap(find.text('Acknowledge'));
+        await tester.pumpAndSettle();
+        expect(service.notifications.single.incident!.unresolved, isTrue);
+        expect(find.text('Status: Acknowledged'), findsOneWidget);
+        await tester.tap(find.text('Resolve alert'));
+        await tester.pumpAndSettle();
+        expect(actions, ['read', 'acknowledge', 'resolve']);
+        expect(find.text('Status: Resolved'), findsOneWidget);
+        expect(find.text('Acknowledge'), findsNothing);
+        expect(find.text('Resolve alert'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   test(
     'temporary outage retains saved incidents but access denial clears them',
     () async {

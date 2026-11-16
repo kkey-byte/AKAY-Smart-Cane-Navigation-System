@@ -64,36 +64,72 @@ class _Devices extends DashboardFake {
 }
 
 void main() {
-  testWidgets('Smart Cane transfer uses the original acceptance service', (
-    tester,
-  ) async {
-    final service = _Devices();
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: GabayTheme.lightTheme,
-        home: PairingManagementPage(
-          caregiver: false,
-          devicesOnly: true,
-          service: service,
+  testWidgets(
+    'existing canes replace registration above caregivers without duplicate entries',
+    (tester) async {
+      const first = RegisteredCane(id: 'device-a', serial: 'Cane A');
+      final service = _Devices()
+        ..canes = [
+          first,
+          first,
+          const RegisteredCane(id: 'device-b', serial: 'Cane B'),
+        ];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GabayTheme.lightTheme,
+          home: ViCaregiversPage(service: service),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Accept Transfer'));
-    await tester.tap(find.text('Accept Transfer'));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Private transfer code'),
-      'synthetic-transfer',
-    );
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 1));
-    expect(service.acceptedTransfer, 'synthetic-transfer');
-    await tester.pumpWidget(const SizedBox());
-    await service.close();
-    expect(tester.takeException(), isNull);
-  });
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Registered Smart Cane'), findsOneWidget);
+      expect(find.text('Cane A'), findsOneWidget);
+      expect(find.text('Cane B'), findsOneWidget);
+      expect(find.text('Register Cane'), findsNothing);
+      expect(find.text('Register Smart Cane'), findsNothing);
+      expect(
+        tester.getTopLeft(find.text('Registered Smart Cane')).dy,
+        lessThan(tester.getTopLeft(find.text('My Caregivers')).dy),
+      );
+      expect(service.requested, isNull);
+      await tester.pumpWidget(const SizedBox());
+      await service.close();
+    },
+  );
+  testWidgets(
+    'management shows registered device actions without registration content',
+    (tester) async {
+      final service = _Devices()
+        ..canes = [
+          const RegisteredCane(
+            id: 'synthetic-device',
+            serial: 'Test Cane',
+            assignmentId: 'assignment',
+          ),
+        ];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GabayTheme.lightTheme,
+          home: PairingManagementPage(
+            caregiver: false,
+            devicesOnly: true,
+            service: service,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Manage Smart Cane'), findsOneWidget);
+      expect(find.text('Registered Canes'), findsOneWidget);
+      expect(find.text('Register Cane'), findsNothing);
+      expect(find.text('Cane registration'), findsNothing);
+      expect(find.text('End assignment'), findsOneWidget);
+      expect(find.text('Transfer custody'), findsOneWidget);
+      expect(find.text('Release ownership'), findsOneWidget);
+      expect(service.requested, isNull);
+      await tester.pumpWidget(const SizedBox());
+      await service.close();
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final dark in [false, true]) {
     testWidgets(
       'registration rate limit stays distinct from missing authorization dark=$dark',
@@ -117,6 +153,7 @@ void main() {
               caregiver: false,
               devicesOnly: true,
               registerOnOpen: true,
+              registrationOnly: true,
               service: service,
             ),
           ),
@@ -230,19 +267,11 @@ void main() {
         );
         expect(find.text('My Caregivers'), findsOneWidget);
         expect(find.text('Why add caregivers?'), findsNothing);
-        await tester.scrollUntilVisible(
-          find.text('My Smart Cane'),
-          300,
-          scrollable: find.byType(Scrollable).last,
-        );
-        expect(find.text('No Smart Cane Registered'), findsOneWidget);
         expect(find.text('Register Cane'), findsOneWidget);
+        expect(find.text('Registered Smart Cane'), findsNothing);
         expect(
-          find.descendant(
-            of: find.byType(NavigatorSmartCaneSection),
-            matching: find.byType(OutlinedButton),
-          ),
-          findsNothing,
+          tester.getTopLeft(find.text('My Caregivers')).dy,
+          greaterThan(cane.dy),
         );
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
@@ -270,6 +299,8 @@ void main() {
       await tester.tap(action);
       await tester.pumpAndSettle();
       expect(find.text('Register a Cane'), findsOneWidget);
+      expect(find.byType(PairingManagementPage), findsNothing);
+      expect(find.byType(ViCaregiversPage), findsOneWidget);
       expect(find.text('Create invitation'), findsNothing);
       expect(find.text('Permanent Device ID'), findsNothing);
       expect(find.text('Private claim code'), findsNothing);
@@ -284,12 +315,24 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 1));
       expect(service.claimed, ['synthetic-device', 'server-authorized']);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('My Smart Cane'));
+      expect(find.byType(ViCaregiversPage), findsOneWidget);
+      expect(find.text('Registered Canes'), findsNothing);
+      expect(find.text('Transfer custody'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.text('Registered Smart Cane'),
+        300,
+        scrollable: find.byType(Scrollable).last,
+      );
       expect(find.text('Test Cane'), findsOneWidget);
       expect(find.text('Registered'), findsOneWidget);
-      expect(find.text('Assigned to you'), findsOneWidget);
+      expect(find.text('Register Smart Cane'), findsNothing);
+      expect(find.text('Register Cane'), findsNothing);
+      expect(
+        tester.getTopLeft(find.text('My Caregivers')).dy,
+        greaterThan(tester.getTopLeft(find.text('Registered Smart Cane')).dy),
+      );
+      expect(find.text('Assigned to you'), findsNothing);
+      expect(find.text('Manage Smart Cane'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await service.close();
@@ -327,6 +370,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(service.claimed, isNull);
         expect(service.canes, isEmpty);
+        expect(find.text('Register Smart Cane'), findsOneWidget);
+        expect(find.text('Registered Smart Cane'), findsNothing);
         expect(tester.takeException(), isNull);
         if (!cancel) {
           expect(find.byType(AlertDialog), findsOneWidget);
@@ -366,6 +411,7 @@ void main() {
           home: PairingManagementPage(
             caregiver: false,
             devicesOnly: true,
+            registrationOnly: true,
             service: service,
           ),
         ),
@@ -390,7 +436,7 @@ void main() {
           tester.getTopLeft(find.widgetWithText(FilledButton, 'Register')).dy,
         ),
       );
-      expect(find.text('Accept Transfer'), findsOneWidget);
+      expect(find.text('Accept Transfer'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
@@ -412,6 +458,7 @@ void main() {
             service: service,
             devicesOnly: true,
             registerOnOpen: true,
+            registrationOnly: true,
           ),
         ),
       );
@@ -451,7 +498,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Retry device list'));
       await tester.pumpAndSettle();
-      expect(find.text('No Smart Cane Registered'), findsOneWidget);
+      expect(find.text('Register Smart Cane'), findsOneWidget);
       expect(find.text('Unable to load registered canes.'), findsNothing);
       await tester.pumpWidget(const SizedBox());
       await service.close();

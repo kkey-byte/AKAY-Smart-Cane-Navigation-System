@@ -4,7 +4,12 @@ const {createMonitoringService}=require('../services/monitoringService');
 function setup({timeoutMs=50}={}) {
   const now=Date.UTC(2026,10,10),values=new Map(),history=new Map(),queries=[];
   const ctx={now,values,history,queries,assignments:[]};
-  const pool={query:async(_sql,args)=>{assert.deepEqual(args,['sql-nav']);return {rows:ctx.assignments};}};
+  const pool={query:async(sql,args)=>{
+    if(sql.includes('FROM akay_readings')) {
+      assert.deepEqual(args,['sql-nav','assignment']);return {rows:ctx.observations??[]};
+    }
+    assert.deepEqual(args,['sql-nav']);return {rows:ctx.assignments};
+  }};
   const firebase={database:()=>({ref:path=>({get:async()=>{
     const value=values.get(path);if(value instanceof Error)throw value;
     return {val:()=>value??null};
@@ -33,6 +38,28 @@ test('phone-first live monitoring never combines cane points with the phone sour
   const data=await c.service.read(c.nav);
   assert.equal(data.location.source,'phone_gps');assert.equal(data.points[0].latitude,10);
   assert.equal(data.trip.id,'phone-trip');assert.equal(data.phoneLocation.fresh,true);
+});
+
+test('firmware coordinates take precedence without requiring sensor flags or claiming freshness',async()=>{
+  const c=setup();c.assign();c.assignments[0].serial='test-cane';
+  c.values.set('phone_location/nav',c.phone());
+  c.values.set('Device_Location/test-cane',{latitude:12,longitude:22});
+  c.observations=[{latitude:12,longitude:22,sampled_at:new Date(c.now-1000)},
+    {latitude:11,longitude:21,sampled_at:new Date(c.now-2000)}];
+  const result=await c.service.read(c.nav);
+  assert.equal(result.location.latitude,12);assert.equal(result.location.source,'cane_gps');
+  assert.equal(result.location.live,false);assert.equal(result.location.observedOnly,true);
+  assert.deepEqual(result.points.map(p=>p.latitude),[11,12]);
+  c.assignments=[];
+  assert.equal((await c.service.read(c.nav)).location.source,'phone_gps');
+});
+
+test('invalid firmware coordinates are unavailable and failed firmware reads never masquerade as fresh',async()=>{
+  const c=setup();c.assign();c.assignments[0].serial='test-cane';
+  for(const value of [{latitude:91,longitude:20},{latitude:'12',longitude:20},{latitude:12},new Error('offline')]) {
+    c.values.set('Device_Location/test-cane',value);
+    assert.equal((await c.service.read(c.nav)).location,null);
+  }
 });
 test('stale phone falls back to a current cane and queries only that physical assignment history',async()=>{
   const c=setup();c.assign();c.values.set('phone_location/nav',c.phone(60000));

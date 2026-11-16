@@ -11,6 +11,7 @@ import '../../pages/shared/privacy_policy_page.dart';
 import '../../pages/shared/terms_conditions_page.dart';
 import '../../theme/gabay_theme.dart';
 import '../../theme/theme_controller.dart';
+import '../../services/gabay_tts_service.dart';
 import '../shared/floating_bottom_nav_shell.dart';
 import 'logout_confirmation_dialog.dart';
 import 'profile_header_clipper.dart';
@@ -352,6 +353,44 @@ class ProfileDarkModeToggle extends StatelessWidget {
   }
 }
 
+class ProfileTalkBackToggle extends StatelessWidget {
+  const ProfileTalkBackToggle({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final g = context.gabay;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return ListenableBuilder(
+      listenable: GabayTtsService.instance,
+      builder: (context, _) => Semantics(
+        label: 'TalkBack',
+        hint: 'Controls AKAY spoken guidance, not the Android screen reader',
+        child: Transform.scale(
+          scale: 0.85,
+          child: Switch(
+            value: GabayTtsService.instance.enabled,
+            onChanged: GabayTtsService.instance.setEnabled,
+            activeTrackColor: g.accent,
+            activeThumbColor: Colors.white,
+            inactiveTrackColor: dark
+                ? const Color(0xFF334155)
+                : const Color(0xFFB6C9E4),
+            inactiveThumbColor: dark ? const Color(0xFFE2E8F0) : Colors.white,
+            trackOutlineColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.selected)
+                  ? g.accent
+                  : dark
+                  ? const Color(0xFF94A3B8)
+                  : const Color(0xFF647FA5),
+            ),
+            trackOutlineWidth: const WidgetStatePropertyAll(1.5),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ProfileAvatar extends StatelessWidget {
   const _ProfileAvatar({this.asset, this.imageUrl});
 
@@ -489,6 +528,14 @@ List<ProfileMenuItem> profileOthersSection(BuildContext context) {
       title: 'Dark mode',
       trailing: const ProfileDarkModeToggle(),
       onTap: ThemeController.instance.toggle,
+    ),
+    ProfileMenuItem(
+      icon: Icons.record_voice_over_outlined,
+      title: 'TalkBack',
+      trailing: const ProfileTalkBackToggle(),
+      onTap: () => GabayTtsService.instance.setEnabled(
+        !GabayTtsService.instance.enabled,
+      ),
     ),
     ProfileMenuItem(
       icon: Icons.info_outline,

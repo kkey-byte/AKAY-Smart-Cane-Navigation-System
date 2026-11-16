@@ -18,12 +18,20 @@ import 'navigator_location_service.dart';
 /// - PostgreSQL `navigationsessions` via `/api/navigation/*`
 /// - account-owned phone GPS in Firebase (not physical cane telemetry)
 class NavigationPersistenceService {
-  NavigationPersistenceService._();
+  NavigationPersistenceService._() : api = SecureApi.instance;
+
+  @visibleForTesting
+  NavigationPersistenceService.forTest({
+    required this.api,
+    required String activeSessionId,
+  }) : sessionId = activeSessionId,
+       _identityRevision = AppSessionService.instance.identityRevision;
 
   static final NavigationPersistenceService instance =
       NavigationPersistenceService._();
 
   final _client = http.Client();
+  final SecureApi api;
   final _liveLocation = LiveLocationService.instance;
   final _location = NavigatorLocationService.instance;
 
@@ -34,6 +42,8 @@ class NavigationPersistenceService {
   LatLng? _lastLivePoint;
   Timer? _liveThrottle;
   bool _ending = false;
+  int _startGeneration = 0;
+  Future<void>? _endRequest;
   int? _identityRevision;
   String? syncError;
 
@@ -49,13 +59,15 @@ class NavigationPersistenceService {
   }
 
   /// Start a legacy phone navigation session and publish its phone GPS.
-  Future<void> startSession({
+  Future<String?> startSession({
     required LatLng origin,
     required MapPlace destination,
     String? originAddress,
   }) async {
+    final generation = ++_startGeneration;
     final revision = AppSessionService.instance.identityRevision;
     final device = await _ensureDeviceId();
+    if (generation != _startGeneration) return null;
     final session = AppSessionService.instance;
     final firebaseUid = FirebaseAuth.instance.currentUser?.uid;
 
@@ -95,10 +107,12 @@ class NavigationPersistenceService {
           .timeout(const Duration(seconds: 15));
 
       final body = _decode(response.body);
-      if (revision != session.identityRevision || !session.isLoggedIn) return;
+      if (revision != session.identityRevision || !session.isLoggedIn) {
+        return null;
+      }
       if (response.statusCode < 200 || response.statusCode >= 300) {
         debugPrint('Navigation start failed (${response.statusCode})');
-        return;
+        return null;
       }
 
       final sessionMap = body['session'];
@@ -107,8 +121,9 @@ class NavigationPersistenceService {
           : null;
       if (id == null || id.isEmpty) {
         debugPrint('Navigation start: missing sessionId in response');
-        return;
+        return null;
       }
+      if (generation != _startGeneration) return id;
 
       sessionId = id;
       _identityRevision = revision;
@@ -124,10 +139,24 @@ class NavigationPersistenceService {
       );
 
       debugPrint('Phone navigation session started.');
+      return id;
     } catch (_) {
-      syncError = 'Navigation session could not be saved.';
+      if (generation == _startGeneration &&
+          revision == AppSessionService.instance.identityRevision) {
+        syncError = 'Navigation session could not be saved.';
+      }
       debugPrint('Navigation start unavailable.');
     }
+    return null;
+  }
+
+  /// Called only after the cancellation has been durably queued for the server.
+  void clearCancelledSession({String? expectedSessionId}) {
+    if (expectedSessionId != null && sessionId != expectedSessionId) return;
+    _startGeneration++;
+    _endRequest = null;
+    _resetLocal();
+    syncError = null;
   }
 
   /// Publish own phone GPS; sync legacy Postgres summary periodically.
@@ -171,15 +200,28 @@ class NavigationPersistenceService {
     );
   }
 
-  Future<void> endSession({bool cancelled = false}) async {
-    if (!hasActiveSession || _ending) {
+  Future<void> endSession({bool cancelled = false}) {
+    final existing = _endRequest;
+    if (existing != null) return existing;
+    final operation = _endSession(cancelled: cancelled);
+    _endRequest = operation;
+    return operation.whenComplete(() {
+      if (identical(_endRequest, operation)) _endRequest = null;
+    });
+  }
+
+  Future<void> _endSession({required bool cancelled}) async {
+    if (!hasActiveSession) {
       if (!_liveLocation.sharingEnabled) {
         await _liveLocation.clear(deviceId: deviceId);
       }
       _resetLocal();
+      syncError = null;
       return;
     }
     _ending = true;
+    final endingId = sessionId;
+    final revision = _identityRevision;
     _liveThrottle?.cancel();
 
     final durationSec = _startedAt == null
@@ -191,37 +233,23 @@ class NavigationPersistenceService {
         : (_travelledMeters / 1000.0) / hours; // km/h
 
     try {
-      final uri = Uri.parse(
-        '${SecureApi.preferredBase ?? ApiConfig.baseUrl}/navigation/end',
-      );
-      if (kReleaseMode && uri.scheme != 'https') {
-        throw StateError('HTTPS is required for navigation persistence.');
-      }
-      final response = await _client
-          .post(
-            uri,
-            headers: {
-              'Authorization':
-                  'Bearer ${await FirebaseAuth.instance.currentUser?.getIdToken()}',
-              'Content-Type': 'application/json; charset=UTF-8',
-              'Accept': 'application/json',
-            },
-            body: jsonEncode({
-              'sessionId': sessionId,
-              'status': cancelled ? 'Cancelled' : 'Completed',
-              'totalDistance': double.parse(
-                _travelledMeters.toStringAsFixed(2),
-              ),
-              'duration': durationSec,
-              'averageSpeed': double.parse(avgSpeed.toStringAsFixed(2)),
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw StateError('Navigation end rejected.');
+      await api.request('POST', '/navigation/end', {
+        'sessionId': endingId,
+        'status': cancelled ? 'Cancelled' : 'Completed',
+        'totalDistance': double.parse(_travelledMeters.toStringAsFixed(2)),
+        'duration': durationSec,
+        'averageSpeed': double.parse(avgSpeed.toStringAsFixed(2)),
+      });
+      if (sessionId != endingId ||
+          revision != AppSessionService.instance.identityRevision) {
+        return;
       }
       syncError = null;
     } catch (_) {
+      if (sessionId != endingId ||
+          revision != AppSessionService.instance.identityRevision) {
+        return;
+      }
       syncError = 'Navigation end could not be saved. Retry when connected.';
       _ending = false;
       if (!_liveLocation.sharingEnabled) {
@@ -238,6 +266,8 @@ class NavigationPersistenceService {
 
   Future<void> _syncLiveToPostgres() async {
     if (!hasActiveSession || _ending) return;
+    final activeId = sessionId;
+    final revision = _identityRevision;
     final durationSec = _startedAt == null
         ? 0
         : DateTime.now().difference(_startedAt!).inSeconds;
@@ -261,7 +291,7 @@ class NavigationPersistenceService {
               'Accept': 'application/json',
             },
             body: jsonEncode({
-              'sessionId': sessionId,
+              'sessionId': activeId,
               'totalDistance': double.parse(
                 _travelledMeters.toStringAsFixed(2),
               ),
@@ -274,9 +304,17 @@ class NavigationPersistenceService {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw StateError('Navigation update rejected.');
       }
-      syncError = null;
+      if (sessionId == activeId &&
+          revision == AppSessionService.instance.identityRevision &&
+          !_ending) {
+        syncError = null;
+      }
     } catch (_) {
-      syncError = 'Navigation progress could not be saved.';
+      if (sessionId == activeId &&
+          revision == AppSessionService.instance.identityRevision &&
+          !_ending) {
+        syncError = 'Navigation progress could not be saved.';
+      }
     }
   }
 

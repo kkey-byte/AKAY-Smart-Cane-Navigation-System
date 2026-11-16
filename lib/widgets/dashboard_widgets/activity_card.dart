@@ -277,7 +277,7 @@ class RecentActivityContent extends StatelessWidget {
       if (trip.hasRecordedDistance) {
         parts.add('${(trip.distanceMeters / 1000).toStringAsFixed(2)} km');
       }
-      final duration = trip.walkingDuration;
+      final duration = trip.elapsedDuration;
       if (duration != null) {
         parts.add(
           duration.inHours > 0

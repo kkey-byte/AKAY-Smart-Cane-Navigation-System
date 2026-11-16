@@ -1,14 +1,15 @@
 'use strict';
 const {randomUUID}=require('node:crypto');
 const {isDeepStrictEqual}=require('node:util');
+const {batteryPercent}=require('./caneBatteryService');
+const {caneCoordinates}=require('./caneCoordinates');
 
 // The firmware record has no capture timestamp. All times below are backend
 // observation times, never a claim about when the hardware sampled a location.
 function parseDeviceLocation(raw) {
   if(!raw || typeof raw!=='object' || Array.isArray(raw)) return null;
   if(typeof raw.unsafe!=='boolean' || typeof raw.fallAlert!=='boolean') return null;
-  const battery=typeof raw.batteryLevel==='number' && Number.isFinite(raw.batteryLevel)
-    && raw.batteryLevel>=0 && raw.batteryLevel<=1 ? Math.round(raw.batteryLevel*100) : null;
+  const battery=batteryPercent(raw.batteryLevel);
   const coordinates=Number.isFinite(raw.latitude) && Number.isFinite(raw.longitude)
     && Math.abs(raw.latitude)<=90 && Math.abs(raw.longitude)<=180;
   return {sos:raw.unsafe,fall:raw.fallAlert,battery,
@@ -44,7 +45,10 @@ function createDeviceLocationService(pool,firebase,{onError=()=>{}}={}) {
         WHERE assignment_id=$1 FOR UPDATE`,[device.id]);
       const state=result.rows[0];
       const now=new Date(state.now).getTime();
-      const next=transition(state,sample,now,{initial});
+      const next=sample.coordinatesOnly
+        ? {sos:false,motion:false,started:state.fall_started_at==null?null:new Date(state.fall_started_at).getTime(),
+          notified:state.fall_notified,wait:null}
+        : transition(state,sample,now,{initial});
       if(!isDeepStrictEqual(state.payload,sample) || next.sos || next.motion) {
         const reading=await db.query(`INSERT INTO akay_readings(device_id,assignment_id,navigator_id,
           credential_id,sequence,sampled_at,latitude,longitude,battery,status,source)
@@ -60,7 +64,7 @@ function createDeviceLocationService(pool,firebase,{onError=()=>{}}={}) {
       }
       await db.query(`UPDATE akay_device_location_state SET sequence=$2,sos_active=$3,
         fall_started_at=$4,fall_notified=$5,payload=$6,observed_at=$7 WHERE assignment_id=$1`,
-      [device.id,state.sequence,sample.sos,next.started===null?null:new Date(next.started),next.notified,JSON.stringify(sample),new Date(now)]);
+      [device.id,state.sequence,sample.coordinatesOnly?state.sos_active:sample.sos,next.started===null?null:new Date(next.started),next.notified,JSON.stringify(sample),new Date(now)]);
       await db.query('COMMIT');return next.wait;
     } catch(error) {await db.query('ROLLBACK');throw error;} finally {db.release();}
   }
@@ -74,7 +78,9 @@ function createDeviceLocationService(pool,firebase,{onError=()=>{}}={}) {
     const enqueue=(raw,revision,confirmation=false)=>{
       watch.queue=watch.queue.then(async()=>{
         if(watch.closed || (confirmation && revision!==watch.revision)) return;
-        const sample=parseDeviceLocation(raw);
+        const sample=parseDeviceLocation(raw)??(caneCoordinates(raw)?{
+          ...caneCoordinates(raw),battery:batteryPercent(raw.batteryLevel),coordinatesOnly:true,
+        }:null);
         clearTimeout(watch.timer);
         if(!sample) {
           await pool.query(`UPDATE akay_device_location_state SET payload=NULL,fall_started_at=NULL

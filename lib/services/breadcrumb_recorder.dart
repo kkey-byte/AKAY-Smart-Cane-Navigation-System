@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/breadcrumb_trip.dart';
 import 'breadcrumb_repository.dart';
 import 'breadcrumb_motion_filter.dart';
+import 'walking_duration_tracker.dart';
 import 'secure_api.dart';
 
 /// Account-scoped durable outbox. Cloud failures never discard recorded points.
@@ -15,6 +16,7 @@ class BreadcrumbRecorder extends ChangeNotifier {
   final Map<String, BreadcrumbTrip> _trips = {};
   final Set<String> _pending = {};
   final _motion = BreadcrumbMotionFilter();
+  final _walking = WalkingDurationTracker();
   Future<void> _diskQueue = Future.value();
   Future<void>? _upload;
   String? ownerId;
@@ -91,16 +93,22 @@ class BreadcrumbRecorder extends ChangeNotifier {
     final uid = ownerId;
     if (uid == null) throw StateError('Sign in to record a track.');
     if (storageError != null) throw StateError(storageError!);
-    final id = '${DateTime.now().microsecondsSinceEpoch}';
+    var stamp = DateTime.now().microsecondsSinceEpoch;
+    while (_trips.containsKey('$stamp')) {
+      stamp++;
+    }
+    final id = '$stamp';
     _trips[id] = BreadcrumbTrip(
       id: id,
       ownerId: uid,
       name: name,
       startedAt: first.time,
       points: [first],
+      walkingDurationSeconds: 0,
     );
     activeId = id;
     _motion.reset(first);
+    _walking.reset(first);
     _pending.add(id);
     await _persist();
     notifyListeners();
@@ -108,20 +116,28 @@ class BreadcrumbRecorder extends ChangeNotifier {
 
   Future<void> record(BreadcrumbPoint point, DateTime now) async {
     final trip = active;
-    if (trip == null ||
-        !shouldRecordBreadcrumb(null, point, now) ||
+    if (trip == null) return;
+    final walked = _walking.add(point, now);
+    final walkingSeconds =
+        (trip.walkingDurationSeconds ?? 0) +
+        walked.inMicroseconds / Duration.microsecondsPerSecond;
+    if (!shouldRecordBreadcrumb(null, point, now) ||
         !point.time.isAfter(trip.lastSampledAt ?? trip.points.last.time)) {
       return;
     }
     final movement = _motion.add(point, now);
     if (movement.isEmpty) {
       if (point.time.difference(trip.lastSampledAt ?? trip.points.last.time) <
-          const Duration(seconds: 30)) {
+              const Duration(seconds: 30) &&
+          walked == Duration.zero) {
         return;
       }
       // Freshness is separate from route geometry. Never relabel the original
       // capture time of an already uploaded stationary endpoint.
-      _trips[trip.id] = trip.copyWith(lastSampledAt: point.time);
+      _trips[trip.id] = trip.copyWith(
+        lastSampledAt: point.time,
+        walkingDurationSeconds: walkingSeconds,
+      );
     } else {
       final points = trip.points.toList();
       // Preserve the existing 500-vertex bound if confirmation lands at 499.
@@ -134,12 +150,15 @@ class BreadcrumbRecorder extends ChangeNotifier {
           ),
         ],
         lastSampledAt: point.time,
+        walkingDurationSeconds: walkingSeconds,
       );
     }
     _pending.add(trip.id);
     await _persist();
     notifyListeners();
   }
+
+  void interruptWalkingMeasurement() => _walking.interrupt();
 
   Future<void> stop({
     String status = 'completed',

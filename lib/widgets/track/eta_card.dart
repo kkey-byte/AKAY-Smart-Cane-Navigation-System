@@ -21,6 +21,7 @@ class EtaCard extends StatefulWidget {
     required this.currentLocationAddress,
     required this.onDragDismiss,
     required this.onCancelDestination,
+    this.hasArrived = false,
   });
 
   final RoutePlanResult route;
@@ -28,6 +29,7 @@ class EtaCard extends StatefulWidget {
   final String currentLocationAddress;
   final VoidCallback onDragDismiss;
   final VoidCallback onCancelDestination;
+  final bool hasArrived;
 
   @override
   State<EtaCard> createState() => _EtaCardState();
@@ -159,9 +161,11 @@ class _EtaCardState extends State<EtaCard> {
                             borderRadius: BorderRadius.circular(999),
                           ),
                         ),
-                        child: const Text(
-                          'Cancel Destination',
-                          style: TextStyle(
+                        child: Text(
+                          widget.hasArrived
+                              ? 'Finish Navigation'
+                              : 'Cancel Destination',
+                          style: const TextStyle(
                             fontSize: GabayTypography.cardTitle,
                             fontWeight: GabayTypography.medium,
                           ),

@@ -64,6 +64,7 @@ class BreadcrumbTrip {
     this.recordedPointCount,
     this.recordedDistanceMeters,
     this.recordedDurationSeconds,
+    this.walkingDurationSeconds,
     this.lastSampledAt,
     this.sourceType = 'phone_gps',
     this.deviceId,
@@ -79,13 +80,26 @@ class BreadcrumbTrip {
   final int? recordedPointCount;
   final double? recordedDistanceMeters;
   final int? recordedDurationSeconds;
-  Duration? get walkingDuration {
+  final double? walkingDurationSeconds;
+
+  /// Total trip time remains separate from measured walking intervals.
+  Duration? get elapsedDuration {
     if (recordedDurationSeconds != null) {
       return Duration(seconds: recordedDurationSeconds!);
     }
     final end = endedAt ?? lastSampledAt ?? points.lastOrNull?.time;
-    if (end == null || end.isBefore(startedAt)) return null;
-    return end.difference(startedAt);
+    return end == null || end.isBefore(startedAt)
+        ? null
+        : end.difference(startedAt);
+  }
+
+  Duration? get walkingDuration {
+    final seconds = walkingDurationSeconds;
+    return seconds == null || !seconds.isFinite || seconds < 0
+        ? null
+        : Duration(
+            microseconds: (seconds * Duration.microsecondsPerSecond).round(),
+          );
   }
 
   final DateTime? lastSampledAt;
@@ -122,6 +136,7 @@ class BreadcrumbTrip {
     String? status,
     DateTime? endedAt,
     DateTime? lastSampledAt,
+    double? walkingDurationSeconds,
   }) => BreadcrumbTrip(
     id: id,
     ownerId: ownerId,
@@ -139,6 +154,8 @@ class BreadcrumbTrip {
         points == null && endedAt == null && lastSampledAt == null
         ? recordedDurationSeconds
         : null,
+    walkingDurationSeconds:
+        walkingDurationSeconds ?? this.walkingDurationSeconds,
     lastSampledAt:
         lastSampledAt ?? (points == null ? this.lastSampledAt : null),
   );
@@ -157,6 +174,8 @@ class BreadcrumbTrip {
       'distanceMeters': recordedDistanceMeters,
     if (recordedDurationSeconds != null)
       'durationSeconds': recordedDurationSeconds,
+    if (walkingDurationSeconds != null)
+      'walkingDurationSeconds': walkingDurationSeconds,
     if (lastSampledAt != null)
       'lastSampledAt': lastSampledAt!.millisecondsSinceEpoch,
     'points': {
@@ -210,6 +229,12 @@ class BreadcrumbTrip {
               (raw['durationSeconds'] as num).isFinite &&
               (raw['durationSeconds'] as num) >= 0
           ? (raw['durationSeconds'] as num).toInt()
+          : null,
+      walkingDurationSeconds:
+          raw['walkingDurationSeconds'] is num &&
+              (raw['walkingDurationSeconds'] as num).isFinite &&
+              (raw['walkingDurationSeconds'] as num) >= 0
+          ? (raw['walkingDurationSeconds'] as num).toDouble()
           : null,
       lastSampledAt: raw['lastSampledAt'] is num
           ? DateTime.fromMillisecondsSinceEpoch(

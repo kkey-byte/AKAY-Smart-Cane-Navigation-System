@@ -41,20 +41,34 @@ test('database/Firebase failures produce independent fallback fields rather than
 });
 test('dashboard exposes changing cane signals with observation times and current custody',async()=>{
   const ctx=setup(),query=ctx.pool.query;
-  let battery=50,sos=false,fall=false;
+  ctx.sources['Device_Location/00001/batteryLevel']=0.5;
+  ctx.sources['Device_Location/00001/unsafe']=false;
+  ctx.sources['Device_Location/00001/fallAlert']=false;
   ctx.pool.query=(sql,args)=>{
+    if(sql.includes('SELECT d.id,d.serial,a.id AS assignment_id FROM')) return Promise.resolve({rows:[{id:'device',serial:'00001',assignment_id:'assignment'}]});
     if(sql.includes('akay_device_location_state')) {
-      assert.match(sql,/d.owner_id=a.navigator_id/);
-      assert.match(sql,/a.ended_at IS NULL/);
-      return Promise.resolve({rows:[{serial:'00001',payload:{battery,sos,fall},observed_at:new Date(ctx.now()),fall_notified:fall}]});
+      throw new Error('Current status must never use the saved telemetry copy.');
     }
     return query(sql,args);
   };
   const first=await ctx.service.snapshot({},'nav');assert.equal(first.cane.battery,50);
-  battery=25;sos=true;fall=true;
+  ctx.sources['Device_Location/00001/batteryLevel']=0.25;
+  ctx.sources['Device_Location/00001/unsafe']=true;
+  ctx.sources['Device_Location/00001/fallAlert']=true;
   const second=await ctx.service.snapshot({},'nav');
   assert.equal(second.cane.battery,25);assert.equal(second.cane.sos,true);assert.equal(second.cane.fall,true);
   assert.equal(ctx.checks(),4);
+  ctx.sources['Device_Location/00001/batteryLevel']=81.07422;
+  assert.equal((await ctx.service.snapshot({},'nav')).cane.battery,81);
+  ctx.sources['Device_Location/00001/batteryLevel']=new Error('Synthetic offline');
+  assert.equal((await ctx.service.snapshot({},'nav')).cane.battery,null);
+  ctx.sources['Device_Location/00001/unsafe']=false;
+  ctx.sources['Device_Location/00001/fallAlert']=false;
+  const reset=await ctx.service.snapshot({},'nav');
+  assert.equal(reset.cane.sos,false);assert.equal(reset.cane.fall,false);
+  ctx.sources['Device_Location/00001/unsafe']=new Error('Synthetic signal offline');
+  const offline=await ctx.service.snapshot({},'nav');
+  assert.equal(offline.cane.sos,null);assert.equal(offline.cane.fall,false);
 });
 test('revocation racing an asynchronous read prevents returning dashboard locations',async()=>{
   const ctx=setup();ctx.pool.query=async()=>{ctx.deny();return {rows:[]};};

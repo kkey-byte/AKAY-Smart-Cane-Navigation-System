@@ -65,6 +65,7 @@ void main() {
         startedAt: time,
         status: 'completed',
         endedAt: time.add(const Duration(minutes: 2)),
+        walkingDurationSeconds: 35.5,
         points: [
           for (var i = 0; i < 85; i++)
             BreadcrumbPoint(10, 20, time.add(Duration(seconds: i)), 5),
@@ -81,6 +82,7 @@ void main() {
       expect(requests.skip(4).take(3).map((r) => r.body), first);
       expect(requests.last.url.path, endsWith('/summary'));
       expect(jsonDecode(requests.last.body)['pointCount'], 85);
+      expect(jsonDecode(requests.last.body)['walkingDurationSeconds'], 35.5);
       final points = requests
           .take(3)
           .expand((r) => jsonDecode(r.body)['points'] as List)

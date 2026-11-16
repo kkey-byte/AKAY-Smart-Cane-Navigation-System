@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../services/pairing_service.dart';
 import '../../widgets/shared/dashboard_pairing_card.dart';
 import '../../widgets/profile/navigator_smart_cane_section.dart';
+import '../../widgets/profile/cane_registration_dialog.dart';
 import '../../models/pairing.dart';
 import '../../services/app_session_service.dart';
 import '../../theme/gabay_theme.dart';
@@ -25,6 +26,7 @@ class _ViCaregiversPageState extends State<ViCaregiversPage> {
   List<RegisteredCane>? _devices;
   String? _deviceError;
   bool? _loadingDevices = true;
+  bool? _registrationOpen = false;
   int _deviceRequest = 0;
   bool get _valid => _revision == AppSessionService.instance.identityRevision;
 
@@ -74,6 +76,17 @@ class _ViCaregiversPageState extends State<ViCaregiversPage> {
 
   Future<void> _openDevices({bool register = false}) async {
     if (!_valid) return;
+    if (register) {
+      if (_registrationOpen == true) return;
+      _registrationOpen = true;
+      try {
+        await showCaneRegistrationDialog(context, _service);
+      } finally {
+        _registrationOpen = false;
+      }
+      if (mounted && _valid) await _loadDevices();
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PairingManagementPage(
@@ -81,6 +94,7 @@ class _ViCaregiversPageState extends State<ViCaregiversPage> {
           service: _service,
           devicesOnly: true,
           registerOnOpen: register,
+          registrationOnly: register,
         ),
       ),
     );
@@ -129,19 +143,23 @@ class _ViCaregiversPageState extends State<ViCaregiversPage> {
                   service: widget.service,
                   showManageConnections: false,
                   allowDisconnect: true,
-                  companionAction: SmartCaneActionCard(
-                    compact: true,
-                    onRegister: _valid
-                        ? () => _openDevices(register: true)
-                        : null,
-                  ),
-                ),
-                NavigatorSmartCaneSection(
-                  devices: _devices,
-                  loading: _loadingDevices,
-                  error: _deviceError,
-                  onManage: _valid ? () => _openDevices() : null,
-                  onRetry: _valid ? _loadDevices : null,
+                  companionAction:
+                      _loadingDevices != false ||
+                          _deviceError != null ||
+                          _devices?.isNotEmpty == true
+                      ? NavigatorSmartCaneSection(
+                          devices: _devices,
+                          loading: _loadingDevices,
+                          error: _deviceError,
+                          onManage: null,
+                          onRetry: _valid ? _loadDevices : null,
+                        )
+                      : SmartCaneActionCard(
+                          compact: true,
+                          onRegister: _valid
+                              ? () => _openDevices(register: true)
+                              : null,
+                        ),
                 ),
               ],
             ),

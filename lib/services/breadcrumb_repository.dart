@@ -51,6 +51,8 @@ class FirebaseBreadcrumbRepository implements BreadcrumbRepository {
       'status': trip.status,
       'endedAt': trip.endedAt?.millisecondsSinceEpoch,
       'pointCount': trip.points.length,
+      if (trip.walkingDurationSeconds != null)
+        'walkingDurationSeconds': trip.walkingDurationSeconds,
       'lastSampledAt':
           (trip.lastSampledAt ?? trip.points.last.time).millisecondsSinceEpoch,
     });

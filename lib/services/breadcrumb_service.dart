@@ -191,6 +191,24 @@ class BreadcrumbService extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(recorder?.sync() ?? Future.value());
   }
 
+  Future<void> beginNavigation(String destination) async {
+    await initialize();
+    await _tracker!.beginNavigation(destination);
+    if (recorder?.storageError != null) {
+      throw StateError(recorder!.storageError!);
+    }
+    unawaited(recorder!.sync());
+  }
+
+  Future<void> finishNavigation({bool cancelled = false}) async {
+    await initialize();
+    await _tracker!.finishNavigation(cancelled: cancelled);
+    if (recorder?.storageError != null) {
+      throw StateError(recorder!.storageError!);
+    }
+    unawaited(recorder!.sync());
+  }
+
   Future<void> deleteTrip(String tripId) async {
     await initialize();
     final owner = _eligibleOwner();

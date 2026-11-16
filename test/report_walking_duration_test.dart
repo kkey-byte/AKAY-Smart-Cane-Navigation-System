@@ -11,7 +11,7 @@ BreadcrumbTrip trip({Object? seconds, int? end}) =>
       'startedAt': 1000,
       'endedAt': end,
       'status': 'completed',
-      'durationSeconds': seconds,
+      'walkingDurationSeconds': seconds,
     })!;
 
 void main() {
@@ -28,16 +28,16 @@ void main() {
     },
   );
 
-  test('older trips use recorded timestamps and reject invalid durations', () {
-    expect(trip(end: 61000).walkingDuration, const Duration(minutes: 1));
-    expect(
-      trip(seconds: -1, end: 61000).walkingDuration,
-      const Duration(minutes: 1),
-    );
-    expect(trip().walkingDuration, isNull);
-    expect(trip(end: 0).walkingDuration, isNull);
-    expect(trip(seconds: 0).walkingDuration, Duration.zero);
-  });
+  test(
+    'older elapsed timestamps are not reported as walking and invalid measurements stay unknown',
+    () {
+      expect(trip(end: 61000).walkingDuration, isNull);
+      expect(trip(seconds: -1, end: 61000).walkingDuration, isNull);
+      expect(trip().walkingDuration, isNull);
+      expect(trip(end: 0).walkingDuration, isNull);
+      expect(trip(seconds: 0).walkingDuration, Duration.zero);
+    },
+  );
 
   for (final owner in [false, true]) {
     testWidgets('reports sum only today walking duration localOwner=$owner', (
@@ -110,5 +110,5 @@ BreadcrumbTrip datedTrip(DateTime start, int seconds) => BreadcrumbTrip(
   endedAt: start.add(Duration(seconds: seconds)),
   status: 'completed',
   points: const [],
-  recordedDurationSeconds: seconds,
+  walkingDurationSeconds: seconds.toDouble(),
 );

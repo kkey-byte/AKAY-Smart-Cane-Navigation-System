@@ -24,6 +24,8 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
   Future<void> _queue = Future.value();
   String? _sessionOwner;
   bool _paused = false;
+  String? _navigationName;
+  bool _restorePauseAfterNavigation = false;
   int _generation = 0;
   String? error;
   bool get requested => eligibleOwner() != null && !_paused;
@@ -46,6 +48,8 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
       if (generation != _generation) return;
       if (_sessionOwner != owner) {
         await recorder.stop(status: 'interrupted');
+        _navigationName = null;
+        _restorePauseAfterNavigation = false;
         await backgroundRecording(false);
         await recorder.openAccount(owner);
         _sessionOwner = owner;
@@ -79,6 +83,7 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
     final point = currentPoint();
     final now = clock();
     if (point == null || !shouldRecordBreadcrumb(null, point, now)) {
+      recorder.interruptWalkingMeasurement();
       if (kDebugMode && error == null) {
         final reason = point == null
             ? 'no location fix'
@@ -129,7 +134,10 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
       return;
     }
     if (recorder.active == null) {
-      await recorder.start('Daily track ${_date(point.time)}', point);
+      await recorder.start(
+        _navigationName ?? 'Daily track ${_date(point.time)}',
+        point,
+      );
     } else {
       await recorder.record(point, now);
     }
@@ -143,9 +151,64 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
       '${time.year}-${time.month.toString().padLeft(2, '0')}-${time.day.toString().padLeft(2, '0')}';
 
   Future<void> resume() {
+    _restorePauseAfterNavigation = false;
     _paused = false;
     return _reconcile(resume: true);
   }
+
+  /// Split route breadcrumbs from the existing daily track without changing
+  /// ownership, upload paths, or the user's recording preference after the trip.
+  Future<void> beginNavigation(String destination) async {
+    final owner = eligibleOwner();
+    if (owner == null) {
+      throw StateError('Sign in as a navigator to record a route.');
+    }
+    await reconcile();
+    await _enqueue(() async {
+      if (eligibleOwner() != owner || recorder.ownerId != owner) return;
+      final restorePause = _navigationName == null
+          ? _paused
+          : _restorePauseAfterNavigation;
+      await recorder.stop(
+        status: _navigationName == null ? 'completed' : 'interrupted',
+        endedAt: clock(),
+      );
+      final label = destination.trim();
+      _navigationName =
+          'Point-to-Point: ${label.length > 480 ? label.substring(0, 480) : label}';
+      _restorePauseAfterNavigation = restorePause;
+      _paused = false;
+      await recorder.setRecordingPaused(false);
+      await startLocation();
+      if (eligibleOwner() != owner || recorder.ownerId != owner) return;
+      await backgroundRecording(true);
+      await _recordCurrent(owner);
+    });
+  }
+
+  /// Finish the named route locally first; the durable outbox handles upload.
+  Future<void> finishNavigation({bool cancelled = false}) => _enqueue(() async {
+    if (_navigationName == null) return;
+    final owner = eligibleOwner();
+    if (owner != null &&
+        owner == recorder.ownerId &&
+        !_paused &&
+        recorder.active != null) {
+      await _recordCurrent(owner);
+    }
+    await recorder.stop(
+      status: cancelled ? 'interrupted' : 'completed',
+      endedAt: clock(),
+    );
+    _navigationName = null;
+    if (_restorePauseAfterNavigation) {
+      _paused = true;
+      await recorder.setRecordingPaused(true);
+      await backgroundRecording(false);
+    }
+    _restorePauseAfterNavigation = false;
+    notifyListeners();
+  });
 
   /// Explicit user pause or logout, rather than route completion.
   Future<void> pause({bool rememberPause = true}) {
@@ -153,7 +216,11 @@ class ContinuousBreadcrumbTracker extends ChangeNotifier {
     _generation++;
     return _enqueue(() async {
       try {
-        await recorder.stop(endedAt: clock(), pauseRecording: rememberPause);
+        await recorder.stop(
+          status: _navigationName == null ? 'completed' : 'interrupted',
+          endedAt: clock(),
+          pauseRecording: rememberPause,
+        );
         error = null;
       } finally {
         await backgroundRecording(false);
