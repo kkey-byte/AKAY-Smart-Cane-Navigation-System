@@ -22,6 +22,10 @@ class DashboardSnapshot {
     this.recordedTripId,
     this.recordedOnly = false,
     this.liveEnabled = true,
+    this.caneBattery,
+    this.caneSos,
+    this.caneFall,
+    this.caneObservedAt,
   });
   final String uid, name, presence;
   final LatLng? position, target;
@@ -38,6 +42,16 @@ class DashboardSnapshot {
   final List<String> errors;
   final String? sourceType, deviceId, assignmentId, recordedTripId;
   final bool recordedOnly, liveEnabled;
+  final int? caneBattery;
+  final bool? caneSos, caneFall;
+  final DateTime? caneObservedAt;
+  String get caneBatteryLabel =>
+      caneBattery == null ? 'Unavailable' : '$caneBattery%';
+  String get caneSignalLabel {
+    if (caneSos == null || caneFall == null) return 'Cane signals unavailable';
+    return '${caneSos! ? 'SOS active' : 'SOS off'} · ${caneFall! ? 'Fall detected' : 'No fall signal'}';
+  }
+
   bool fresh(DateTime now) =>
       !recordedOnly &&
       liveEnabled &&
@@ -133,6 +147,18 @@ class DashboardSnapshot {
       recordedTripId: clean(asMap(data['recordedTrip'])['id']),
       recordedOnly: location['recordedOnly'] == true,
       liveEnabled: location['live'] != false,
+      caneBattery: switch (number(asMap(data['cane'])['battery'], 100)) {
+        final value? when value >= 0 && value == value.roundToDouble() =>
+          value.toInt(),
+        _ => null,
+      },
+      caneSos: asMap(data['cane'])['sos'] is bool
+          ? asMap(data['cane'])['sos'] as bool
+          : null,
+      caneFall: asMap(data['cane'])['fall'] is bool
+          ? asMap(data['cane'])['fall'] as bool
+          : null,
+      caneObservedAt: date(asMap(data['cane'])['observedAt']),
     );
   }
   static Map<String, dynamic> asMap(Object? raw) =>

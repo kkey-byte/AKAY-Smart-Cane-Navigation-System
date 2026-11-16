@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_top_message.dart';
 import '../../widgets/shared/gabay_modal_motion.dart';
 import 'pairing_management_page.dart';
 import 'dart:async';
@@ -143,9 +144,7 @@ class _BreadcrumbHistoryPageState extends State<BreadcrumbHistoryPage> {
       await action();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        showGabayTopMessage(context, SnackBar(content: Text(error.toString())));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -200,7 +199,8 @@ class _BreadcrumbHistoryPageState extends State<BreadcrumbHistoryPage> {
                                     .timeout(const Duration(seconds: 12));
                               } catch (_) {
                                 if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  showGabayTopMessage(
+                                    context,
                                     const SnackBar(
                                       content: Text(
                                         'Access could not be removed. Try again.',

@@ -4,19 +4,25 @@ import 'package:flutter/material.dart';
 import '../../widgets/shared/gabay_selection_dialog.dart';
 import '../../theme/gabay_theme.dart';
 import '../../models/pairing.dart';
+import '../../models/cane_registration_challenge.dart';
 import '../../services/app_session_service.dart';
 import '../../services/pairing_service.dart';
 import '../../widgets/shared/gabay_detail_page_scaffold.dart';
 import '../../widgets/shared/navigator_data_card.dart';
+import '../../widgets/shared/gabay_card.dart';
+import '../../widgets/profile/smart_cane_management_views.dart';
 
 class PairingManagementPage extends StatefulWidget {
   const PairingManagementPage({
     super.key,
     required this.caregiver,
     this.service,
+    this.devicesOnly = false,
+    this.registerOnOpen = false,
   });
   final bool caregiver;
   final PairingService? service;
+  final bool devicesOnly, registerOnOpen;
   @override
   State<PairingManagementPage> createState() => _PairingManagementPageState();
 }
@@ -30,6 +36,7 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
   String? _deviceError;
   String? _selectedUid;
   bool _busy = false;
+  bool _registrationOpen = false;
   late final int _revision;
   @override
   void initState() {
@@ -38,6 +45,14 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
     _revision = AppSessionService.instance.identityRevision;
     AppSessionService.instance.addListener(_sessionChanged);
     _listen();
+    if (widget.registerOnOpen && !widget.caregiver) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            _revision == AppSessionService.instance.identityRevision) {
+          unawaited(_registerCane());
+        }
+      });
+    }
   }
 
   void _sessionChanged() {
@@ -128,6 +143,187 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
     }
   }
 
+  Future<void> _registerCane() async {
+    if (_registrationOpen ||
+        _busy ||
+        widget.caregiver ||
+        _revision != AppSessionService.instance.identityRevision) {
+      return;
+    }
+    _registrationOpen = true;
+    final controller = TextEditingController();
+    final request = _service.requestCaneRegistration();
+    // Handle immediate failures even before the dialog's first frame subscribes.
+    unawaited(request.then<void>((_) {}, onError: (Object _) {}));
+    var submitting = false;
+    String? error;
+    try {
+      final registered = await showDialog<bool>(
+        animationStyle: gabayModalAnimation(context),
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, update) => FutureBuilder<CaneRegistrationChallenge>(
+            future: request,
+            builder: (context, snapshot) {
+              final challenge = snapshot.data;
+              return AlertDialog(
+                backgroundColor: context.gabay.surface,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  side: BorderSide(
+                    color: context.gabay.border.withValues(alpha: .7),
+                  ),
+                ),
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: context.gabay.accentTint,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(
+                        Icons.sensors_rounded,
+                        color: context.gabay.accent,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('Register a Cane'),
+                  ],
+                ),
+                titleTextStyle: TextStyle(
+                  color: context.gabay.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+                contentTextStyle: GabayTheme.bodyMedium(
+                  context,
+                ).copyWith(fontSize: 14, height: 1.5),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (snapshot.hasError)
+                        Text(
+                          snapshot.error.toString().contains(
+                                'No cane is authorized for your account',
+                              )
+                              ? 'No cane is authorized for your account. Ask the cane provider to prepare your registration.'
+                              : snapshot.error.toString(),
+                        )
+                      else if (challenge == null)
+                        const Text('Requesting registration code…')
+                      else ...[
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: context.gabay.accentTint,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: SelectableText(
+                            challenge.code,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: context.gabay.textPrimary,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 3,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Expires: ${challenge.expiresAt.toLocal()}',
+                          style: GabayTheme.labelSmall(context),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: controller,
+                          enabled: !submitting,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          decoration: const InputDecoration(
+                            labelText: 'Registration code',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton(
+                          onPressed: submitting
+                              ? null
+                              : () async {
+                                  if (_revision !=
+                                      AppSessionService
+                                          .instance
+                                          .identityRevision) {
+                                    Navigator.pop(dialogContext, false);
+                                    return;
+                                  }
+                                  if (controller.text.trim().isEmpty) {
+                                    update(
+                                      () => error =
+                                          'Enter the registration code.',
+                                    );
+                                    return;
+                                  }
+                                  update(() {
+                                    submitting = true;
+                                    error = null;
+                                  });
+                                  try {
+                                    await _service.confirmCaneRegistration(
+                                      challenge.id,
+                                      controller.text,
+                                    );
+                                    if (dialogContext.mounted) {
+                                      Navigator.pop(dialogContext, true);
+                                    }
+                                  } catch (failure) {
+                                    if (dialogContext.mounted) {
+                                      update(() {
+                                        submitting = false;
+                                        error = failure.toString();
+                                      });
+                                    }
+                                  }
+                                },
+                          child: const Text('Register'),
+                        ),
+                        if (error != null) Text(error!),
+                      ],
+                    ],
+                  ),
+                ),
+                actions: [
+                  OutlinedButton(
+                    onPressed: submitting
+                        ? null
+                        : () => Navigator.pop(dialogContext, false),
+                    child: const Text('Cancel'),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      );
+      if (mounted && _revision == AppSessionService.instance.identityRevision) {
+        if (registered == true) {
+          _listen();
+        } else {
+          await _refreshDevices();
+        }
+      }
+    } finally {
+      _registrationOpen = false;
+      unawaited(
+        Future<void>.delayed(const Duration(seconds: 1), controller.dispose),
+      );
+    }
+  }
+
   Future<List<String>?> _ask(
     String title,
     List<String> labels, {
@@ -200,7 +396,11 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
         ),
       ) ??
       false;
-  Future<void> _showCode(Map<String, dynamic> result, String title) async {
+  Future<void> _showCode(
+    Map<String, dynamic> result,
+    String title, {
+    String explanation = 'Share privately. This code can be redeemed once.',
+  }) async {
     if (!mounted) return;
     await showDialog<void>(
       animationStyle: gabayModalAnimation(context),
@@ -211,7 +411,7 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Share privately. This code can be redeemed once.'),
+              Text(explanation),
               SelectableText(result['code'] as String),
               Text('Expires: ${result['expires_at']}'),
             ],
@@ -238,9 +438,10 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
     final validAccount =
         _revision == AppSessionService.instance.identityRevision;
     return GabayDetailPageScaffold(
-      title: 'Connections',
-      subtitle:
-          'Connections require navigator consent. Cane ownership is separate.',
+      title: widget.devicesOnly ? 'Smart Cane' : 'Connections',
+      subtitle: widget.devicesOnly
+          ? 'Register and manage your smart cane.'
+          : 'Connections require navigator consent. Cane ownership is separate.',
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -252,163 +453,160 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
               onPressed: _busy ? null : _listen,
               child: const Text('Retry'),
             ),
-          if (_connections == null && _error == null)
-            const Text('Loading connections...'),
-          if (validAccount)
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (!widget.caregiver)
-                  FilledButton(
-                    onPressed: _busy
-                        ? null
-                        : () => _run(() async {
-                            await _showCode(
-                              await _service.invite(),
-                              'Navigator invitation',
-                            );
-                          }),
-                    child: const Text('Create invitation'),
-                  ),
-                if (widget.caregiver)
-                  FilledButton(
-                    onPressed: _busy
-                        ? null
-                        : () async {
-                            final values = await _ask(
-                              'Redeem navigator invitation',
-                              ['Invitation code'],
-                              private: true,
-                            );
-                            if (values != null) {
-                              await _run(() => _service.redeem(values[0]));
-                            }
-                          },
-                    child: const Text('Redeem invitation'),
-                  ),
-              ],
-            ),
-          if (_connections?.isEmpty == true) const Text('No connections yet.'),
-          for (final c in _connections ?? <PairingConnection>[])
-            GabayContentCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          if (!widget.devicesOnly) ...[
+            if (_connections == null && _error == null)
+              const Text('Loading connections...'),
+            if (validAccount)
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Text(widget.caregiver ? c.navigatorName : c.caregiverName),
-                  SelectableText(
-                    'Account: ${widget.caregiver ? c.navigatorUid : c.caregiverUid}',
-                  ),
-                  Text('Connection: ${c.status}'),
-                  if (c.status == 'pending' && !widget.caregiver) ...[
-                    const Text(
-                      'Accepting shares your name, profile photo, current and previous phone GPS tracks, assigned cane readings, and device alerts. Access lasts until revoked. This does not transfer cane ownership.',
+                  if (!widget.caregiver)
+                    FilledButton(
+                      onPressed: _busy
+                          ? null
+                          : () => _run(() async {
+                              await _showCode(
+                                await _service.invite(),
+                                'Navigator invitation',
+                              );
+                            }),
+                      child: const Text('Create invitation'),
                     ),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        FilledButton(
-                          onPressed: _busy
-                              ? null
-                              : () async {
-                                  if (await _confirm(
-                                    'Allow ${c.caregiverName} to monitor you?',
-                                    'This caregiver can view the information listed above until access is revoked.',
-                                  )) {
-                                    await _run(
-                                      () => _service.decide(c.id, true),
-                                    );
-                                  }
-                                },
-                          child: const Text('Accept access'),
-                        ),
-                        TextButton(
-                          style: TextButton.styleFrom(
-                            foregroundColor: context.gabay.danger,
-                          ),
-                          onPressed: _busy
-                              ? null
-                              : () => _run(() => _service.decide(c.id, false)),
-                          child: const Text('Reject request'),
-                        ),
-                      ],
-                    ),
-                  ],
-                  if (c.status == 'active' || c.status == 'pending')
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        foregroundColor: context.gabay.danger,
-                      ),
+                  if (widget.caregiver)
+                    FilledButton(
                       onPressed: _busy
                           ? null
                           : () async {
-                              if (await _confirm(
-                                'Revoke this connection?',
-                                'Monitoring access ends. The navigator account, cane ownership and saved history are preserved.',
-                              )) {
-                                await _run(() => _service.revoke(c.id));
+                              final values = await _ask(
+                                'Redeem navigator invitation',
+                                ['Invitation code'],
+                                private: true,
+                              );
+                              if (values != null) {
+                                await _run(() => _service.redeem(values[0]));
                               }
                             },
-                      child: const Text('Revoke connection'),
+                      child: const Text('Redeem invitation'),
                     ),
                 ],
               ),
-            ),
-          if (widget.caregiver && selected != null) ...[
-            GabayDropdownFormField<String>(
-              key: ValueKey(selected.navigatorUid),
-              initialValue: selected.navigatorUid,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Navigator to monitor',
+            if (_connections?.isEmpty == true)
+              const Text('No connections yet.'),
+            for (final c in _connections ?? <PairingConnection>[])
+              GabayContentCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(widget.caregiver ? c.navigatorName : c.caregiverName),
+                    SelectableText(
+                      'Account: ${widget.caregiver ? c.navigatorUid : c.caregiverUid}',
+                    ),
+                    Text('Connection: ${c.status}'),
+                    if (c.status == 'pending' && !widget.caregiver) ...[
+                      const Text(
+                        'Accepting shares your name, profile photo, current and previous phone GPS tracks, assigned cane readings, and device alerts. Access lasts until revoked. This does not transfer cane ownership.',
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          FilledButton(
+                            onPressed: _busy
+                                ? null
+                                : () async {
+                                    if (await _confirm(
+                                      'Allow ${c.caregiverName} to monitor you?',
+                                      'This caregiver can view the information listed above until access is revoked.',
+                                    )) {
+                                      await _run(
+                                        () => _service.decide(c.id, true),
+                                      );
+                                    }
+                                  },
+                            child: const Text('Accept access'),
+                          ),
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              foregroundColor: context.gabay.danger,
+                            ),
+                            onPressed: _busy
+                                ? null
+                                : () =>
+                                      _run(() => _service.decide(c.id, false)),
+                            child: const Text('Reject request'),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (c.status == 'active' || c.status == 'pending')
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: context.gabay.danger,
+                        ),
+                        onPressed: _busy
+                            ? null
+                            : () async {
+                                if (await _confirm(
+                                  'Revoke this connection?',
+                                  'Monitoring access ends. The navigator account, cane ownership and saved history are preserved.',
+                                )) {
+                                  await _run(() => _service.revoke(c.id));
+                                }
+                              },
+                        child: const Text('Revoke connection'),
+                      ),
+                  ],
+                ),
               ),
-              items: [
-                for (final c in active)
-                  DropdownMenuItem(
-                    value: c.navigatorUid,
-                    child: Text(c.navigatorName),
-                  ),
-              ],
-              onChanged: (value) => setState(() => _selectedUid = value),
-            ),
-            NavigatorDataCard(
-              key: ValueKey(selected.navigatorUid),
-              navigatorUid: selected.navigatorUid,
-              service: _service,
-            ),
+            if (widget.caregiver && selected != null) ...[
+              GabayDropdownFormField<String>(
+                key: ValueKey(selected.navigatorUid),
+                initialValue: selected.navigatorUid,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Navigator to monitor',
+                ),
+                items: [
+                  for (final c in active)
+                    DropdownMenuItem(
+                      value: c.navigatorUid,
+                      child: Text(c.navigatorName),
+                    ),
+                ],
+                onChanged: (value) => setState(() => _selectedUid = value),
+              ),
+              NavigatorDataCard(
+                key: ValueKey(selected.navigatorUid),
+                navigatorUid: selected.navigatorUid,
+                service: _service,
+              ),
+            ],
           ],
           if (!widget.caregiver && validAccount) ...[
-            const SizedBox(height: 20),
-            const Text('Smart Canes'),
+            const SizedBox(height: 12),
+            const SmartCaneInfoCard(),
+            const SizedBox(height: 16),
             if (_deviceError != null) Text(_deviceError!),
             if (_deviceError != null)
               TextButton(
                 onPressed: _busy ? null : _refreshDevices,
                 child: const Text('Retry device list'),
               ),
-            const Text(
-              'The navigator who verifies physical possession is the registered custodian. Caregivers cannot claim or reassign canes. Multiple canes are supported.',
-            ),
             Wrap(
-              spacing: 8,
+              spacing: 12,
+              runSpacing: 10,
               children: [
-                FilledButton(
-                  onPressed: _busy
-                      ? null
-                      : () async {
-                          final values = await _ask('Register a cane', [
-                            'Permanent Device ID',
-                            'Private claim code',
-                          ], private: true);
-                          if (values != null) {
-                            await _run(
-                              () => _service.claim(values[0], values[1]),
-                            );
-                          }
-                        },
-                  child: const Text('Register cane'),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  onPressed: _busy ? null : _registerCane,
+                  label: const Text('Register Cane'),
                 ),
-                TextButton(
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 44),
+                  ),
+                  icon: const Icon(Icons.swap_horiz_rounded, size: 18),
                   onPressed: _busy
                       ? null
                       : () async {
@@ -421,94 +619,102 @@ class _PairingManagementPageState extends State<PairingManagementPage> {
                             );
                           }
                         },
-                  child: const Text('Accept transfer'),
+                  label: const Text('Accept Transfer'),
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+            Text('Registered Canes', style: GabayTheme.sectionTitle(context)),
+            const SizedBox(height: 12),
             if (_devices == null && _error == null)
-              const Text('Loading registered canes...'),
-            if (_devices?.isEmpty == true) const Text('No registered canes.'),
-            for (final d in _devices ?? <RegisteredCane>[])
-              GabayContentCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(d.serial),
-                    SelectableText('Device ID: ${d.id}'),
-                    Text(
-                      d.assignmentId == null
-                          ? 'Not assigned'
-                          : 'Assigned to your navigator account',
-                    ),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        TextButton(
-                          onPressed: _busy
-                              ? null
-                              : () => _run(
-                                  () => d.assignmentId == null
-                                      ? _service.assign(d.id)
-                                      : _service.release(d.id),
-                                ),
-                          child: Text(
-                            d.assignmentId == null
-                                ? 'Assign to me'
-                                : 'End assignment',
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: _busy
-                              ? null
-                              : () async {
-                                  final values = await _ask(
-                                    'Transfer cane custody',
-                                    ['Recipient navigator account code'],
-                                  );
-                                  if (values != null) {
-                                    await _run(() async {
-                                      await _showCode(
-                                        await _service.transfer(
-                                          d.id,
-                                          values[0],
-                                        ),
-                                        'Private transfer code',
-                                      );
-                                    });
-                                  }
-                                },
-                          child: const Text('Transfer custody'),
-                        ),
-                        TextButton(
-                          style: TextButton.styleFrom(
-                            foregroundColor: context.gabay.danger,
-                          ),
-                          onPressed: _busy
-                              ? null
-                              : () async {
-                                  if (await _confirm(
-                                    'Release cane ownership?',
-                                    'This ends its assignment. Physical provisioning is required before it can be claimed again. History is retained.',
-                                  )) {
-                                    await _run(
-                                      () => _service.release(
-                                        d.id,
-                                        ownership: true,
-                                      ),
-                                    );
-                                  }
-                                },
-                          child: const Text('Release ownership'),
-                        ),
-                      ],
-                    ),
-                  ],
+              const GabayCard(
+                child: LinearProgressIndicator(
+                  semanticsLabel: 'Loading registered canes',
                 ),
               ),
-            const Text('Navigator account code (identifier, not a secret):'),
-            SelectableText(_service.currentUid ?? 'Sign in required'),
-            if (_service.currentUid case final String uid)
-              NavigatorDataCard(navigatorUid: uid, service: _service),
+            if (_devices?.isEmpty == true) const SmartCaneEmptyState(),
+            for (final d in _devices ?? <RegisteredCane>[])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: GabayCard(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SmartCaneDeviceHeader(device: d),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          TextButton(
+                            onPressed: _busy
+                                ? null
+                                : () => _run(
+                                    () => d.assignmentId == null
+                                        ? _service.assign(d.id)
+                                        : _service.release(d.id),
+                                  ),
+                            child: Text(
+                              d.assignmentId == null
+                                  ? 'Assign to me'
+                                  : 'End assignment',
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _busy
+                                ? null
+                                : () async {
+                                    final values = await _ask(
+                                      'Transfer cane custody',
+                                      ['Recipient navigator account code'],
+                                    );
+                                    if (values != null) {
+                                      await _run(() async {
+                                        await _showCode(
+                                          await _service.transfer(
+                                            d.id,
+                                            values[0],
+                                          ),
+                                          'Private transfer code',
+                                        );
+                                      });
+                                    }
+                                  },
+                            child: const Text('Transfer custody'),
+                          ),
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              foregroundColor: context.gabay.danger,
+                            ),
+                            onPressed: _busy
+                                ? null
+                                : () async {
+                                    if (await _confirm(
+                                      'Release cane ownership?',
+                                      'This ends its assignment. Physical provisioning is required before it can be claimed again. History is retained.',
+                                    )) {
+                                      await _run(
+                                        () => _service.release(
+                                          d.id,
+                                          ownership: true,
+                                        ),
+                                      );
+                                    }
+                                  },
+                            child: const Text('Release ownership'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (!widget.devicesOnly) ...[
+              const Text('Navigator account code (identifier, not a secret):'),
+              SelectableText(_service.currentUid ?? 'Sign in required'),
+              if (_service.currentUid case final String uid)
+                NavigatorDataCard(navigatorUid: uid, service: _service),
+            ],
           ],
         ],
       ),

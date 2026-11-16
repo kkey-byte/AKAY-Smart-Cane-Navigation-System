@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_top_message.dart';
 import '../../widgets/shared/gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import '../../widgets/shared/gabay_accent_icon.dart';
@@ -157,7 +158,8 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
       await _persistPartial();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      showGabayTopMessage(
+        context,
         const SnackBar(
           content: Text(
             'Unable to refresh registered canes. Open device management to retry.',
@@ -177,7 +179,8 @@ class _NavigatorOnboardingPageState extends State<NavigatorOnboardingPage> {
   Future<void> _requestLocation({required bool always}) async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showGabayTopMessage(
+        context,
         const SnackBar(content: Text('Please enable location services.')),
       );
       return;

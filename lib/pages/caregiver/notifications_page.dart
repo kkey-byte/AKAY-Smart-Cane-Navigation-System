@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_top_message.dart';
 import '../../widgets/shared/gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import '../../widgets/shared/gabay_page_header.dart';
@@ -83,6 +84,9 @@ class _NotificationsPageState extends State<NotificationsPage>
               });
               try {
                 await _service.respond(id, action);
+                if (action == 'dismiss' && dialogContext.mounted) {
+                  Navigator.pop(dialogContext);
+                }
               } catch (_) {
                 if (context.mounted) {
                   setDialogState(
@@ -115,13 +119,15 @@ class _NotificationsPageState extends State<NotificationsPage>
                             : 'The cane detected unusual movement. A fall or accident has not been confirmed. Please check on this navigator.',
                       ),
                       const SizedBox(height: 12),
-                      Text('Detected: ${incident.detectedAt.toLocal()}'),
+                      Text(
+                        '${incident.observedFromDatabase ? 'Database observed' : 'Detected'}: ${incident.detectedAt.toLocal()}',
+                      ),
                       Text('Received: ${incident.createdAt.toLocal()}'),
                       const SizedBox(height: 12),
                       Text(
                         incident.latitude == null
                             ? 'No location was attached to this event.'
-                            : 'Event location: ${incident.latitude}, ${incident.longitude}\nCaptured: ${incident.detectedAt.toLocal()} (not necessarily the current location).',
+                            : 'Event location: ${incident.latitude}, ${incident.longitude}\n${incident.observedFromDatabase ? 'Database observed' : 'Captured'}: ${incident.detectedAt.toLocal()} (not necessarily the current location).',
                       ),
                       const SizedBox(height: 12),
                       const Text(
@@ -145,6 +151,11 @@ class _NotificationsPageState extends State<NotificationsPage>
                   onPressed: busy ? null : () => Navigator.pop(dialogContext),
                   child: const Text('Close'),
                 ),
+                if (incident != null)
+                  TextButton(
+                    onPressed: busy ? null : () => respond('dismiss'),
+                    child: const Text('Delete notification'),
+                  ),
                 if (incident?.unresolved == true) ...[
                   if (incident!.acknowledgedAt == null)
                     TextButton(
@@ -180,7 +191,7 @@ class _NotificationsPageState extends State<NotificationsPage>
           style: TextStyle(color: g.textPrimary),
         ),
         content: Text(
-          'This removes resolved notifications. Unresolved cane alerts stay visible until you respond.',
+          'This deletes notifications from your account. It does not resolve an incident or silence the cane.',
           style: TextStyle(color: g.textSecondary),
         ),
         actions: [
@@ -211,7 +222,7 @@ class _NotificationsPageState extends State<NotificationsPage>
         child: SafeArea(
           child: GabayScrollingPage(
             header: _buildHeader(context),
-            body: _service.errorMessage != null
+            body: _service.errorMessage != null && notifications.isEmpty
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -331,7 +342,8 @@ class _NotificationsPageState extends State<NotificationsPage>
                 try {
                   await EmergencyPushService.instance.enable();
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    showGabayTopMessage(
+                      context,
                       const SnackBar(
                         content: Text(
                           'Push notifications enabled on this device.',
@@ -341,7 +353,8 @@ class _NotificationsPageState extends State<NotificationsPage>
                   }
                 } catch (_) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    showGabayTopMessage(
+                      context,
                       const SnackBar(
                         content: Text(
                           'Push registration was not confirmed. Check notification permission and Firebase configuration.',
@@ -369,7 +382,26 @@ class _NotificationsPageState extends State<NotificationsPage>
       NotificationDateGroup.older,
     ];
 
-    final widgets = <Widget>[];
+    final widgets = <Widget>[
+      if (_service.errorMessage != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Showing saved alerts. ${_service.errorMessage}'),
+              TextButton(
+                onPressed: () async {
+                  try {
+                    await _service.refresh();
+                  } catch (_) {}
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+    ];
     var animationIndex = 0;
 
     for (final group in groups) {

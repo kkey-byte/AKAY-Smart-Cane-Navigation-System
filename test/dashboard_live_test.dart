@@ -8,6 +8,9 @@ import 'package:app_mobile/models/user_role.dart';
 import 'package:app_mobile/theme/gabay_theme.dart';
 import 'package:app_mobile/widgets/dashboard_widgets/dashboard_navigation_view.dart';
 import 'package:app_mobile/widgets/dashboard_widgets/dashboard_live_section.dart';
+import 'package:app_mobile/widgets/dashboard_widgets/caregiver_navigation_overview.dart';
+import 'package:app_mobile/widgets/shared/gabay_dashboard_backdrop.dart';
+import 'package:app_mobile/widgets/shared/gabay_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -61,12 +64,87 @@ DashboardSnapshot snapshot(String uid, {bool active = false}) =>
       destination: 'Synthetic Park, Sample street',
       routeActive: active,
       routeStatus: active ? 'Active' : null,
+      caneBattery: 50,
+      caneSos: false,
+      caneFall: true,
       points: const [LatLng(7.299, 125.68), LatLng(7.3, 125.68)],
     );
 
 void main() {
+  for (final caregiver in [false, true]) {
+    testWidgets(
+      'dashboard totals fit their content without overflow caregiver=$caregiver',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: GabayTheme.lightTheme,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(1.15)),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: GabayDashboardBackdrop(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: CaregiverNavigationOverview(
+                      data: const DashboardSnapshot(
+                        uid: 'synthetic',
+                        name: 'Navigator',
+                      ),
+                      now: DateTime(2026, 11, 16),
+                      showProfileSummary: caregiver,
+                      showNavigatorSelector: caregiver,
+                      mapBuilder: (_, _, _) => const SizedBox(height: 180),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final distance = find
+            .ancestor(
+              of: find.text('Total Distance'),
+              matching: find.byType(GabayCard),
+            )
+            .first;
+        final routes = find
+            .ancestor(
+              of: find.text('Total Route'),
+              matching: find.byType(GabayCard),
+            )
+            .first;
+        expect(tester.getSize(distance).height, tester.getSize(routes).height);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
   TestWidgetsFlutterBinding.ensureInitialized();
   final now = DateTime(2026, 10, 22, 12);
+  test('cane battery and sensor values update independently of navigation', () {
+    DashboardSnapshot parse(Map<String, dynamic> cane) =>
+        DashboardSnapshot.fromJson({
+          'navigator': {'uid': 'navigator'},
+          'cane': cane,
+        });
+    final first = parse({'battery': 50, 'sos': false, 'fall': false});
+    expect(first.caneBatteryLabel, '50%');
+    expect(first.caneSignalLabel, 'SOS off · No fall signal');
+    final updated = parse({'battery': 25, 'sos': true, 'fall': true});
+    expect(updated.caneBatteryLabel, '25%');
+    expect(updated.caneSignalLabel, 'SOS active · Fall detected');
+    expect(updated.routeActive, isFalse);
+    expect(parse({'battery': -1}).caneBatteryLabel, 'Unavailable');
+  });
   test(
     'history-only positions never claim live GPS and cane freshness is independent of phone app activity',
     () {
@@ -196,6 +274,8 @@ void main() {
           'Destination',
           'Estimated arrival',
           '8 min',
+          '50%',
+          'SOS off · Fall detected',
         ]) {
           expect(find.text(label), findsOneWidget);
         }
@@ -223,6 +303,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('No GPS location yet'), findsOneWidget);
       expect(find.text('No destination selected'), findsOneWidget);
+      expect(find.text('Cane signals unavailable'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

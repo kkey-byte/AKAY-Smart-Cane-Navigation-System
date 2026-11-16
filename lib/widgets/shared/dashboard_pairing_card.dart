@@ -1,3 +1,5 @@
+import 'gabay_action_card_header.dart';
+import 'gabay_top_message.dart';
 import 'gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import 'gabay_accent_icon.dart';
@@ -29,11 +31,13 @@ class DashboardPairingCard extends StatefulWidget {
     this.pairingOnly = false,
     this.showManageConnections = true,
     this.allowDisconnect = false,
+    this.companionAction,
   });
   final bool caregiver;
   final bool profilePresentation;
   final bool pairingOnly;
   final bool showManageConnections, allowDisconnect;
+  final Widget? companionAction;
   final PairingService? service;
   final Future<String?> Function(BuildContext)? scanCode;
   final Future<String?> Function()? uploadCode;
@@ -136,9 +140,7 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
       }
     });
     if (paired != null && ModalRoute.of(context)?.isCurrent == true) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(paired)));
+      showGabayTopMessage(context, SnackBar(content: Text(paired)));
     }
   }
 
@@ -336,13 +338,52 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
               ? 'Add a Navigator using the code or QR they authorize. Access starts when the code is accepted.'
               : 'Share only with a trusted caregiver.',
         ),
-      if (!widget.caregiver) ...[
+      if (!widget.caregiver && widget.companionAction != null)
+        Row(
+          children: [
+            for (final format in ['alphanumeric', 'qr_code']) ...[
+              Expanded(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 44),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  onPressed: _busy || !_valid
+                      ? null
+                      : () {
+                          setState(() => _method = format);
+                          unawaited(_generate());
+                        },
+                  icon: Icon(
+                    format == 'alphanumeric'
+                        ? Icons.password_rounded
+                        : Icons.qr_code_rounded,
+                    size: 18,
+                  ),
+                  label: Text(format == 'alphanumeric' ? 'Code' : 'QR'),
+                ),
+              ),
+              if (format == 'alphanumeric') const SizedBox(width: 12),
+            ],
+          ],
+        ),
+      if (!widget.caregiver && widget.companionAction == null) ...[
         Wrap(
           spacing: 12,
           runSpacing: 8,
           children: [
             ChoiceChip(
-              label: const Text('Alphanumeric code'),
+              label: Text(
+                widget.companionAction == null ? 'Alphanumeric code' : 'Code',
+                semanticsLabel: 'Alphanumeric code',
+              ),
               labelStyle: TextStyle(
                 fontSize: GabayTypography.caption,
                 fontWeight: GabayTypography.regular,
@@ -356,7 +397,10 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
                   : (_) => setState(() => _method = 'alphanumeric'),
             ),
             ChoiceChip(
-              label: const Text('QR code'),
+              label: Text(
+                widget.companionAction == null ? 'QR code' : 'QR',
+                semanticsLabel: 'QR code',
+              ),
               labelStyle: TextStyle(
                 fontSize: GabayTypography.caption,
                 fontWeight: GabayTypography.regular,
@@ -392,35 +436,50 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
             ),
           ),
       ],
-      const SizedBox(height: 12),
-      FilledButton.icon(
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 44),
-          iconSize: 18,
-          textStyle: const TextStyle(
-            fontSize: GabayTypography.supporting,
-            fontWeight: GabayTypography.regular,
+      if (widget.companionAction == null) const SizedBox(height: 12),
+      if (widget.companionAction == null)
+        FilledButton.icon(
+          style: FilledButton.styleFrom(
+            padding: widget.companionAction != null
+                ? const EdgeInsets.symmetric(horizontal: 10, vertical: 10)
+                : null,
+            minimumSize: Size(
+              widget.companionAction != null ? double.infinity : 0,
+              44,
+            ),
+            iconSize: 18,
+            textStyle: TextStyle(
+              fontSize: widget.companionAction != null
+                  ? 12
+                  : GabayTypography.supporting,
+              fontWeight: widget.companionAction != null
+                  ? FontWeight.w500
+                  : GabayTypography.regular,
+            ),
+          ),
+          onPressed:
+              _busy ||
+                  !_valid ||
+                  (!widget.caregiver && !_modalPairing && !_authorized)
+              ? null
+              : widget.caregiver
+              ? _pair
+              : _generate,
+          icon: GabayAccentIcon(
+            widget.caregiver ? Icons.person_add_alt_1 : Icons.qr_code,
+          ),
+          label: Text(
+            widget.caregiver
+                ? 'Add / Pair New Navigator'
+                : widget.companionAction != null
+                ? (_code == null
+                      ? (_method == 'qr_code' ? 'Show QR' : 'Show code')
+                      : (_method == 'qr_code' ? 'New QR' : 'New code'))
+                : _code == null
+                ? 'Show my pairing code'
+                : 'Create a new code',
           ),
         ),
-        onPressed:
-            _busy ||
-                !_valid ||
-                (!widget.caregiver && !_modalPairing && !_authorized)
-            ? null
-            : widget.caregiver
-            ? _pair
-            : _generate,
-        icon: GabayAccentIcon(
-          widget.caregiver ? Icons.person_add_alt_1 : Icons.qr_code,
-        ),
-        label: Text(
-          widget.caregiver
-              ? 'Add / Pair New Navigator'
-              : _code == null
-              ? 'Show my pairing code'
-              : 'Create a new code',
-        ),
-      ),
       if (_busy)
         const LinearProgressIndicator(semanticsLabel: 'Updating pairing'),
       if (!_modalPairing && _code != null && !_expired && _valid) ...[
@@ -745,6 +804,41 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
     );
   }
 
+  Widget _caregiverBadge(PairingConnection row) {
+    final g = context.gabay;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: (row.status == 'active' ? g.success : g.warning).withValues(
+            alpha: .10,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              row.status == 'active'
+                  ? Icons.check_circle_outline_rounded
+                  : Icons.schedule_rounded,
+              color: row.status == 'active' ? g.success : g.warning,
+              size: 15,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                row.status == 'active' ? 'Paired' : 'Approval needed',
+                style: TextStyle(color: g.textPrimary, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _caregiverLayout(
     List<Widget> controls,
     List<PairingConnection> visible,
@@ -754,81 +848,117 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Caregiver Connections',
-                    style: GabayTheme.sectionTitle(context),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Your support network.',
-                    style: GabayTheme.bodyMedium(context),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: g.accentTint,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                '$connected',
-                semanticsLabel: '$connected paired caregivers',
-                style: TextStyle(
-                  color: g.accent,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+        if (widget.companionAction == null) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Caregiver Connections',
+                      style: GabayTheme.sectionTitle(context),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Your support network.',
+                      style: GabayTheme.bodyMedium(context),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 18),
-        GabayCard(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Material(
-            color: Colors.transparent,
-            child: ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: const EdgeInsets.only(bottom: 10),
-              shape: const Border(),
-              collapsedShape: const Border(),
-              leading: Container(
-                padding: const EdgeInsets.all(10),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: g.accentTint,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(
-                  Icons.person_add_alt_outlined,
-                  color: g.accent,
-                  size: 22,
+                child: Text(
+                  '$connected',
+                  semanticsLabel: '$connected paired caregivers',
+                  style: TextStyle(
+                    color: g.accent,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              title: Text(
-                'Invite a Caregiver',
-                style: TextStyle(
-                  color: g.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              subtitle: Text(
-                'Share your pairing code or QR.',
-                style: GabayTheme.labelSmall(context),
-              ),
-              children: controls,
-            ),
+            ],
           ),
-        ),
+          const SizedBox(height: 18),
+
+          if (widget.companionAction == null)
+            GabayCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Material(
+                color: Colors.transparent,
+                child: ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(bottom: 10),
+                  shape: const Border(),
+                  collapsedShape: const Border(),
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: g.accentTint,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      Icons.person_add_alt_outlined,
+                      color: g.accent,
+                      size: 22,
+                    ),
+                  ),
+                  title: Text(
+                    'Invite a Caregiver',
+                    style: TextStyle(
+                      color: g.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Share your pairing code or QR.',
+                    style: GabayTheme.labelSmall(context),
+                  ),
+                  children: controls,
+                ),
+              ),
+            ),
+        ] else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final invitation = GabayCard(
+                key: const ValueKey('caregiver-invitation-card'),
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const GabayActionCardHeader(
+                      icon: Icons.person_add_alt_outlined,
+                      title: 'Invite a Caregiver',
+                      description: 'Share a code or QR.',
+                    ),
+                    const SizedBox(height: 10),
+                    ...controls,
+                  ],
+                ),
+              );
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  invitation,
+                  const SizedBox(height: 14),
+                  widget.companionAction!,
+                ],
+              );
+            },
+          ),
         if (_notice != null)
           Padding(
             padding: const EdgeInsets.only(top: 12),
@@ -849,7 +979,34 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
           ),
         ],
         const SizedBox(height: 22),
-        Text('Your caregivers', style: GabayTheme.sectionTitle(context)),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.companionAction == null
+                    ? 'Your caregivers'
+                    : 'My Caregivers',
+                style: GabayTheme.sectionTitle(context),
+              ),
+            ),
+            if (widget.companionAction != null)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: g.accentTint,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$connected',
+                  semanticsLabel: '$connected paired caregivers',
+                  style: TextStyle(color: g.accent),
+                ),
+              ),
+          ],
+        ),
         const SizedBox(height: 12),
         if (_rows == null && _error == null) const Text('Loading connections…'),
         if (!widget.pairingOnly && _rows != null && visible.isEmpty)
@@ -878,7 +1035,7 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       LinkedNavigatorPhoto(picture: row.caregiverPicture),
                       const SizedBox(width: 12),
@@ -900,6 +1057,11 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
                               'Caregiver',
                               style: GabayTheme.labelSmall(context),
                             ),
+                            if (widget.companionAction != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: _caregiverBadge(row),
+                              ),
                           ],
                         ),
                       ),
@@ -910,55 +1072,16 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
                           style: IconButton.styleFrom(
                             foregroundColor: g.danger,
                             backgroundColor: g.danger.withValues(alpha: .07),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                            shape: const CircleBorder(),
                           ),
                           icon: const Icon(Icons.link_off_rounded, size: 21),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: (row.status == 'active' ? g.success : g.warning)
-                            .withValues(alpha: .10),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            row.status == 'active'
-                                ? Icons.check_circle_outline_rounded
-                                : Icons.schedule_rounded,
-                            color: row.status == 'active'
-                                ? g.success
-                                : g.warning,
-                            size: 15,
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              row.status == 'active'
-                                  ? 'Paired'
-                                  : 'Approval needed',
-                              style: TextStyle(
-                                color: g.textPrimary,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  if (widget.companionAction == null) ...[
+                    const SizedBox(height: 12),
+                    _caregiverBadge(row),
+                  ],
                   if (row.status == 'pending')
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
@@ -981,37 +1104,38 @@ class DashboardPairingCardState extends State<DashboardPairingCard> {
               ),
             ),
           ),
-        const SizedBox(height: 6),
-        GabayCard(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.verified_user_outlined, color: g.accent, size: 24),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Why add caregivers?',
-                      style: TextStyle(
-                        color: g.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+        if (widget.companionAction == null) const SizedBox(height: 6),
+        if (widget.companionAction == null)
+          GabayCard(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.verified_user_outlined, color: g.accent, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Why add caregivers?',
+                        style: TextStyle(
+                          color: g.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Share your location and updates. Disconnect anytime.',
-                      style: GabayTheme.bodyMedium(context),
-                    ),
-                  ],
+                      const SizedBox(height: 6),
+                      Text(
+                        'Share your location and updates. Disconnect anytime.',
+                        style: GabayTheme.bodyMedium(context),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         if (widget.showManageConnections)
           TextButton(
             onPressed: !_valid
@@ -1099,7 +1223,7 @@ class _PairCodeDialogState extends State<_PairCodeDialog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'Ask the Navigator to show their pairing code or QR in Profile → Caregivers.',
+            'Ask the Navigator to show their pairing code or QR in Profile → Connections & Devices.',
           ),
           const SizedBox(height: 12),
           TextField(

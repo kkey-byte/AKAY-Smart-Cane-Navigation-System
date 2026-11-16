@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 
 /// Equal statistic tiles sized by viewport and text scale, never by content.
 class GabayMetricGrid extends StatelessWidget {
-  const GabayMetricGrid({super.key, required this.children});
+  const GabayMetricGrid({
+    super.key,
+    required this.children,
+    this.compact = false,
+  });
   final List<Widget> children;
+  final bool? compact;
   static double tileHeight(BuildContext context) =>
       168 +
       (MediaQuery.textScalerOf(context).scale(14) - 14).clamp(
@@ -24,7 +29,7 @@ class GabayMetricGrid extends StatelessWidget {
               width: two
                   ? (constraints.maxWidth - 12) / 2
                   : constraints.maxWidth,
-              height: tileHeight(context),
+              height: tileHeight(context) - (compact == true ? 32 : 0),
               child: child,
             ),
         ],

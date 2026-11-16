@@ -120,7 +120,7 @@ class _VisuallyImpairedProfilePageState
                 ),
                 ProfileMenuItem(
                   icon: Icons.link_rounded,
-                  title: 'Caregivers',
+                  title: 'Connections & Devices',
                   onTap: () {
                     Navigator.push(
                       context,

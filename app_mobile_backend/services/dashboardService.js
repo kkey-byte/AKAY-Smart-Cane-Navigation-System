@@ -18,12 +18,17 @@ function createDashboardService(pool,authorize,firebase,{clock=Date.now,tripStor
   async function snapshot(actor,uid) {
     const navigator=await authorize(actor,uid);
     const now=clock(),errors=[];
-    let navigation=null,points=[],location=null,recordedTrip=null;
-    const [saved,live]=await Promise.allSettled([
+    let navigation=null,points=[],location=null,recordedTrip=null,cane=null;
+    const [saved,live,signals]=await Promise.allSettled([
       monitoring.bounded(Promise.resolve().then(()=>pool.query(`SELECT sessionid,destinationlatitude,destinationlongitude,destinationaddress,
         status,starttime,endtime,updatedat FROM navigationsessions WHERE user_id=$1
         ORDER BY starttime DESC NULLS LAST,updatedat DESC NULLS LAST LIMIT 1`,[navigator.id]))),
       monitoring.read(navigator),
+      monitoring.bounded(Promise.resolve().then(()=>pool.query(`SELECT d.serial,s.payload,s.observed_at,s.fall_notified
+        FROM akay_assignments a JOIN akay_devices d ON d.id=a.device_id AND d.owner_id=a.navigator_id
+        JOIN akay_device_location_state s ON s.assignment_id=a.id
+        WHERE a.navigator_id=$1 AND a.ended_at IS NULL AND s.payload IS NOT NULL
+        ORDER BY s.observed_at DESC,a.id DESC LIMIT 1`,[navigator.id]))),
     ]);
     try {
       if(saved.status==='rejected') throw new Error('Navigation unavailable');
@@ -38,10 +43,14 @@ function createDashboardService(pool,authorize,firebase,{clock=Date.now,tripStor
       location=live.value.location;points=live.value.points;recordedTrip=live.value.trip;
       errors.push(...live.value.errors);
     } else errors.push('Live GPS monitoring is unavailable.');
+    if(signals.status==='fulfilled') {
+      const row=signals.value.rows[0];
+      if(row) cane={serial:row.serial,...row.payload,observedAt:row.observed_at,fallNotified:row.fall_notified};
+    } else errors.push('Cane battery and sensor signals are unavailable.');
     const seen=activity.get(uid);
     const presence={state:seen?(seen.active&&now-seen.time<=45000?'active':'inactive'):'unknown',updatedAt:seen?new Date(seen.time).toISOString():null};
     await authorize(actor,uid); // Revoke during reads must hide the entire result.
-    return {navigator:{uid,name:navigator.name||null},navigation,location,points,recordedTrip,presence,errors,serverTime:new Date(now).toISOString()};
+    return {navigator:{uid,name:navigator.name||null},navigation,location,points,recordedTrip,presence,cane,errors,serverTime:new Date(now).toISOString()};
   }
   return {presence,snapshot};
 }

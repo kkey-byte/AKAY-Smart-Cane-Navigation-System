@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_top_message.dart';
 import '../../widgets/shared/gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import '../../widgets/track/tracking_overlay_layout.dart';
@@ -620,7 +621,8 @@ class TrackPageState extends State<TrackPage> {
         _showSearchEmpty = false;
         _destinationSuggestions = [];
       });
-      ScaffoldMessenger.of(context).showSnackBar(
+      showGabayTopMessage(
+        context,
         const SnackBar(
           content: Text('Search unavailable. Check your connection and retry.'),
         ),
@@ -1315,7 +1317,8 @@ class TrackPageState extends State<TrackPage> {
   }
 
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    showGabayTopMessage(
+      context,
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }

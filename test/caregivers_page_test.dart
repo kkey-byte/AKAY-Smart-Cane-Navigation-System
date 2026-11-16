@@ -3,12 +3,20 @@ import 'package:app_mobile/pages/visually_impaired/vi_caregivers_page.dart';
 import 'package:app_mobile/theme/gabay_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:convert';
 import 'package:app_mobile/widgets/akay_logo_data.dart';
 import 'package:app_mobile/widgets/profile/linked_navigator_photo.dart';
 import 'dashboard_pairing_test.dart' show DashboardFake, connection;
 
 class _Caregivers extends DashboardFake {
+  String? generatedMethod;
+  @override
+  Future<Map<String, dynamic>> generatePairing(String method) {
+    generatedMethod = method;
+    return super.generatePairing(method);
+  }
+
   int watches = 0;
   @override
   Stream<List<PairingConnection>> watchConnections() {
@@ -114,12 +122,14 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Caregivers'), findsOneWidget);
-      expect(find.text('Caregiver Connections'), findsOneWidget);
+      expect(find.text('Connections & Devices'), findsOneWidget);
+      expect(find.text('My Caregivers'), findsOneWidget);
       expect(find.text('Manage connections and access'), findsNothing);
       expect(find.text('Create invitation'), findsNothing);
       expect(find.text('Smart Canes'), findsNothing);
       final disconnect = find.byTooltip('Disconnect Caregiver one');
+      await tester.drag(find.byType(ListView).first, const Offset(0, -350));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(disconnect);
       await tester.tap(disconnect);
       await tester.pumpAndSettle();
@@ -166,24 +176,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(service.watches, 2);
     expect(find.text('Caregiver new'), findsOneWidget);
-    await tester.tap(find.text('Invite a Caregiver'));
-    await tester.pumpAndSettle();
     expect(find.byType(Checkbox), findsNothing);
     expect(find.text('Share only with a trusted caregiver.'), findsNothing);
     expect(
       tester
-          .widget<FilledButton>(
-            find.widgetWithText(FilledButton, 'Show my pairing code'),
-          )
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Code'))
           .onPressed,
       isNotNull,
     );
-    await tester.ensureVisible(find.text('Show my pairing code'));
-    await tester.tap(find.text('Show my pairing code'));
+    await tester.ensureVisible(find.text('Code'));
+    await tester.tap(find.text('Code'));
     await tester.pumpAndSettle();
+    expect(service.generatedMethod, 'alphanumeric');
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(find.text('Copy code'), findsNothing);
     expect(find.text('Read code aloud'), findsNothing);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('Show code'), findsNothing);
+    expect(find.byType(ChoiceChip), findsNothing);
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'QR'));
+    await tester.tap(find.widgetWithText(FilledButton, 'QR'));
+    await tester.pumpAndSettle();
+    expect(service.generatedMethod, 'qr_code');
+    expect(find.byType(QrImageView), findsOneWidget);
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
     expect(

@@ -1,3 +1,4 @@
+import '../shared/gabay_top_message.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/breadcrumb_service.dart';
@@ -46,7 +47,8 @@ class BreadcrumbReportControls extends StatelessWidget {
       await action();
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showGabayTopMessage(
+          context,
           const SnackBar(
             content: Text(
               'Recording could not be updated. Check location access and device storage.',

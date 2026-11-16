@@ -37,7 +37,24 @@ test('database/Firebase failures produce independent fallback fields rather than
   ctx.sources['breadcrumb_trips/nav']=new Error('Synthetic history error');
   ctx.sources['phone_location/nav']={source:'phone_gps',latitude:7.3,longitude:125.68,timestamp:ctx.now()};
   const data=await ctx.service.snapshot({},'nav');assert.equal(data.navigation,null);assert.equal(data.location.latitude,7.3);
-  assert.equal(data.errors.length,3);assert.deepEqual(data.points,[]);
+  assert.equal(data.errors.length,4);assert.deepEqual(data.points,[]);
+});
+test('dashboard exposes changing cane signals with observation times and current custody',async()=>{
+  const ctx=setup(),query=ctx.pool.query;
+  let battery=50,sos=false,fall=false;
+  ctx.pool.query=(sql,args)=>{
+    if(sql.includes('akay_device_location_state')) {
+      assert.match(sql,/d.owner_id=a.navigator_id/);
+      assert.match(sql,/a.ended_at IS NULL/);
+      return Promise.resolve({rows:[{serial:'00001',payload:{battery,sos,fall},observed_at:new Date(ctx.now()),fall_notified:fall}]});
+    }
+    return query(sql,args);
+  };
+  const first=await ctx.service.snapshot({},'nav');assert.equal(first.cane.battery,50);
+  battery=25;sos=true;fall=true;
+  const second=await ctx.service.snapshot({},'nav');
+  assert.equal(second.cane.battery,25);assert.equal(second.cane.sos,true);assert.equal(second.cane.fall,true);
+  assert.equal(ctx.checks(),4);
 });
 test('revocation racing an asynchronous read prevents returning dashboard locations',async()=>{
   const ctx=setup();ctx.pool.query=async()=>{ctx.deny();return {rows:[]};};

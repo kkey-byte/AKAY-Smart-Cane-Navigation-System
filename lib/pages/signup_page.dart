@@ -1,3 +1,4 @@
+import '../widgets/shared/gabay_top_message.dart';
 import '../widgets/shared/gabay_modal_motion.dart';
 import '../theme/gabay_typography.dart';
 import '../widgets/shared/gabay_accent_icon.dart';
@@ -129,7 +130,8 @@ class _SignupPageState extends State<SignupPage> {
     if (!_formKey.currentState!.validate()) return;
 
     if (!agree) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showGabayTopMessage(
+        context,
         const SnackBar(content: Text('Please agree to the Terms & Conditions')),
       );
       return;
@@ -162,18 +164,18 @@ class _SignupPageState extends State<SignupPage> {
       // Step C: clear auth stack → CaregiverDashboard / VisuallyImpairedDashboard
       final routed = RoleRouter.routeBasedOnRole(roleString, context);
       if (!routed) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showGabayTopMessage(
+          context,
           const SnackBar(content: Text('Unrecognized account role.')),
         );
       }
     } on AuthException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      showGabayTopMessage(context, SnackBar(content: Text(e.message)));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      showGabayTopMessage(
+        context,
         const SnackBar(
           content: Text('Something went wrong. Please try again.'),
         ),

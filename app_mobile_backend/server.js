@@ -117,6 +117,23 @@ async function start() {
         };
         void syncSignals();
         setInterval(syncSignals,3000).unref();
+        let lastDeviceWarning=0,reconcilingDevices=false;
+        const deviceWarning=()=>{
+          if(Date.now()-lastDeviceWarning>60000) {
+            lastDeviceWarning=Date.now();
+            console.warn('Device_Location monitoring unavailable; check database migration and Firebase access.');
+          }
+        };
+        const deviceLocations=require('./services/deviceLocationService').createDeviceLocationService(
+          pool,require('./services/firebaseAdmin'),{onError:deviceWarning});
+        const reconcileDevices=async()=>{
+          if(reconcilingDevices) return;
+          reconcilingDevices=true;
+          try {await deviceLocations.reconcile();} catch(_) {deviceWarning();}
+          finally {reconcilingDevices=false;}
+        };
+        void reconcileDevices();
+        setInterval(reconcileDevices,3000).unref();
     });
 }
 

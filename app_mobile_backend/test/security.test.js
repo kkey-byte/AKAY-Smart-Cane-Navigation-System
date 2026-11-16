@@ -34,6 +34,7 @@ before(async()=>{
   await pool.query(readFileSync(require.resolve('../database/migrations/001_pairing.sql'),'utf8').replaceAll('__USERS_TABLE__','users'));
   await pool.query(readFileSync(require.resolve('../database/migrations/002_integrity.sql'),'utf8').replaceAll('__USERS_TABLE__','users'));
   await pool.query(readFileSync(require.resolve('../database/migrations/006_emergency_workflow.sql'),'utf8').replaceAll('__USERS_TABLE__','users'));
+  await pool.query(readFileSync(require.resolve('../database/migrations/008_device_location.sql'),'utf8'));
   service=createPairingService(pool,()=> 'users');
 });
 beforeEach(async()=>{
@@ -66,6 +67,58 @@ async function connect(n=nav,c=car) {
 async function assigned(n=nav) {const d=await device();await service.claim(n,d.id,d.claim);return {...d,assignment:await service.assign(n,d.id)};}
 const reading=(assignment,sequence=0)=>({assignmentId:assignment.id,sequence,sampledAt:new Date(Math.max(Date.now(),new Date(assignment.started_at).getTime())).toISOString(),latitude:12.3,longitude:123.4,battery:60,status:'moving',alert:'obstacle'});
 
+test('Device_Location streams persist battery, allow fall cancellation, latch alerts across restart and delete per caregiver',async()=>{
+  await connect();await connect(nav,stranger);const cane=await assigned();
+  await pool.query('UPDATE akay_devices SET serial=$2 WHERE id=$1',[cane.id,'00001']);
+  let value={batteryLevel:0.50391,fallAlert:false,unsafe:false,latitude:10,longitude:20};
+  let listener;const errors=[];
+  const ref={on:(_event,callback)=>{listener=callback;callback({val:()=>value});},
+    off:()=>{listener=null;},get:async()=>({val:()=>value})};
+  const firebase={database:()=>({ref:path=>{assert.equal(path,'Device_Location/00001');return ref;}})};
+  const make=()=>require('../services/deviceLocationService').createDeviceLocationService(pool,firebase,{onError:()=>errors.push('failed')});
+  let monitor=make();
+  async function until(check) {
+    const limit=Date.now()+5000;
+    while(!await check()) {if(Date.now()>limit) throw new Error('Synthetic ingestion did not settle');await new Promise(r=>setTimeout(r,20));}
+  }
+  const current=async()=>(await pool.query('SELECT * FROM akay_device_location_state WHERE assignment_id=$1',[cane.assignment.id])).rows[0];
+  const emit=patch=>{value={...value,...patch};const captured={...value};listener({val:()=>captured});};
+  try {
+    await monitor.reconcile();await until(async()=>!!await current());
+    assert.equal((await current()).payload.battery,50);
+    emit({fallAlert:true});await until(async()=>(await current()).fall_started_at!=null);
+    emit({fallAlert:false});await until(async()=>(await current()).fall_started_at==null);
+    assert.equal((await emergency().list(car)).alerts.length,0);
+    emit({unsafe:true,fallAlert:true,batteryLevel:0.25});
+    await until(async()=>(await emergency().list(car)).alerts.length===1);
+    assert.equal((await emergency().list(car)).alerts[0].kind,'sos');
+    await until(async()=>(await emergency().list(car)).alerts.length===2);
+    assert.equal((await current()).payload.battery,25);
+    assert.equal((await current()).fall_notified,true);
+    const feed=(await emergency().list(car)).alerts;
+    assert.ok(feed.every(a=>a.navigator_uid===nav.uid && a.reading_source==='device_location'));
+    monitor.stop();monitor=make();await monitor.reconcile();
+    await new Promise(r=>setTimeout(r,100));
+    assert.equal((await emergency().list(car)).alerts.length,2);
+    emit({unsafe:false,fallAlert:false});
+    await until(async()=>(await current()).payload.fall===false);
+    assert.equal((await emergency().list(car)).alerts.length,2);
+    await emergency().respond(car,feed[0].id,'dismiss');
+    assert.equal((await emergency().list(car)).alerts.length,1);
+    assert.equal((await emergency().list(stranger)).alerts.length,2);
+    assert.equal((await pool.query('SELECT resolved_at FROM akay_alerts WHERE id=$1',[feed[0].id])).rows[0].resolved_at,null);
+    const sent=[];
+    const delivery=emergency(async message=>{sent.push(message);return 'synthetic';});
+    await delivery.token(car,'synthetic-device-location-car-token');
+    await delivery.token(stranger,'synthetic-device-location-other-token');
+    await delivery.dispatch();
+    assert.equal(sent.length,3);
+    assert.ok(!sent.some(m=>m.token==='synthetic-device-location-car-token' && m.data.alertId===feed[0].id));
+    assert.ok(sent.some(m=>m.token==='synthetic-device-location-other-token' && m.data.alertId===feed[0].id));
+    assert.deepEqual(errors,[]);
+  } finally {monitor.stop();}
+});
+
 test('emergency feed identifies each navigator and stable cane event retries create one incident',async()=>{
   await connect();await connect(nav2);
   const a=await assigned(),b=await assigned(nav2);
@@ -88,7 +141,7 @@ test('reading and clearing cannot resolve incidents; caregiver responses persist
   await workflow.respond(car,id,'read');
   let alert=(await workflow.list(car)).alerts[0];
   assert.ok(alert.read_at);assert.equal(alert.resolved_at,null);assert.equal(alert.acknowledged_at,null);
-  await assert.rejects(workflow.respond(car,id,'dismiss'),e=>e.status===409);
+  // Opening/reading does not resolve; explicit personal deletion is allowed.
   await assert.rejects(workflow.respond(stranger,id,'resolve'),e=>e.status===403);
   await workflow.respond(car,id,'acknowledge');
   const acknowledged=(await workflow.list(car)).alerts[0].acknowledged_at;
@@ -438,6 +491,8 @@ test('restricted runtime role permits required writes but denies identity edits,
   await pool.query(sql);
   await pool.query(readFileSync(require.resolve('../database/migrations/006_emergency_workflow.sql'),'utf8')
     .replaceAll('__USERS_TABLE__','users').replaceAll('akay_runtime',runtimeRole));
+  await pool.query(readFileSync(require.resolve('../database/migrations/008_device_location.sql'),'utf8')
+    .replaceAll('akay_runtime',runtimeRole));
   const cane=await device();
   const db=await pool.connect();
   try {

@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_top_message.dart';
 import '../../widgets/shared/gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import '../../widgets/shared/gabay_page_header.dart';
@@ -309,7 +310,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   void _snack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    showGabayTopMessage(
+      context,
       SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
     );
   }

@@ -121,102 +121,141 @@ class _DashboardNavigationViewState extends State<DashboardNavigationView> {
         const SizedBox(height: 12),
         GabayCard(
           padding: const EdgeInsets.all(20),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final battery = Row(
-                children: [
-                  SizedBox(
-                    width: 54,
-                    height: 54,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Positioned.fill(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                width: 5,
-                                color: context.gabay.accent.withValues(
-                                  alpha: .4,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final battery = Row(
+                    children: [
+                      SizedBox(
+                        width: 54,
+                        height: 54,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Positioned.fill(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    width: 5,
+                                    color: context.gabay.accent.withValues(
+                                      alpha: .4,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                            Icon(
+                              Icons.bolt,
+                              color: context.gabay.accent,
+                              size: 26,
+                            ),
+                          ],
                         ),
-                        Icon(Icons.bolt, color: context.gabay.accent, size: 26),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              data.caneBatteryLabel,
+                              style: TextStyle(
+                                color: context.gabay.accent,
+                                fontSize: GabayTypography.supporting,
+                                fontWeight: GabayTypography.medium,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Tooltip(
+                              message: 'Last reported cane battery reading',
+                              child: Text(
+                                'Cane battery',
+                                style: TextStyle(
+                                  color: context.gabay.textSecondary,
+                                  fontSize: GabayTypography.caption,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                  final status = Row(
+                    children: [
+                      _DashboardIcon(icon: Icons.directions_walk_outlined),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              data.status(widget.now),
+                              style: TextStyle(
+                                color: context.gabay.accent,
+                                fontSize: GabayTypography.supporting,
+                                fontWeight: GabayTypography.medium,
+                              ),
+                            ),
+                            Text(
+                              'Navigation status',
+                              style: TextStyle(
+                                color: context.gabay.textSecondary,
+                                fontSize: GabayTypography.chartLabel,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                  if (constraints.maxWidth < 290 ||
+                      MediaQuery.textScalerOf(context).scale(16) > 22) {
+                    return Column(
+                      children: [battery, const SizedBox(height: 20), status],
+                    );
+                  }
+                  return IntrinsicHeight(
+                    child: Row(
                       children: [
-                        Text(
-                          'Unavailable',
-                          style: TextStyle(
-                            color: context.gabay.accent,
-                            fontSize: GabayTypography.supporting,
-                            fontWeight: GabayTypography.medium,
-                          ),
-                        ),
-                        Text(
-                          'Cane Battery',
-                          style: TextStyle(
-                            color: context.gabay.textSecondary,
-                            fontSize: GabayTypography.chartLabel,
-                          ),
-                        ),
+                        Expanded(child: battery),
+                        VerticalDivider(width: 24, color: context.gabay.border),
+                        Expanded(child: status),
                       ],
                     ),
-                  ),
-                ],
-              );
-              final status = Row(
-                children: [
-                  _DashboardIcon(icon: Icons.directions_walk_outlined),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          data.status(widget.now),
-                          style: TextStyle(
-                            color: context.gabay.accent,
-                            fontSize: GabayTypography.supporting,
-                            fontWeight: GabayTypography.medium,
-                          ),
-                        ),
-                        Text(
-                          'Navigation status',
-                          style: TextStyle(
-                            color: context.gabay.textSecondary,
-                            fontSize: GabayTypography.chartLabel,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-              if (constraints.maxWidth < 290 ||
-                  MediaQuery.textScalerOf(context).scale(16) > 22) {
-                return Column(
-                  children: [battery, const SizedBox(height: 20), status],
-                );
-              }
-              return IntrinsicHeight(
-                child: Row(
+                  );
+                },
+              ),
+              if (data.caneSos != null && data.caneFall != null) ...[
+                const SizedBox(height: 12),
+                Divider(height: 1, color: context.gabay.border),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: battery),
-                    VerticalDivider(width: 24, color: context.gabay.border),
-                    Expanded(child: status),
+                    Icon(
+                      Icons.sensors_rounded,
+                      size: 16,
+                      color: context.gabay.textSecondary,
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        data.caneSignalLabel,
+                        style: TextStyle(
+                          color: context.gabay.textSecondary,
+                          fontSize: GabayTypography.caption,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-              );
-            },
+              ],
+            ],
           ),
         ),
         const SizedBox(height: 12),

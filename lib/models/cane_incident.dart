@@ -13,6 +13,7 @@ class CaneIncident {
     this.longitude,
     this.resolution,
     this.isRead = false,
+    this.observedFromDatabase = false,
   });
   final String id, navigatorUid, navigatorName, deviceId, kind;
   final DateTime createdAt, detectedAt;
@@ -20,6 +21,7 @@ class CaneIncident {
   final double? latitude, longitude;
   final String? resolution;
   final bool isRead;
+  final bool observedFromDatabase;
   bool get unresolved => resolvedAt == null;
   String get status => resolvedAt != null
       ? (resolution == 'false_alarm' ? 'False alarm' : 'Resolved')
@@ -62,6 +64,7 @@ class CaneIncident {
       longitude: valid ? lon : null,
       resolution: json['resolution'] as String?,
       isRead: json['read_at'] != null,
+      observedFromDatabase: json['reading_source'] == 'device_location',
     );
   }
 }

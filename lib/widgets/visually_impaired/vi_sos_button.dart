@@ -1,3 +1,4 @@
+import '../shared/gabay_top_message.dart';
 import '../shared/gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import 'package:flutter/material.dart';
@@ -106,7 +107,8 @@ class _ViSosButtonState extends State<ViSosButton>
           TextButton(
             onPressed: () {
               Navigator.pop(dialogContext);
-              ScaffoldMessenger.of(context).showSnackBar(
+              showGabayTopMessage(
+                context,
                 SnackBar(
                   content: const Text(
                     'Alert unavailable. No emergency message was sent.',

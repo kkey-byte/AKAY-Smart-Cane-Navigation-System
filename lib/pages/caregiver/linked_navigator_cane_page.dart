@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_top_message.dart';
 import '../../widgets/shared/gabay_modal_motion.dart';
 import '../../theme/gabay_typography.dart';
 import '../../widgets/shared/gabay_glass_surface.dart';
@@ -125,12 +126,14 @@ class _LinkedNavigatorCanePageState extends State<LinkedNavigatorCanePage> {
       await _service.revoke(row.id);
       if (!mounted || !_valid) return;
       setState(() => _rows?.removeWhere((item) => item.id == row.id));
-      ScaffoldMessenger.of(
+      showGabayTopMessage(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Navigator disconnected.')));
+        const SnackBar(content: Text('Navigator disconnected.')),
+      );
     } catch (_) {
       if (mounted && _valid) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showGabayTopMessage(
+          context,
           const SnackBar(
             content: Text(
               'Could not remove this connection. Please try again.',

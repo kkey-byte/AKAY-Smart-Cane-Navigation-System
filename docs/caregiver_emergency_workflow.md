@@ -1,5 +1,9 @@
 # Caregiver cane alerts and emergency response
 
+The current `Device_Location` source, three-second cancellation window, personal
+deletion behavior and deployment migration are documented in
+[Device_Location cane signals](device_location_workflow.md).
+
 ## Implemented scope
 
 The existing Notifications cards and badge now use a permission-checked backend
@@ -12,8 +16,9 @@ not redesigned. The navigator's existing phone SOS control is not changed.
 
 Read status is personal to the caregiver. Acknowledge and Resolve/False alarm
 are persistent incident states visible to all authorized caregivers. Opening,
-swiping or clearing notifications cannot resolve an incident. Unresolved cane
-incidents cannot be dismissed. Resolution records a server timestamp and actor,
+swiping or clearing notifications cannot resolve an incident. Caregivers may
+explicitly delete their own notification even while an incident is unresolved.
+Resolution records a server timestamp and actor,
 and an audit event. The first resolution is preserved on repeated requests.
 This does **not** silence the physical cane: no unverified hardware command is
 sent. A separate firmware command/acknowledgement protocol would be required.
@@ -110,9 +115,9 @@ can communicate without a network/gateway path.
 ## Persistence, access and retry behavior
 
 - `GET /api/v2/alerts` is caregiver-only, checks current active consent in SQL,
-  and returns up to 200 alerts with unresolved incidents first. No feed is cached
-  across accounts. The open app refreshes every three seconds; read failures clear
-  remote data and show an explicit retry state.
+  and returns undismissed alerts with unresolved incidents first. No feed is cached
+  across accounts. The open app refreshes every three seconds; transient failures
+  retain loaded incidents with a retry state; authorization denial clears them.
 - `POST /api/v2/alerts/{id}/respond` accepts `read`, `dismiss`, `acknowledge`,
   `resolve` and `false_alarm`. Consent is locked through each response transaction.
 - `PUT`/`DELETE /api/v2/push-token` binds/removes only the authenticated caregiver's
@@ -144,7 +149,8 @@ can communicate without a network/gateway path.
 3. Repeat each incident using its original eventId and a fresh sequence. Confirm
    one database incident and one delivery job per token, not additional cards.
 4. Open/read/clear the notification list. Confirm the incident remains unresolved.
-   Acknowledge it, restart the app and verify the acknowledged state persists.
+   Explicitly deleting removes only that caregiver's copy. Acknowledge another
+   incident, restart the app and verify the acknowledged state persists.
    Resolve or mark false alarm; verify all linked caregivers see the shared state.
 5. Revoke consent and verify future reads/responses/push job selection are denied.
    Switch accounts on the same device: the previous account's feed must disappear.
@@ -153,7 +159,7 @@ can communicate without a network/gateway path.
    send receipt must not be displayed as proof that a caregiver responded.
 7. Confirm resolving the app incident does not claim to silence the physical cane.
 
-## Local evidence
+## Historical local evidence (before Device_Location integration)
 
 Verification completed for this change: 62 backend regression tests passed;
 the subsequent focused emergency/runtime-role checks also passed. All 28 focused

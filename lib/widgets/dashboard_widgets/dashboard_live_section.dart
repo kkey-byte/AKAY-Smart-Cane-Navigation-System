@@ -256,6 +256,10 @@ class DashboardLiveSectionState extends State<DashboardLiveSection> {
     final destination = timeline.activeDestination;
     return DashboardSnapshot(
       uid: uid,
+      caneBattery: saved?.caneBattery,
+      caneSos: saved?.caneSos,
+      caneFall: saved?.caneFall,
+      caneObservedAt: saved?.caneObservedAt,
       name:
           DashboardSnapshot.clean(AppSessionService.instance.displayName) ??
           saved?.name ??

@@ -25,7 +25,38 @@ Map<String, dynamic> incident(String id, String uid, String kind) => {
 };
 void main() {
   test(
-    'multi-navigator incidents keep identity, cannot be cleared while unresolved, and update only after receipt',
+    'temporary outage retains saved incidents but access denial clears them',
+    () async {
+      var status = 200;
+      final service = NotificationService.forTest(
+        SecureApi(
+          client: MockClient(
+            (request) async => http.Response(
+              jsonEncode(
+                request.url.path.endsWith('/alerts')
+                    ? {
+                        'alerts': [incident('a', 'user-one', 'sos')],
+                      }
+                    : {'notifications': []},
+              ),
+              status,
+            ),
+          ),
+          idToken: () async => 'synthetic',
+          bases: ['http://synthetic.invalid/api'],
+        ),
+      );
+      await service.refresh();
+      status = 503;
+      await expectLater(service.refresh(), throwsA(isA<SecureApiException>()));
+      expect(service.notifications.length, 1);
+      status = 403;
+      await expectLater(service.refresh(), throwsA(isA<SecureApiException>()));
+      expect(service.notifications, isEmpty);
+    },
+  );
+  test(
+    'multi-navigator incidents keep identity and caregiver deletion is personal',
     () async {
       final rows = [
         incident('incident-a', 'user-one', 'sos'),
@@ -37,6 +68,10 @@ void main() {
           if (request.method == 'POST') {
             final action = jsonDecode(request.body)['action'] as String;
             actions.add(action);
+            if (action == 'dismiss') {
+              final id = request.url.pathSegments.reversed.skip(1).first;
+              rows.removeWhere((row) => row['id'] == id);
+            }
             if (action == 'acknowledge') {
               rows.first['acknowledged_at'] = DateTime.now()
                   .toUtc()
@@ -62,16 +97,19 @@ void main() {
         service.notifications.last.title,
         'Possible fall or impact — Synthetic user-two',
       );
-      service.clearAll();
-      service.delete('incident-a');
-      expect(service.notifications.length, 2);
-      expect(actions, isEmpty);
       await service.respond('incident-a', 'acknowledge');
       expect(service.notifications.first.incident!.status, 'Acknowledged');
       expect(service.notifications.first.incident!.unresolved, isTrue);
       await service.respond('incident-a', 'resolve');
       expect(service.notifications.first.incident!.status, 'Resolved');
       expect(service.notifications.last.incident!.status, 'Needs response');
+      service.delete('incident-b');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(service.notifications.length, 1);
+      expect(actions.last, 'dismiss');
+      service.clearAll();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(service.notifications, isEmpty);
     },
   );
   test(
@@ -124,11 +162,12 @@ void main() {
               if (action == 'acknowledge') {
                 row['acknowledged_at'] = DateTime.now().toIso8601String();
               }
+              if (action == 'dismiss') row['dismissed'] = true;
               return http.Response('{"accepted":true}', 200);
             }
             return http.Response(
               jsonEncode({
-                'alerts': [row],
+                'alerts': [if (row['dismissed'] != true) row],
               }),
               200,
             );
@@ -163,8 +202,11 @@ void main() {
       expect(find.text('Status: Acknowledged'), findsOneWidget);
       expect(actions, ['read', 'acknowledge']);
       expect(tester.takeException(), isNull);
-      await tester.tap(find.text('Close'));
+      await tester.tap(find.text('Delete notification'));
       await tester.pumpAndSettle();
+      expect(service.notifications, isEmpty);
+      expect(actions.last, 'dismiss');
+      expect(find.byType(AlertDialog), findsNothing);
     },
   );
 }

@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/pairing.dart';
+import '../models/cane_registration_challenge.dart';
 import 'secure_api.dart';
 
 class PairingService {
@@ -78,6 +79,32 @@ class PairingService {
           (e) => RegisteredCane.fromJson(Map<String, dynamic>.from(e as Map)),
         )
         .toList();
+  }
+
+  Future<CaneRegistrationChallenge> requestCaneRegistration([
+    String? id,
+    String? claimCode,
+  ]) async {
+    final response = await api
+        .request('POST', '/v2/devices/registration-code', {
+          if (id != null) 'deviceId': id.trim(),
+          if (claimCode != null) 'claimCode': claimCode.trim(),
+        });
+    return CaneRegistrationChallenge.fromJson(response);
+  }
+
+  Future<void> confirmCaneRegistration(
+    String registrationId,
+    String code,
+  ) async {
+    final response = await api.request(
+      'POST',
+      '/v2/devices/registration-code/confirm',
+      {'registrationId': registrationId, 'code': code.trim().toUpperCase()},
+    );
+    if (response['accepted'] != true) {
+      throw const SecureApiException('Cane registration was not confirmed.');
+    }
   }
 
   Future<void> claim(String id, String claimCode) async {

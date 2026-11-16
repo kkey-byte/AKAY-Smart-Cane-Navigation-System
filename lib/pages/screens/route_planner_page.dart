@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_top_message.dart';
 import '../../theme/gabay_typography.dart';
 import '../../widgets/shared/gabay_page_background.dart';
 import '../../widgets/shared/gabay_page_header.dart';
@@ -237,7 +238,8 @@ class _RoutePlannerPageState extends State<RoutePlannerPage> {
       Navigator.of(context).pop<RoutePlanResult>(result);
     } catch (error) {
       if (!mounted || token != _searchToken) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      showGabayTopMessage(
+        context,
         SnackBar(
           content: Text(
             error is NavigationRouteException

@@ -70,13 +70,16 @@ class NotificationService extends ChangeNotifier {
           },
           onError: (Object error) {
             if (generation != _generation) return;
-            _unavailable();
+            _unavailable(error);
           },
         );
   }
 
-  void _unavailable() {
-    _notifications.removeWhere((n) => n.incident != null);
+  void _unavailable([Object? error]) {
+    if (error is SecureApiException &&
+        (error.status == 401 || error.status == 403)) {
+      _notifications.removeWhere((n) => n.incident != null);
+    }
     errorMessage =
         'Emergency alerts unavailable. Check your connection and retry.';
     notifyListeners();
@@ -114,8 +117,8 @@ class NotificationService extends ChangeNotifier {
     try {
       final data = await api.request('GET', '/v2/alerts');
       if (generation == _generation) _apply(data);
-    } catch (_) {
-      if (generation == _generation) _unavailable();
+    } catch (error) {
+      if (generation == _generation) _unavailable(error);
       rethrow;
     }
     try {
@@ -194,7 +197,7 @@ class NotificationService extends ChangeNotifier {
     }
     final incident = _notifications[index].incident;
     if (incident != null) {
-      if (!incident.unresolved) unawaited(_quietResponse(id, 'dismiss'));
+      unawaited(_quietResponse(id, 'dismiss'));
       return;
     }
     _notifications.removeAt(index);

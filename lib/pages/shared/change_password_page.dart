@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_top_message.dart';
 import '../../theme/gabay_typography.dart';
 import '../../widgets/shared/gabay_page_header.dart';
 import '../../widgets/shared/gabay_page_background.dart';
@@ -51,17 +52,17 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       _password.clear();
       _confirm.clear();
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
+      showGabayTopMessage(
+        context,
         const SnackBar(content: Text('Password updated successfully.')),
       );
     } on AuthException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      showGabayTopMessage(context, SnackBar(content: Text(e.message)));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      showGabayTopMessage(
+        context,
         const SnackBar(
           content: Text(
             'Password update could not be confirmed. Please sign in again.',

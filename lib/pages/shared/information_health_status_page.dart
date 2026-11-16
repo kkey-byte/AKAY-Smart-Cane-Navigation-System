@@ -1,3 +1,4 @@
+import '../../widgets/shared/gabay_top_message.dart';
 import '../../widgets/shared/gabay_modal_motion.dart';
 import '../../widgets/profile/health_display_widgets.dart';
 import '../../theme/gabay_typography.dart';
@@ -128,7 +129,8 @@ class _InformationHealthContentState extends State<InformationHealthContent> {
         } catch (_) {
           if (mounted &&
               revision == AppSessionService.instance.identityRevision) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            showGabayTopMessage(
+              context,
               const SnackBar(
                 content: Text(
                   'Unable to refresh profile. Current details are retained.',
@@ -181,7 +183,8 @@ class _InformationHealthContentState extends State<InformationHealthContent> {
         setState(() => _healthError = 'Unable to load health information.');
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || generation != _loadRevision) return;
-          ScaffoldMessenger.of(context).showSnackBar(
+          showGabayTopMessage(
+            context,
             SnackBar(
               content: const Text('Unable to load health information.'),
               duration: const Duration(seconds: 4),
@@ -321,9 +324,10 @@ class _InformationHealthContentState extends State<InformationHealthContent> {
       ),
     );
     if (result == true && mounted) {
-      ScaffoldMessenger.of(
+      showGabayTopMessage(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Health status saved.')));
+        const SnackBar(content: Text('Health status saved.')),
+      );
     }
   }
 

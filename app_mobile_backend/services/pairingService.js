@@ -1,5 +1,5 @@
 'use strict';
-const { randomBytes, createHash, timingSafeEqual } = require('node:crypto');
+const { randomBytes, createHash, timingSafeEqual, randomInt } = require('node:crypto');
 const hash = value => createHash('sha256').update(String(value)).digest('hex');
 const secret = () => randomBytes(32).toString('base64url');
 class ApiError extends Error {
@@ -107,6 +107,65 @@ function createPairingService(pool, usersTable) {
         if (!c || (c.navigator_id!==actor.id && c.caregiver_id!==actor.id)) fail(403,'forbidden','This connection is not yours.');
         await db.query("UPDATE akay_connections SET status='revoked',revoked_at=clock_timestamp() WHERE id=$1",[c.id]);
         await audit(db,actor,'consent_revoked',c.id); return {status:'revoked'};
+      });
+    },
+    async requestCaneRegistration(actor,deviceId,claimCode) {
+      role(actor,'visually_impaired');
+      const automatic=deviceId===undefined && claimCode===undefined;
+      if(!automatic) id(deviceId);
+      await limit(actor.id,'cane_registration_request',10,3600);
+      return tx(async db=>{
+        let authorization=null;
+        if(automatic) {
+          authorization=await one(db,`SELECT a.id,a.device_id FROM akay_cane_registration_authorizations a
+            JOIN akay_devices d ON d.id=a.device_id WHERE a.navigator_id=$1 AND a.consumed_at IS NULL
+            AND a.expires_at>clock_timestamp() AND d.owner_id IS NULL AND d.claim_hash IS NOT NULL
+            ORDER BY a.created_at,a.id LIMIT 1`,[actor.id]);
+          if(!authorization) fail(409,'no_cane_ready','No cane is authorized for your account. Ask the cane provider to prepare your registration.');
+          deviceId=authorization.device_id;
+        }
+        const device=await one(db,'SELECT * FROM akay_devices WHERE id=$1 FOR UPDATE',[deviceId]);
+        if(!device) fail(404,'device_unknown','Device not provisioned. Contact the device custodian.');
+        if(device.owner_id) fail(409,'already_owned','Device already registered. Refresh your devices or ask its owner to transfer it.');
+        if(automatic) {
+          authorization=await one(db,`SELECT * FROM akay_cane_registration_authorizations
+            WHERE id=$1 AND navigator_id=$2 AND device_id=$3 AND consumed_at IS NULL FOR UPDATE`,[authorization.id,actor.id,deviceId]);
+          if(!authorization || !await unexpired(db,authorization.expires_at)) fail(410,'registration_unavailable','Cane authorization expired or changed.');
+        } else if(!match(claimCode,device.claim_hash)) fail(403,'claim_invalid','Private claim code invalid or unavailable.');
+        await db.query(`UPDATE akay_cane_registration_codes SET expires_at=clock_timestamp()
+          WHERE navigator_id=$1 AND device_id=$2 AND consumed_at IS NULL`,[actor.id,deviceId]);
+        const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        const code=Array.from({length:6},()=>alphabet[randomInt(alphabet.length)]).join('');
+        const challenge=await one(db,`INSERT INTO akay_cane_registration_codes(device_id,navigator_id,code_hash,claim_hash,authorization_id)
+          VALUES($1,$2,$3,$4,$5) RETURNING id,expires_at`,[deviceId,actor.id,hash(code),device.claim_hash,authorization?.id??null]);
+        return {registrationId:challenge.id,code,expires_at:challenge.expires_at};
+      });
+    },
+    async confirmCaneRegistration(actor,registrationId,input) {
+      role(actor,'visually_impaired');id(registrationId);
+      await limit(actor.id,'cane_registration_confirm',20,300);
+      const code=typeof input==='string'?input.trim().toUpperCase():'';
+      if(!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) fail(400,'invalid_registration_code','Enter the six-character registration code.');
+      return tx(async db=>{
+        const target=await one(db,'SELECT device_id FROM akay_cane_registration_codes WHERE id=$1 AND navigator_id=$2',[registrationId,actor.id]);
+        if(!target) fail(410,'registration_unavailable','Registration code expired, replaced or unavailable. Request a new code.');
+        // Match the request lock order: device before challenge, including resends.
+        const device=await one(db,'SELECT * FROM akay_devices WHERE id=$1 FOR UPDATE',[target.device_id]);
+        const challenge=await one(db,'SELECT * FROM akay_cane_registration_codes WHERE id=$1 AND navigator_id=$2 FOR UPDATE',[registrationId,actor.id]);
+        if(challenge.consumed_at || !await unexpired(db,challenge.expires_at)) fail(410,'registration_unavailable','Registration code expired, replaced or already used. Request a new code.');
+        if(!match(code,challenge.code_hash)) fail(403,'registration_code_invalid','Registration code does not match.');
+        if(!device || device.owner_id || device.claim_hash!==challenge.claim_hash) fail(409,'device_changed','Cane registration details changed. Refresh your devices or request a new code.');
+        if(challenge.authorization_id) {
+          const authorization=await one(db,`SELECT * FROM akay_cane_registration_authorizations
+            WHERE id=$1 AND device_id=$2 AND navigator_id=$3 AND consumed_at IS NULL FOR UPDATE`,[challenge.authorization_id,device.id,actor.id]);
+          if(!authorization || !await unexpired(db,authorization.expires_at)) fail(410,'registration_unavailable','Cane authorization expired or changed.');
+          await db.query('UPDATE akay_cane_registration_authorizations SET consumed_at=clock_timestamp() WHERE id=$1',[authorization.id]);
+        }
+        await db.query('UPDATE akay_devices SET owner_id=$2,claim_hash=NULL WHERE id=$1',[device.id,actor.id]);
+        await db.query('INSERT INTO akay_ownership_history(device_id,owner_id) VALUES($1,$2)',[device.id,actor.id]);
+        await db.query('UPDATE akay_cane_registration_codes SET consumed_at=clock_timestamp() WHERE id=$1',[registrationId]);
+        await audit(db,actor,'device_claimed',device.id);
+        return {accepted:true,id:device.id,serial:device.serial};
       });
     },
     async claim(actor, deviceId, code) {

@@ -1,4 +1,3 @@
-import '../shared/gabay_metric_grid.dart';
 import '../../theme/gabay_typography.dart';
 import '../shared/navigator_selection_modal.dart';
 import 'dart:convert';
@@ -318,18 +317,22 @@ class CaregiverNavigationOverview extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _FitLabel(
-                              text: 'Unavailable',
+                              text: data.caneBatteryLabel,
                               style: TextStyle(
                                 color: statusInk,
-                                fontWeight: GabayTypography.regular,
+                                fontWeight: GabayTypography.medium,
                                 fontSize: GabayTypography.body,
                               ),
                             ),
-                            _FitLabel(
-                              text: 'Cane Battery',
-                              style: TextStyle(
-                                color: statusMuted,
-                                fontSize: GabayTypography.caption,
+                            const SizedBox(height: 3),
+                            Tooltip(
+                              message: 'Last reported cane battery reading',
+                              child: Text(
+                                'Cane battery',
+                                style: TextStyle(
+                                  color: statusMuted,
+                                  fontSize: GabayTypography.caption,
+                                ),
                               ),
                             ),
                           ],
@@ -340,8 +343,8 @@ class CaregiverNavigationOverview extends StatelessWidget {
                   final status = Row(
                     children: [
                       Container(
-                        width: 44,
-                        height: 44,
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
                           color: blueCards
                               ? Colors.white.withValues(alpha: .16)
@@ -354,7 +357,7 @@ class CaregiverNavigationOverview extends StatelessWidget {
                           size: 28,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,7 +367,7 @@ class CaregiverNavigationOverview extends StatelessWidget {
                               style: TextStyle(
                                 color: statusInk,
                                 fontSize: GabayTypography.body,
-                                fontWeight: GabayTypography.regular,
+                                fontWeight: GabayTypography.medium,
                               ),
                             ),
                             const SizedBox(height: 3),
@@ -409,6 +412,28 @@ class CaregiverNavigationOverview extends StatelessWidget {
                   );
                 },
               ),
+              if (data.caneSos != null && data.caneFall != null) ...[
+                const SizedBox(height: 12),
+                Divider(height: 1, color: statusDivider),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.sensors_rounded, size: 16, color: statusMuted),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        data.caneSignalLabel,
+                        style: TextStyle(
+                          color: statusMuted,
+                          fontSize: GabayTypography.caption,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -777,8 +802,34 @@ class _EqualCards extends StatelessWidget {
     child: children[index],
   );
   @override
-  Widget build(BuildContext context) => GabayMetricGrid(
-    children: [for (var i = 0; i < children.length; i++) _card(context, i)],
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final cards = [
+        for (var i = 0; i < children.length; i++) _card(context, i),
+      ];
+      if (constraints.maxWidth < 240) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < cards.length; i++) ...[
+              if (i > 0) const SizedBox(height: 12),
+              cards[i],
+            ],
+          ],
+        );
+      }
+      return IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < cards.length; i++) ...[
+              if (i > 0) const SizedBox(width: 12),
+              Expanded(child: cards[i]),
+            ],
+          ],
+        ),
+      );
+    },
   );
 }
 
