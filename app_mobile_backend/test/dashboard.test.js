@@ -28,6 +28,9 @@ test('foreground activity expires independently from fresh background location u
   assert.equal((await ctx.service.snapshot({},'nav')).presence.state,'active');
   ctx.advance(46000);ctx.sources['phone_location/nav']={source:'phone_gps',latitude:7.3,longitude:125.68,timestamp:ctx.now(),heading:45};
   const data=await ctx.service.snapshot({},'nav');assert.equal(data.presence.state,'inactive');assert.equal(data.location.heading,45);
+  assert.equal(data.phoneLocation.source,'phone_gps');
+  assert.equal(data.phoneLocation.latitude,7.3);
+  assert.equal(data.phoneLocation.fresh,true);
   assert.throws(()=>ctx.service.presence({uid:'caregiver',role:'caregiver'},true),e=>e.status===403);
   assert.throws(()=>ctx.service.presence(navigator,'true'),e=>e.status===400);
   ctx.service.presence(navigator,false);assert.equal((await ctx.service.snapshot({},'nav')).presence.state,'inactive');

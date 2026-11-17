@@ -17,7 +17,20 @@ class DashboardService {
         interval: const Duration(seconds: 2),
       )
       .map((data) {
-        final snapshot = DashboardSnapshot.fromJson(data);
+        final location = DashboardSnapshot.asMap(data['location']);
+        final phone = DashboardSnapshot.asMap(data['phoneLocation']);
+        final isCane = location['source'] == 'cane_gps';
+        // Older servers may still return a cane as the primary location.
+        // Never use that hardware position or path for navigator monitoring.
+        final snapshot = DashboardSnapshot.fromJson({
+          ...data,
+          if (phone['source'] == 'phone_gps') 'location': phone,
+          if (isCane) ...{
+            if (phone['source'] != 'phone_gps') 'location': null,
+            'points': const [],
+            'recordedTrip': null,
+          },
+        });
         if (snapshot.uid != uid) {
           throw const SecureApiException(
             'Monitoring identity could not be verified.',

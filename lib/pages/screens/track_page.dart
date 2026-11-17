@@ -149,6 +149,7 @@ class TrackPageState extends State<TrackPage> {
   bool _showSearchEmpty = false;
   bool _useWiderSearch = false;
   MapPlace? _pinnedDestination;
+  String? _pinnedNavigatorId;
 
   int _destinationSearchToken = 0;
 
@@ -955,6 +956,7 @@ class TrackPageState extends State<TrackPage> {
 
       setState(() {
         _pinnedDestination = place;
+        _pinnedNavigatorId = _isNavigatorMode ? null : navigatorId;
         _destinationController.text = place.name;
         _isResolvingMapPin = false;
       });
@@ -1326,6 +1328,20 @@ class TrackPageState extends State<TrackPage> {
     }
 
     final markers = <GabayMapMarkerData>[];
+
+    final pin = _pinnedDestination;
+    if (pin != null && _pinnedNavigatorId == _selectedNavigatorId) {
+      markers.add(
+        GabayMapMarkerData(
+          id: 'pinned_destination',
+          position: pin.latLng,
+          kind: GabayMapMarkerKind.destination,
+          zIndex: 4,
+          title: pin.name,
+          snippet: pin.address,
+        ),
+      );
+    }
 
     for (var i = 0; i < _navigators.length; i++) {
       final navigator = _navigators[i];

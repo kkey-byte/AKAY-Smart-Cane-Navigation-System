@@ -26,7 +26,7 @@ void main() {
             'latitude': 10,
             'longitude': 20,
             'time': 1000,
-            'source': 'cane_gps',
+            'source': 'phone_gps',
             'deviceId': 'physical-cane',
             'assignmentId': 'assignment',
             'live': true,
@@ -45,6 +45,36 @@ void main() {
       expect(seen.points.last.latitude, 10);
       expect(seen.assignmentId, 'assignment');
       expect(seen.recordedTripId, 'cane-trip');
+    },
+  );
+  test(
+    'cane coordinates never become the navigator phone marker or path',
+    () async {
+      for (final hasPhone in [false, true]) {
+        final service = DashboardService(
+          api: api({
+            'navigator': {'uid': 'nav'},
+            'location': {'source': 'cane_gps', 'latitude': 11, 'longitude': 21},
+            if (hasPhone)
+              'phoneLocation': {
+                'source': 'phone_gps',
+                'latitude': 10,
+                'longitude': 20,
+                'time': 1000,
+                'live': false,
+              },
+            'points': [
+              {'latitude': 11, 'longitude': 21},
+            ],
+            'recordedTrip': {'id': 'cane-trip'},
+          }),
+        );
+        final seen = await service.watch('nav').first;
+        expect(seen.position?.latitude, hasPhone ? 10 : null);
+        expect(seen.points, isEmpty);
+        expect(seen.recordedTripId, isNull);
+        expect(seen.fresh(DateTime.now()), isFalse);
+      }
     },
   );
   test(

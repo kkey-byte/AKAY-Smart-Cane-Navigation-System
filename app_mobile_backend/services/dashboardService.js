@@ -19,7 +19,7 @@ function createDashboardService(pool,authorize,firebase,{clock=Date.now,tripStor
   async function snapshot(actor,uid) {
     const navigator=await authorize(actor,uid);
     const now=clock(),errors=[];
-    let navigation=null,points=[],location=null,recordedTrip=null,cane=null;
+    let navigation=null,points=[],location=null,phoneLocation=null,recordedTrip=null,cane=null;
     const [saved,live,batteryRead]=await Promise.allSettled([
       monitoring.bounded(Promise.resolve().then(()=>pool.query(`SELECT sessionid,destinationlatitude,destinationlongitude,destinationaddress,
         status,starttime,endtime,updatedat FROM navigationsessions WHERE user_id=$1
@@ -38,6 +38,7 @@ function createDashboardService(pool,authorize,firebase,{clock=Date.now,tripStor
     } catch(_) {errors.push('Saved navigation details are unavailable.');}
     if(live.status==='fulfilled') {
       location=live.value.location;points=live.value.points;recordedTrip=live.value.trip;
+      phoneLocation=live.value.phoneLocation;
       errors.push(...live.value.errors);
     } else errors.push('Live GPS monitoring is unavailable.');
     // Current status comes only from this request's Firebase reads. Persisted
@@ -53,7 +54,7 @@ function createDashboardService(pool,authorize,firebase,{clock=Date.now,tripStor
     const seen=activity.get(uid);
     const presence={state:seen?(seen.active&&now-seen.time<=45000?'active':'inactive'):'unknown',updatedAt:seen?new Date(seen.time).toISOString():null};
     await authorize(actor,uid); // Revoke during reads must hide the entire result.
-    return {navigator:{uid,name:navigator.name||null},navigation,location,points,recordedTrip,presence,cane,errors,serverTime:new Date(now).toISOString()};
+    return {navigator:{uid,name:navigator.name||null},navigation,location,phoneLocation,points,recordedTrip,presence,cane,errors,serverTime:new Date(now).toISOString()};
   }
   return {presence,snapshot};
 }
