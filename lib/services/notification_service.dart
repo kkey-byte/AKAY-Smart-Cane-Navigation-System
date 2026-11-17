@@ -16,6 +16,9 @@ class NotificationService extends ChangeNotifier {
   StreamSubscription<Map<String, dynamic>>? _subscription;
   StreamSubscription<Map<String, dynamic>>? _destinationSubscription;
   bool _initialized = false;
+  final _emergencyEvents = StreamController<CaneIncident>.broadcast(sync: true);
+  Stream<CaneIncident> get emergencyEvents => _emergencyEvents.stream;
+  final Map<String, bool> _incidentStates = {};
   int _generation = 0;
   String? _sessionKey;
   String? errorMessage;
@@ -91,6 +94,16 @@ class NotificationService extends ChangeNotifier {
           (row) => CaneIncident.fromJson(Map<String, dynamic>.from(row as Map)),
         )
         .toList();
+    final events = <CaneIncident>[];
+    for (final incident in incidents) {
+      final previous = _incidentStates[incident.id];
+      if ((incident.unresolved && previous == null) ||
+          (!incident.unresolved &&
+              (previous == true || (previous == null && !incident.isRead)))) {
+        events.add(incident);
+      }
+      _incidentStates[incident.id] = incident.unresolved;
+    }
     _notifications.removeWhere((n) => n.incident != null);
     _notifications.insertAll(
       0,
@@ -110,6 +123,9 @@ class NotificationService extends ChangeNotifier {
     );
     errorMessage = null;
     notifyListeners();
+    for (final incident in events) {
+      _emergencyEvents.add(incident);
+    }
   }
 
   Future<void> refresh() async {
@@ -212,6 +228,7 @@ class NotificationService extends ChangeNotifier {
     unawaited(_destinationSubscription?.cancel());
     _destinationSubscription = null;
     _notifications.clear();
+    _incidentStates.clear();
     errorMessage = null;
     notifyListeners();
   }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:app_mobile/models/dashboard_snapshot.dart';
 import 'package:app_mobile/theme/gabay_theme.dart';
 import 'package:app_mobile/widgets/dashboard_widgets/caregiver_navigation_overview.dart';
@@ -7,6 +9,50 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 void main() {
+  testWidgets('live refresh keeps the navigator photo visible', (tester) async {
+    final photo =
+        'data:image/png;base64,${base64Encode(File('assets/branding/akay_logo.png').readAsBytesSync())}';
+    Widget dashboard(String uid, String? picture, DateTime now) => MaterialApp(
+      theme: GabayTheme.lightTheme,
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: CaregiverNavigationOverview(
+            data: DashboardSnapshot(uid: uid, name: 'Synthetic navigator'),
+            now: now,
+            picture: picture,
+          ),
+        ),
+      ),
+    );
+    final now = DateTime.now();
+    await tester.pumpWidget(dashboard('one', photo, now));
+    final image = tester.widget<Image>(find.byType(Image));
+    await tester.runAsync(
+      () => precacheImage(image.image, tester.element(find.byType(Image))),
+    );
+    await tester.pump();
+    final rendered = tester.widget<RawImage>(find.byType(RawImage)).image;
+    expect(rendered, isNotNull);
+
+    await tester.pumpWidget(
+      dashboard('one', photo, now.add(const Duration(seconds: 2))),
+    );
+    // A live update must not introduce even one empty image frame.
+    expect(
+      tester.widget<RawImage>(find.byType(RawImage)).image,
+      same(rendered),
+    );
+
+    await tester.pumpWidget(dashboard('two', null, now));
+    expect(find.byType(Image), findsNothing);
+    expect(find.byIcon(Icons.person_outline_rounded), findsOneWidget);
+    await tester.pumpWidget(
+      dashboard('two', 'data:image/png;base64,invalid!', now),
+    );
+    expect(find.byType(Image), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final scenario in [
     (large: false, navigator: false),
     (large: true, navigator: false),

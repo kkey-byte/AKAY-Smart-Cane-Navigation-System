@@ -11,7 +11,6 @@ class EmergencyPushService {
   EmergencyPushService._();
   static final instance = EmergencyPushService._();
   VoidCallback? onOpen;
-  VoidCallback? onForeground;
   String? _key, _token;
   bool _supported = false, _initialized = false;
   Future<void> _pending = Future.value();
@@ -29,14 +28,7 @@ class EmergencyPushService {
       FirebaseMessaging.onMessage.listen((message) {
         if (!_caregiver || !_isNotification(message.data['type'])) return;
         unawaited(
-          NotificationService.instance
-              .refresh()
-              .then((_) {
-                if (message.data['type'] == 'cane_alert') {
-                  onForeground?.call();
-                }
-              })
-              .catchError((Object _) {}),
+          NotificationService.instance.refresh().catchError((Object _) {}),
         );
       });
       FirebaseMessaging.onMessageOpenedApp.listen((message) {
@@ -95,8 +87,18 @@ class EmergencyPushService {
             _token = null;
           }
           if (next != _key || next == null) return;
-          final settings = await FirebaseMessaging.instance
+          var settings = await FirebaseMessaging.instance
               .getNotificationSettings();
+          if (!kIsWeb &&
+              settings.authorizationStatus ==
+                  AuthorizationStatus.notDetermined) {
+            settings = await FirebaseMessaging.instance.requestPermission(
+              alert: true,
+              badge: true,
+              sound: true,
+            );
+          }
+          if (next != _key || !_caregiver) return;
           if (settings.authorizationStatus == AuthorizationStatus.authorized ||
               settings.authorizationStatus == AuthorizationStatus.provisional) {
             await _bind();

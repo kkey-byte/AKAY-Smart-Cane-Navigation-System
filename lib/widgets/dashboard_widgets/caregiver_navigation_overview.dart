@@ -12,6 +12,60 @@ import '../shared/gabay_dashboard_backdrop.dart';
 import '../track/gabay_map_marker.dart';
 import '../track/gabay_track_map.dart';
 
+class _NavigatorPhoto extends StatefulWidget {
+  const _NavigatorPhoto({super.key, required this.picture});
+
+  final String? picture;
+
+  @override
+  State<_NavigatorPhoto> createState() => _NavigatorPhotoState();
+}
+
+class _NavigatorPhotoState extends State<_NavigatorPhoto> {
+  ImageProvider? _image;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant _NavigatorPhoto oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.picture != widget.picture) _loadImage();
+  }
+
+  void _loadImage() {
+    _image = null;
+    final picture = widget.picture;
+    try {
+      if (picture?.startsWith('data:image/') == true) {
+        // Keep the same bytes/provider through live dashboard rebuilds.
+        _image = MemoryImage(base64Decode(picture!.split(',').last));
+      } else if (Uri.tryParse(picture ?? '')?.scheme == 'https') {
+        _image = NetworkImage(picture!);
+      }
+    } catch (_) {
+      // Preserve the placeholder for malformed photo data.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = context.gabay.accent;
+    final image = _image;
+    return image == null
+        ? Icon(Icons.person_outline_rounded, color: color, size: 28)
+        : Image(
+            image: image,
+            fit: BoxFit.cover,
+            errorBuilder: (_, error, stack) =>
+                Icon(Icons.person_outline_rounded, color: color),
+          );
+  }
+}
+
 class CaregiverNavigationOverview extends StatelessWidget {
   const CaregiverNavigationOverview({
     super.key,
@@ -80,30 +134,7 @@ class CaregiverNavigationOverview extends StatelessWidget {
         : g.border;
     final fresh = data.fresh(now);
     final point = data.position ?? data.target;
-    Widget avatar = Icon(
-      Icons.person_outline_rounded,
-      color: g.accent,
-      size: 28,
-    );
-    try {
-      if (picture?.startsWith('data:image/') == true) {
-        avatar = Image.memory(
-          base64Decode(picture!.split(',').last),
-          fit: BoxFit.cover,
-          errorBuilder: (_, error, stack) =>
-              Icon(Icons.person_outline_rounded, color: g.accent),
-        );
-      } else if (Uri.tryParse(picture ?? '')?.scheme == 'https') {
-        avatar = Image.network(
-          picture!,
-          fit: BoxFit.cover,
-          errorBuilder: (_, error, stack) =>
-              Icon(Icons.person_outline_rounded, color: g.accent),
-        );
-      }
-    } catch (_) {
-      /* Use the profile placeholder for malformed photo data. */
-    }
+    final avatar = _NavigatorPhoto(key: ValueKey(data.uid), picture: picture);
     final map = point == null
         ? ColoredBox(
             color: g.mapPlaceholder,

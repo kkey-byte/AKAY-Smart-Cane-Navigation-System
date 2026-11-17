@@ -24,6 +24,61 @@ Map<String, dynamic> incident(String id, String uid, String kind) => {
   'read_at': null,
 };
 void main() {
+  test(
+    'emergency events cover SOS, fall and resolution without poll duplicates',
+    () async {
+      final rows = [
+        incident('sos', 'one', 'sos'),
+        incident('fall', 'two', 'motion'),
+      ];
+      final service = NotificationService.forTest(
+        SecureApi(
+          client: MockClient(
+            (request) async => http.Response(
+              jsonEncode(
+                request.url.path.endsWith('/alerts')
+                    ? {'alerts': rows}
+                    : {'notifications': []},
+              ),
+              200,
+            ),
+          ),
+          idToken: () async => 'synthetic',
+          bases: ['http://synthetic.invalid/api'],
+        ),
+      );
+      final events = <String>[];
+      final subscription = service.emergencyEvents.listen(
+        (event) => events.add('${event.id}:${event.status}'),
+      );
+      addTearDown(subscription.cancel);
+      await service.refresh();
+      await service.refresh();
+      expect(events, ['sos:Needs response', 'fall:Needs response']);
+      rows.first['read_at'] = DateTime.now().toIso8601String();
+      rows.first['acknowledged_at'] = DateTime.now().toIso8601String();
+      await service.refresh();
+      expect(events.length, 2);
+      rows.first['resolved_at'] = DateTime.now().toIso8601String();
+      rows.last['resolved_at'] = DateTime.now().toIso8601String();
+      rows.last['resolution'] = 'false_alarm';
+      await service.refresh();
+      await service.refresh();
+      expect(events, [
+        'sos:Needs response',
+        'fall:Needs response',
+        'sos:Resolved',
+        'fall:False alarm',
+      ]);
+      service.reset();
+      await service.refresh();
+      expect(events.last, 'fall:False alarm');
+      expect(
+        events.length,
+        5,
+      ); // Only unread resolved incidents surface after reset.
+    },
+  );
   for (final dark in [false, true]) {
     testWidgets(
       'SOS details preserve response actions at large text, dark=$dark',

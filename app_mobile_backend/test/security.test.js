@@ -174,15 +174,42 @@ test('durable emergency push retries, sends once per token and excludes revoked 
   assert.equal((await workflow.list(car)).alerts.length,0);
 });
 
-test('resolved incidents do not notify and permanently invalid push tokens are removed',async()=>{
+test('resolved incidents notify once and permanently invalid push tokens are removed',async()=>{
   await connect();const a=await assigned();
   await service.ingest(a.id,a.key,{...reading(a.assignment),alert:'sos',eventId:'sos-2'});
   const workflow=emergency(async()=>{throw Object.assign(new Error('synthetic invalid token'),{code:'messaging/registration-token-not-registered'});});
   await workflow.token(car,'synthetic-invalid-token-00001');await workflow.dispatch();
   assert.equal((await pool.query('SELECT * FROM akay_push_tokens')).rowCount,0);
   const id=(await workflow.list(car)).alerts[0].id;await workflow.respond(car,id,'resolve');
-  await workflow.token(car,'synthetic-new-token-00000001');await workflow.dispatch();
-  assert.equal((await pool.query('SELECT * FROM akay_alert_deliveries')).rowCount,0);
+  const deliveries=[];
+  const resolvedWorkflow=emergency(async message=>deliveries.push(message));
+  await resolvedWorkflow.token(car,'synthetic-new-token-00000001');
+  await resolvedWorkflow.dispatch();await resolvedWorkflow.dispatch();
+  assert.equal(deliveries.length,1);
+  assert.match(deliveries[0].notification.title,/Resolved/);
+  assert.match(deliveries[0].notification.body,/emergency has been resolved/);
+});
+
+test('an already delivered emergency sends a second push on resolution only once',async()=>{
+  await connect();await connect(nav,stranger);const a=await assigned();
+  await service.ingest(a.id,a.key,{...reading(a.assignment),alert:'motion',eventId:'resolved-motion'});
+  const deliveries=[];
+  const workflow=emergency(async message=>deliveries.push(message));
+  await workflow.token(car,'synthetic-resolution-token-00001');
+  await workflow.dispatch();
+  assert.equal(deliveries.length,1);
+  const id=(await workflow.list(car)).alerts[0].id;
+  await workflow.respond(stranger,id,'read');
+  assert.ok((await workflow.list(stranger)).alerts[0].read_at);
+  await workflow.respond(car,id,'false_alarm');
+  assert.equal((await workflow.list(stranger)).alerts[0].read_at,null);
+  await workflow.respond(stranger,id,'read');
+  assert.ok((await workflow.list(stranger)).alerts[0].read_at);
+  await workflow.dispatch();await workflow.dispatch();
+  assert.equal(deliveries.length,2);
+  assert.match(deliveries[1].notification.body,/false alarm/);
+  await workflow.respond(car,id,'resolve');await workflow.dispatch();
+  assert.equal(deliveries.length,2);
 });
 
 test('migration preserves legacy physical identity but does not invent custody or claims',async()=>{

@@ -19,7 +19,8 @@ function createEmergencyService(pool,usersTable,firebase,{pushTimeoutMs=10000}={
       role(actor);
       // Consent is evaluated in the same statement as the returned data, with no cached feed.
       const result=await pool.query(`SELECT a.*,u.firebase_uid AS navigator_uid,u.name AS navigator_name,
-        r.sampled_at,r.latitude,r.longitude,r.source AS reading_source,ar.read_at,ar.dismissed_at
+        r.sampled_at,r.latitude,r.longitude,r.source AS reading_source,
+        CASE WHEN ar.read_at<a.resolved_at THEN NULL ELSE ar.read_at END AS read_at,ar.dismissed_at
         FROM akay_alerts a JOIN ${usersTable()} u ON u.user_id=a.navigator_id
         JOIN akay_readings r ON r.id=a.reading_id
         LEFT JOIN akay_alert_receipts ar ON ar.alert_id=a.id AND ar.caregiver_id=$1
@@ -48,10 +49,13 @@ function createEmergencyService(pool,usersTable,firebase,{pushTimeoutMs=10000}={
             resolution=CASE WHEN $3='acknowledge' THEN resolution ELSE COALESCE(resolution,$4) END WHERE id=$1`,
           [id,actor.id,action,action==='false_alarm'?'false_alarm':'resolved']);
           await db.query('INSERT INTO akay_audit_events(actor_id,action,record_id) VALUES($1,$2,$3)',[actor.id,`alert_${action}`,id]);
+          if(action!=='acknowledge'&&!alert.resolved_at) {
+            await db.query('UPDATE akay_alert_deliveries SET attempts=0,next_attempt_at=clock_timestamp() WHERE alert_id=$1',[id]);
+          }
         }
         await db.query(`INSERT INTO akay_alert_receipts(alert_id,caregiver_id,read_at,dismissed_at)
           VALUES($1,$2,clock_timestamp(),CASE WHEN $3='dismiss' THEN clock_timestamp() ELSE NULL END)
-          ON CONFLICT(alert_id,caregiver_id) DO UPDATE SET read_at=COALESCE(akay_alert_receipts.read_at,EXCLUDED.read_at),
+          ON CONFLICT(alert_id,caregiver_id) DO UPDATE SET read_at=EXCLUDED.read_at,
           dismissed_at=COALESCE(akay_alert_receipts.dismissed_at,EXCLUDED.dismissed_at)`,[id,actor.id,action]);
         await db.query('COMMIT');return {accepted:true};
       } catch(error) {await db.query('ROLLBACK');throw error;} finally {db.release();}
@@ -71,21 +75,22 @@ function createEmergencyService(pool,usersTable,firebase,{pushTimeoutMs=10000}={
         SELECT a.id,t.token_hash,c.caregiver_id FROM akay_alerts a
         JOIN akay_connections c ON c.navigator_id=a.navigator_id AND c.status='active'
         JOIN akay_push_tokens t ON t.caregiver_id=c.caregiver_id
-        WHERE a.kind IN ('sos','motion') AND a.resolved_at IS NULL
+        WHERE a.kind IN ('sos','motion')
         AND NOT EXISTS(SELECT 1 FROM akay_alert_receipts ar WHERE ar.alert_id=a.id
           AND ar.caregiver_id=c.caregiver_id AND ar.dismissed_at IS NOT NULL)
-        AND a.created_at>clock_timestamp()-interval '24 hours' ON CONFLICT DO NOTHING`);
+        AND COALESCE(a.resolved_at,a.created_at)>clock_timestamp()-interval '24 hours' ON CONFLICT DO NOTHING`);
       for(let i=0;i<20;i++) {
         const db=await pool.connect();
         try {
           await db.query('BEGIN');
-          const result=await db.query(`SELECT j.*,t.token,a.kind,u.name AS navigator_name
+          const result=await db.query(`SELECT j.*,t.token,a.kind,a.resolved_at,a.resolution,u.name AS navigator_name
             FROM akay_alert_deliveries j JOIN akay_alerts a ON a.id=j.alert_id
             JOIN akay_push_tokens t ON t.token_hash=j.token_hash AND t.caregiver_id=j.caregiver_id
             JOIN akay_connections c ON c.navigator_id=a.navigator_id AND c.caregiver_id=j.caregiver_id AND c.status='active'
             JOIN ${usersTable()} u ON u.user_id=a.navigator_id
-            WHERE j.sent_at IS NULL AND j.next_attempt_at<=clock_timestamp() AND j.attempts<12
-            AND a.resolved_at IS NULL AND a.created_at>clock_timestamp()-interval '24 hours'
+            WHERE (j.sent_at IS NULL OR j.sent_at<a.resolved_at)
+            AND j.next_attempt_at<=clock_timestamp() AND j.attempts<12
+            AND COALESCE(a.resolved_at,a.created_at)>clock_timestamp()-interval '24 hours'
             AND NOT EXISTS(SELECT 1 FROM akay_alert_receipts ar WHERE ar.alert_id=a.id
               AND ar.caregiver_id=j.caregiver_id AND ar.dismissed_at IS NOT NULL)
             ORDER BY a.created_at LIMIT 1 FOR UPDATE OF j SKIP LOCKED FOR SHARE OF c,t,a`);
@@ -93,7 +98,7 @@ function createEmergencyService(pool,usersTable,firebase,{pushTimeoutMs=10000}={
           if(!job) {await db.query('COMMIT');break;}
           try {
             await send({token:job.token,
-              notification:{title:title(job),body:job.kind==='sos'?'Assistance requested. Open AKAY to check and respond.':'Cane detected unusual movement. Please check on this navigator.'},
+              notification:{title:job.resolved_at?`${title(job)} — Resolved`:title(job),body:job.resolved_at?`The possible emergency has been resolved${job.resolution==='false_alarm'?' (false alarm)':''}.`:job.kind==='sos'?'Assistance requested. Open AKAY to check and respond.':'Cane detected unusual movement. Please check on this navigator.'},
               data:{type:'cane_alert',alertId:job.alert_id},
               android:{priority:'high',ttl:300000,notification:{channelId:'akay_emergencies',tag:job.alert_id,sound:'default'}},
               apns:{payload:{aps:{sound:'default'}},headers:{'apns-priority':'10','apns-expiration':String(Math.floor(Date.now()/1000)+300)}},

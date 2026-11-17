@@ -12,6 +12,7 @@ import '../../pages/shared/terms_conditions_page.dart';
 import '../../theme/gabay_theme.dart';
 import '../../theme/theme_controller.dart';
 import '../../services/gabay_tts_service.dart';
+import '../../services/screen_reader_service.dart';
 import '../shared/floating_bottom_nav_shell.dart';
 import 'logout_confirmation_dialog.dart';
 import 'profile_header_clipper.dart';
@@ -353,23 +354,41 @@ class ProfileDarkModeToggle extends StatelessWidget {
   }
 }
 
-class ProfileTalkBackToggle extends StatelessWidget {
+class ProfileTalkBackToggle extends StatefulWidget {
   const ProfileTalkBackToggle({super.key});
+
+  @override
+  State<ProfileTalkBackToggle> createState() => _ProfileTalkBackToggleState();
+}
+
+class _ProfileTalkBackToggleState extends State<ProfileTalkBackToggle> {
+  @override
+  void initState() {
+    super.initState();
+    ScreenReaderService.instance.initialize();
+  }
 
   @override
   Widget build(BuildContext context) {
     final g = context.gabay;
     final dark = Theme.of(context).brightness == Brightness.dark;
     return ListenableBuilder(
-      listenable: GabayTtsService.instance,
+      listenable: Listenable.merge([
+        ScreenReaderService.instance,
+        GabayTtsService.instance,
+      ]),
       builder: (context, _) => Semantics(
         label: 'TalkBack',
-        hint: 'Controls AKAY spoken guidance, not the Android screen reader',
+        hint: ScreenReaderService.instance.supported
+            ? 'Opens Android accessibility settings to change the screen reader'
+            : 'Controls AKAY spoken guidance',
         child: Transform.scale(
           scale: 0.85,
           child: Switch(
-            value: GabayTtsService.instance.enabled,
-            onChanged: GabayTtsService.instance.setEnabled,
+            value: ScreenReaderService.instance.supported
+                ? ScreenReaderService.instance.enabled
+                : GabayTtsService.instance.enabled,
+            onChanged: (_) => _changeTalkBack(),
             activeTrackColor: g.accent,
             activeThumbColor: Colors.white,
             inactiveTrackColor: dark
@@ -388,6 +407,14 @@ class ProfileTalkBackToggle extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+void _changeTalkBack() {
+  if (ScreenReaderService.instance.supported) {
+    ScreenReaderService.instance.openSettings();
+  } else {
+    GabayTtsService.instance.setEnabled(!GabayTtsService.instance.enabled);
   }
 }
 
@@ -533,9 +560,7 @@ List<ProfileMenuItem> profileOthersSection(BuildContext context) {
       icon: Icons.record_voice_over_outlined,
       title: 'TalkBack',
       trailing: const ProfileTalkBackToggle(),
-      onTap: () => GabayTtsService.instance.setEnabled(
-        !GabayTtsService.instance.enabled,
-      ),
+      onTap: _changeTalkBack,
     ),
     ProfileMenuItem(
       icon: Icons.info_outline,
