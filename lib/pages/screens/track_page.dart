@@ -931,7 +931,10 @@ class TrackPageState extends State<TrackPage> {
   }
 
   Future<void> _onMapPinDestination(LatLng point) async {
-    if (!_isNavigatorMode || _isNavigating) return;
+    if (_isNavigating) return;
+    final navigatorId = _selectedNavigatorId;
+    final revision = AppSessionService.instance.identityRevision;
+    if (!_isNavigatorMode && !_patientNames.containsKey(navigatorId)) return;
     final token = ++_destinationSearchToken;
 
     setState(() {
@@ -944,6 +947,11 @@ class TrackPageState extends State<TrackPage> {
     try {
       final place = await _placeService.placeFromCoordinates(point);
       if (!mounted || token != _destinationSearchToken) return;
+      if (revision != AppSessionService.instance.identityRevision ||
+          (!_isNavigatorMode && navigatorId != _selectedNavigatorId)) {
+        setState(() => _isResolvingMapPin = false);
+        return;
+      }
 
       setState(() {
         _pinnedDestination = place;
@@ -956,6 +964,27 @@ class TrackPageState extends State<TrackPage> {
         await _mapController?.animateToLatLng(point, zoom: 16);
       } catch (_) {}
       if (!mounted || token != _destinationSearchToken) return;
+      if (revision != AppSessionService.instance.identityRevision) return;
+      if (!_isNavigatorMode) {
+        if (navigatorId != _selectedNavigatorId ||
+            !_patientNames.containsKey(navigatorId)) {
+          return;
+        }
+        try {
+          await DestinationAssignmentService.instance.send(navigatorId, place);
+          if (!mounted ||
+              revision != AppSessionService.instance.identityRevision) {
+            return;
+          }
+          _showSnack('Destination dispatched to ${_selectedNavigator.name}.');
+        } catch (_) {
+          if (mounted &&
+              revision == AppSessionService.instance.identityRevision) {
+            _showSnack('Could not dispatch destination. Please retry.');
+          }
+        }
+        return;
+      }
       // Pinning confirms the destination — start the route from current GPS.
       await _selectDestinationPlace(place);
     } catch (_) {
@@ -1525,7 +1554,7 @@ class TrackPageState extends State<TrackPage> {
                   _followCamera,
               followTarget: _followTarget,
               followZoom: 16,
-              onMapTap: _isNavigatorMode && !_isNavigating
+              onMapTap: !_isNavigating
                   ? (point) => unawaited(_onMapPinDestination(point))
                   : null,
               padding: EdgeInsets.only(

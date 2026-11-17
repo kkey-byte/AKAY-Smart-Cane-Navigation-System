@@ -40,16 +40,20 @@ test('phone-first live monitoring never combines cane points with the phone sour
   assert.equal(data.trip.id,'phone-trip');assert.equal(data.phoneLocation.fresh,true);
 });
 
-test('firmware coordinates take precedence without requiring sensor flags or claiming freshness',async()=>{
+test('firmware coordinates stay separate from phone monitoring',async()=>{
   const c=setup();c.assign();c.assignments[0].serial='test-cane';
   c.values.set('phone_location/nav',c.phone());
   c.values.set('Device_Location/test-cane',{latitude:12,longitude:22});
   c.observations=[{latitude:12,longitude:22,sampled_at:new Date(c.now-1000)},
     {latitude:11,longitude:21,sampled_at:new Date(c.now-2000)}];
   const result=await c.service.read(c.nav);
-  assert.equal(result.location.latitude,12);assert.equal(result.location.source,'cane_gps');
-  assert.equal(result.location.live,false);assert.equal(result.location.observedOnly,true);
-  assert.deepEqual(result.points.map(p=>p.latitude),[11,12]);
+  assert.equal(result.location.latitude,10);assert.equal(result.location.source,'phone_gps');
+  assert.equal(result.location.live,true);
+  assert.equal(result.devices[0].location.source,'cane_gps');
+  assert.deepEqual(result.points,[]);
+  c.values.delete('phone_location/nav');
+  assert.equal((await c.service.read(c.nav)).location,null);
+  c.values.set('phone_location/nav',c.phone());
   c.assignments=[];
   assert.equal((await c.service.read(c.nav)).location.source,'phone_gps');
 });
@@ -61,16 +65,17 @@ test('invalid firmware coordinates are unavailable and failed firmware reads nev
     assert.equal((await c.service.read(c.nav)).location,null);
   }
 });
-test('stale phone falls back to a current cane and queries only that physical assignment history',async()=>{
+test('stale phone stays last known without falling back to current cane GPS',async()=>{
   const c=setup();c.assign();c.values.set('phone_location/nav',c.phone(60000));
   c.values.set('cane_location/nav/assignment',c.cane());
   c.history.set('old-owner',{sourceType:'cane_gps',deviceId:'device',assignmentId:'old-assignment',points:{}});
   c.history.set('cane-trip',{sourceType:'cane_gps',status:'recording',deviceId:'device',assignmentId:'assignment',
     startedAt:c.now-2000,points:{a:{latitude:11,longitude:21,time:c.now-1000}}});
   const data=await c.service.read(c.nav);
-  assert.equal(data.location.source,'cane_gps');assert.equal(data.trip.id,'cane-trip');
-  assert.deepEqual(c.queries[0][1],{limit:1,sourceType:'cane_gps',deviceId:'device',assignmentId:'assignment'});
-  assert.equal(data.points[0].latitude,11);
+  assert.equal(data.location.source,'phone_gps');assert.equal(data.location.live,false);
+  assert.equal(data.trip,null);
+  assert.deepEqual(c.queries[0][1],{limit:1,sourceType:'phone_gps'});
+  assert.deepEqual(data.points,[]);
 });
 test('unassigned, mismatched, future and pre-assignment cane positions never appear',async()=>{
   const c=setup();c.assign();

@@ -46,10 +46,8 @@ function createMonitoringService(pool,firebase,trips,{clock=Date.now,timeoutMs=4
     if(readings.some(r=>r.status==='rejected')) errors.push('Cane GPS is unavailable.');
     const devices=readings.filter(r=>r.status==='fulfilled'&&r.value).map(r=>r.value)
       .sort((a,b)=>b.location.time-a.location.time||String(a.assignment_id).localeCompare(String(b.assignment_id)));
-    // Use the assigned firmware GPS when available, with the existing source
-    // fallback for other records. Never splice phone and cane route points.
-    let location=devices.find(d=>d.location.observedOnly)?.location??(phone?.live?phone:devices.find(d=>d.location.live)?.location??
-      [phone,...devices.map(d=>d.location)].filter(Boolean).sort((a,b)=>b.time-a.time)[0]??null);
+    // Navigator monitoring follows the phone; cane telemetry stays separate.
+    let location=phone;
     let trip=null,tripId=null,points=[];
     if(history) {
       try {
